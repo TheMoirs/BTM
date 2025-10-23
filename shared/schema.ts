@@ -1,9 +1,10 @@
 import { pgTable, text, varchar, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
 
 export const teams = pgTable("teams", {
-  id: varchar("id").primaryKey(),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   captainName: text("captain_name").notNull(),
   captainPhone: text("captain_phone").notNull(),
@@ -21,7 +22,7 @@ export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
 
 export const matches = pgTable("matches", {
-  id: varchar("id").primaryKey(),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   team1Id: varchar("team1_id").notNull(),
   team2Id: varchar("team2_id").notNull(),
   team1Score: integer("team1_score"),

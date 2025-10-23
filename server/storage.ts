@@ -1,5 +1,6 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type Team, type InsertTeam, type Match, type InsertMatch, teams, matches } from "@shared/schema";
+import { db } from "./db";
+import { eq, or } from "drizzle-orm";
 
 export interface IStorage {
   getAllTeams(): Promise<Team[]>;
@@ -15,82 +16,81 @@ export interface IStorage {
   deleteMatch(id: string): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private teams: Map<string, Team>;
-  private matches: Map<string, Match>;
-
-  constructor() {
-    this.teams = new Map();
-    this.matches = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getAllTeams(): Promise<Team[]> {
-    return Array.from(this.teams.values());
+    return await db.select().from(teams);
   }
 
   async getTeam(id: string): Promise<Team | undefined> {
-    return this.teams.get(id);
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
   }
 
   async createTeam(insertTeam: InsertTeam): Promise<Team> {
-    const existing = Array.from(this.teams.values()).find(
-      (team) => team.name.toLowerCase() === insertTeam.name.toLowerCase()
-    );
+    const existing = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.name, insertTeam.name));
     
-    if (existing) {
+    if (existing.length > 0) {
       throw new Error("A team with this name already exists");
     }
 
-    const id = randomUUID();
-    const team: Team = { ...insertTeam, id };
-    this.teams.set(id, team);
+    const [team] = await db
+      .insert(teams)
+      .values(insertTeam)
+      .returning();
     return team;
   }
 
   async updateTeam(id: string, insertTeam: InsertTeam): Promise<Team | undefined> {
-    const team = this.teams.get(id);
-    if (!team) {
+    const existingTeam = await this.getTeam(id);
+    if (!existingTeam) {
       return undefined;
     }
 
-    const existing = Array.from(this.teams.values()).find(
-      (t) => t.id !== id && t.name.toLowerCase() === insertTeam.name.toLowerCase()
-    );
+    const duplicate = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.name, insertTeam.name));
     
-    if (existing) {
+    if (duplicate.length > 0 && duplicate[0].id !== id) {
       throw new Error("A team with this name already exists");
     }
 
-    const updatedTeam: Team = { ...insertTeam, id };
-    this.teams.set(id, updatedTeam);
-    return updatedTeam;
+    const [updatedTeam] = await db
+      .update(teams)
+      .set(insertTeam)
+      .where(eq(teams.id, id))
+      .returning();
+    
+    return updatedTeam || undefined;
   }
 
   async deleteTeam(id: string): Promise<boolean> {
-    const deleted = this.teams.delete(id);
+    await db.delete(matches).where(
+      or(
+        eq(matches.team1Id, id),
+        eq(matches.team2Id, id)
+      )
+    );
     
-    if (deleted) {
-      const matchesToDelete = Array.from(this.matches.values())
-        .filter(match => match.team1Id === id || match.team2Id === id)
-        .map(match => match.id);
-      
-      matchesToDelete.forEach(matchId => this.matches.delete(matchId));
-    }
-    
-    return deleted;
+    const result = await db.delete(teams).where(eq(teams.id, id)).returning();
+    return result.length > 0;
   }
 
   async getAllMatches(): Promise<Match[]> {
-    return Array.from(this.matches.values());
+    return await db.select().from(matches);
   }
 
   async getMatch(id: string): Promise<Match | undefined> {
-    return this.matches.get(id);
+    const [match] = await db.select().from(matches).where(eq(matches.id, id));
+    return match || undefined;
   }
 
   async createMatch(insertMatch: InsertMatch): Promise<Match> {
-    const team1 = this.teams.get(insertMatch.team1Id);
-    const team2 = this.teams.get(insertMatch.team2Id);
+    const team1 = await this.getTeam(insertMatch.team1Id);
+    const team2 = await this.getTeam(insertMatch.team2Id);
     
     if (!team1 || !team2) {
       throw new Error("One or both teams do not exist");
@@ -100,24 +100,24 @@ export class MemStorage implements IStorage {
       throw new Error("A team cannot play against itself");
     }
 
-    const id = randomUUID();
-    const match: Match = {
-      id,
-      team1Id: insertMatch.team1Id,
-      team2Id: insertMatch.team2Id,
-      team1Score: insertMatch.team1Score ?? null,
-      team2Score: insertMatch.team2Score ?? null,
-      stage: insertMatch.stage,
-      status: insertMatch.status || "scheduled",
-      winnerId: insertMatch.winnerId ?? null,
-    };
+    const [match] = await db
+      .insert(matches)
+      .values({
+        team1Id: insertMatch.team1Id,
+        team2Id: insertMatch.team2Id,
+        team1Score: insertMatch.team1Score ?? null,
+        team2Score: insertMatch.team2Score ?? null,
+        stage: insertMatch.stage,
+        status: insertMatch.status || "scheduled",
+        winnerId: insertMatch.winnerId ?? null,
+      })
+      .returning();
     
-    this.matches.set(id, match);
     return match;
   }
 
   async updateMatchScore(id: string, team1Score: number, team2Score: number): Promise<Match | undefined> {
-    const match = this.matches.get(id);
+    const match = await this.getMatch(id);
     if (!match) {
       return undefined;
     }
@@ -126,21 +126,24 @@ export class MemStorage implements IStorage {
                      team2Score > team1Score ? match.team2Id : 
                      null;
 
-    const updatedMatch: Match = {
-      ...match,
-      team1Score,
-      team2Score,
-      status: "completed",
-      winnerId,
-    };
+    const [updatedMatch] = await db
+      .update(matches)
+      .set({
+        team1Score,
+        team2Score,
+        status: "completed",
+        winnerId,
+      })
+      .where(eq(matches.id, id))
+      .returning();
     
-    this.matches.set(id, updatedMatch);
-    return updatedMatch;
+    return updatedMatch || undefined;
   }
 
   async deleteMatch(id: string): Promise<boolean> {
-    return this.matches.delete(id);
+    const result = await db.delete(matches).where(eq(matches.id, id)).returning();
+    return result.length > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

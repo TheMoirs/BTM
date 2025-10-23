@@ -72,9 +72,9 @@ Preferred communication style: Simple, everyday language.
 
 **Storage Abstraction**
 - IStorage interface defines data access contract
-- MemStorage implementation provides in-memory storage for development/testing
-- Easy swap to database-backed storage by implementing IStorage interface
-- All operations are async to support future database integration
+- DatabaseStorage implementation uses PostgreSQL for persistent data storage
+- Connection managed via Neon serverless driver with WebSocket support
+- All operations are async with proper error handling and transaction support
 
 **Data Validation**
 - Shared Zod schemas ensure consistency between client and server
