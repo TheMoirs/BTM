@@ -110,6 +110,7 @@ export class DatabaseStorage implements IStorage {
         stage: insertMatch.stage,
         status: insertMatch.status || "scheduled",
         winnerId: insertMatch.winnerId ?? null,
+        matchDate: insertMatch.matchDate ?? null,
       })
       .returning();
     

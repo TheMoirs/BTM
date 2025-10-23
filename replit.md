@@ -66,7 +66,9 @@ Preferred communication style: Simple, everyday language.
 
 **Data Model**
 - **Teams Table**: Stores team information (name, captain details with name/phone/email)
-- **Matches Table**: Stores match data with team references, scores, stage, status, and winner
+- **Matches Table**: Stores match data with team references, scores, stage, status, winner, and optional scheduled date
+  - matchDate field: Optional text field storing dates in YYYY-MM-DD format for scheduling
+  - Frontend displays formatted dates (e.g., "Jan 15, 2026") with calendar icons when present
 - Stage progression: initial → quarter-finals → semi-finals → finals
 - Match status workflow: scheduled → in-progress → completed
 

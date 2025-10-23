@@ -30,6 +30,7 @@ export const matches = pgTable("matches", {
   stage: text("stage").notNull(),
   status: text("status").notNull().default("scheduled"),
   winnerId: varchar("winner_id"),
+  matchDate: text("match_date"),
 });
 
 export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).extend({
@@ -40,6 +41,7 @@ export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).
   team1Score: z.number().int().min(0).nullable().optional(),
   team2Score: z.number().int().min(0).nullable().optional(),
   winnerId: z.string().nullable().optional(),
+  matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
 });
 
 export type InsertMatch = z.infer<typeof insertMatchSchema>;

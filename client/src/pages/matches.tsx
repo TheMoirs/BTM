@@ -37,7 +37,7 @@ import {
   type InsertMatch,
   type UpdateMatchScore,
 } from "@shared/schema";
-import { Plus, Trophy, Circle, CheckCircle2 } from "lucide-react";
+import { Plus, Trophy, Circle, CheckCircle2, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -82,6 +82,7 @@ export default function Matches() {
       team2Id: "",
       stage: "initial",
       status: "scheduled",
+      matchDate: null,
     },
   });
 
@@ -295,6 +296,25 @@ export default function Matches() {
                     )}
                   />
 
+                  <FormField
+                    control={createForm.control}
+                    name="matchDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Match Date (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value || null)}
+                            data-testid="input-match-date"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <div className="flex gap-2 pt-4">
                     <Button
                       type="button"
@@ -358,7 +378,7 @@ export default function Matches() {
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex-1 w-full">
-                      <div className="flex items-center gap-3 mb-4">
+                      <div className="flex flex-wrap items-center gap-3 mb-4">
                         <Badge className={cn("text-xs font-medium", stageColors[match.stage as keyof typeof stageColors])} data-testid={`badge-stage-${match.id}`}>
                           {stageLabels[match.stage as keyof typeof stageLabels]}
                         </Badge>
@@ -368,6 +388,18 @@ export default function Matches() {
                             {match.status.replace("-", " ")}
                           </span>
                         </div>
+                        {match.matchDate && (
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground" data-testid={`text-date-${match.id}`}>
+                              {new Date(match.matchDate).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex items-center justify-between gap-4">

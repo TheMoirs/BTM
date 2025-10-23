@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { type Team, type Match } from "@shared/schema";
-import { Trophy, Award } from "lucide-react";
+import { Trophy, Award, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const stageOrder = ["initial", "quarter-finals", "semi-finals", "finals"];
@@ -115,7 +115,7 @@ export default function Bracket() {
                           data-testid={`bracket-match-${match.id}`}
                         >
                           <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between mb-2">
                               <Badge
                                 variant="outline"
                                 className="text-xs"
@@ -127,6 +127,18 @@ export default function Bracket() {
                                 <Award className="h-4 w-4 text-amber-500" />
                               )}
                             </div>
+                            {match.matchDate && (
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground" data-testid={`bracket-date-${match.id}`}>
+                                  {new Date(match.matchDate).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  })}
+                                </span>
+                              </div>
+                            )}
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div
