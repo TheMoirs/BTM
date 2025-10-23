@@ -1,10 +1,9 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import Papa from "papaparse";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +37,7 @@ import {
   type InsertMatch,
   type UpdateMatchScore,
 } from "@shared/schema";
-import { Plus, Trophy, Circle, CheckCircle2, Calendar, Upload } from "lucide-react";
+import { Plus, Trophy, Circle, CheckCircle2, Calendar, Shuffle, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -47,6 +46,16 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const stageColors = {
   initial: "bg-muted text-muted-foreground",
@@ -66,7 +75,7 @@ export default function Matches() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [scoringMatch, setScoringMatch] = useState<Match | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { toast } = useToast();
 
   const { data: teams } = useQuery<Team[]>({
@@ -137,6 +146,31 @@ export default function Matches() {
     },
   });
 
+  const handleClearAllMatches = async () => {
+    if (!matches) {
+      setShowClearConfirm(false);
+      return;
+    }
+    
+    let deletedCount = 0;
+    for (const match of matches) {
+      try {
+        await apiRequest("DELETE", `/api/matches/${match.id}`);
+        deletedCount++;
+      } catch (error) {
+        console.error(`Failed to delete match ${match.id}`, error);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    setShowClearConfirm(false);
+    
+    toast({
+      title: "All matches cleared",
+      description: `Deleted ${deletedCount} match(es) from the system.`,
+    });
+  };
+
   const onCreateSubmit = (data: InsertMatch) => {
     if (data.team1Id === data.team2Id) {
       toast({
@@ -178,88 +212,54 @@ export default function Matches() {
     }
   };
 
-  const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const resetFileInput = () => {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    };
-
+  const handleGenerateMatches = async () => {
     if (!teams || teams.length < 2) {
       toast({
         title: "Insufficient teams",
         description: "You need at least 2 teams to create matches.",
         variant: "destructive",
       });
-      resetFileInput();
       return;
     }
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const rowCount = results.data.length;
-          let successCount = 0;
-          let errorCount = 0;
+    const numMatches = Math.floor(teams.length / 2);
+    let successCount = 0;
+    let errorCount = 0;
 
-          for (let i = 0; i < rowCount; i++) {
-            const team1Index = (i * 2) % teams.length;
-            const team2Index = (i * 2 + 1) % teams.length;
+    for (let i = 0; i < numMatches; i++) {
+      const team1Index = (i * 2) % teams.length;
+      const team2Index = (i * 2 + 1) % teams.length;
 
-            const team1 = teams[team1Index];
-            const team2 = teams[team2Index];
+      const team1 = teams[team1Index];
+      const team2 = teams[team2Index];
 
-            if (!team1 || !team2 || team1.id === team2.id) {
-              errorCount++;
-              continue;
-            }
+      if (!team1 || !team2 || team1.id === team2.id) {
+        errorCount++;
+        continue;
+      }
 
-            try {
-              const matchData: InsertMatch = {
-                team1Id: team1.id,
-                team2Id: team2.id,
-                stage: "initial",
-                status: "scheduled",
-                matchDate: null,
-              };
+      try {
+        const matchData: InsertMatch = {
+          team1Id: team1.id,
+          team2Id: team2.id,
+          stage: "initial",
+          status: "scheduled",
+          matchDate: null,
+        };
 
-              await apiRequest("POST", "/api/matches", matchData);
-              successCount++;
-            } catch (error) {
-              errorCount++;
-            }
-          }
+        await apiRequest("POST", "/api/matches", matchData);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+      }
+    }
 
-          queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
 
-          toast({
-            title: "Import complete",
-            description: `Successfully imported ${successCount} match(es). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
-            variant: errorCount > 0 ? "destructive" : "default",
-          });
-        } catch (error) {
-          toast({
-            title: "Import failed",
-            description: "Failed to parse CSV file.",
-            variant: "destructive",
-          });
-        }
-
-        resetFileInput();
-      },
-      error: () => {
-        toast({
-          title: "Import failed",
-          description: "Failed to read CSV file.",
-          variant: "destructive",
-        });
-        resetFileInput();
-      },
+    toast({
+      title: "Matches generated",
+      description: `Successfully created ${successCount} match(es). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
+      variant: errorCount > 0 ? "destructive" : "default",
     });
   };
 
@@ -290,21 +290,21 @@ export default function Matches() {
             </p>
           </div>
           <div className="flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              onChange={handleCsvImport}
-              className="hidden"
-              data-testid="input-csv-file-matches"
-            />
             <Button
               variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="button-import-csv-matches"
+              onClick={handleGenerateMatches}
+              data-testid="button-generate-matches"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Import CSV
+              <Shuffle className="h-4 w-4 mr-2" />
+              Generate Matches
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowClearConfirm(true)}
+              data-testid="button-clear-all-matches"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All Data
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
@@ -623,6 +623,27 @@ export default function Matches() {
             )}
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear All Matches</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete all matches? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-clear-matches">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleClearAllMatches}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-clear-matches"
+              >
+                Clear All Matches
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

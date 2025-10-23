@@ -6,9 +6,18 @@ Boules League Manager is a web application for managing boules league competitio
 
 ## Key Features
 
-### Data Import
-- **Teams CSV Import**: Upload CSV files containing team and captain information (name, captain name, phone, email). Automatically capitalizes first letter of each word in team names and captain names.
-- **Matches CSV Import**: Upload CSV files to bulk-create matches. Automatically allocates teams sequentially from the teams table (team 1 vs team 2, team 3 vs team 4, wrapping around as needed). All imported matches are set to "initial" stage with no scheduled dates.
+### Team Management
+- **Team Registration**: Manual team registration via form with automatic capitalization of team and captain names (first letter of each word)
+- **Teams CSV Import**: Upload CSV files containing team and captain information (name, captainName, captainPhone, captainEmail). Features:
+  - Automatically capitalizes first letter of each word in team and captain names
+  - **Upsert behavior**: Updates existing teams by name match (case-insensitive) or creates new ones
+  - Per-row error handling with aggregate success/failure reporting
+- **Clear All Teams**: Bulk delete all teams and their associated matches with confirmation dialog
+
+### Match Management
+- **Generate Matches**: Automatically creates matches from the teams table using modular arithmetic pairing algorithm (team1Index = i*2 % length, team2Index = (i*2+1) % length). All generated matches default to "initial" stage with "scheduled" status
+- **Manual Match Creation**: Create individual matches via form by selecting teams and tournament stage
+- **Clear All Matches**: Bulk delete all matches with confirmation dialog
 
 ## User Preferences
 

@@ -23,7 +23,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Mail, Phone, User, Pencil, Trash2, Users, Upload } from "lucide-react";
+import { Plus, Mail, Phone, User, Pencil, Trash2, Users, Upload, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import {
@@ -41,6 +41,7 @@ export default function Teams() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -118,6 +119,32 @@ export default function Teams() {
     },
   });
 
+  const handleClearAllTeams = async () => {
+    if (!teams) {
+      setShowClearConfirm(false);
+      return;
+    }
+    
+    let deletedCount = 0;
+    for (const team of teams) {
+      try {
+        await apiRequest("DELETE", `/api/teams/${team.id}`);
+        deletedCount++;
+      } catch (error) {
+        console.error(`Failed to delete team ${team.id}`, error);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    setShowClearConfirm(false);
+    
+    toast({
+      title: "All teams cleared",
+      description: `Deleted ${deletedCount} team(s) and all associated matches.`,
+    });
+  };
+
   const capitalizeWords = (text: string): string => {
     return text
       .split(' ')
@@ -164,7 +191,13 @@ export default function Teams() {
                 captainEmail: row.captainEmail.trim(),
               };
 
-              await apiRequest("POST", "/api/teams", teamData);
+              const existingTeam = teams?.find(t => t.name.toLowerCase() === teamData.name.toLowerCase());
+              
+              if (existingTeam) {
+                await apiRequest("PATCH", `/api/teams/${existingTeam.id}`, teamData);
+              } else {
+                await apiRequest("POST", "/api/teams", teamData);
+              }
               successCount++;
             } catch (error) {
               errorCount++;
@@ -200,10 +233,17 @@ export default function Teams() {
   };
 
   const onSubmit = (data: InsertTeam) => {
+    const capitalizedData: InsertTeam = {
+      name: capitalizeWords(data.name.trim()),
+      captainName: capitalizeWords(data.captainName.trim()),
+      captainPhone: data.captainPhone.trim(),
+      captainEmail: data.captainEmail.trim(),
+    };
+    
     if (editingTeam) {
-      updateMutation.mutate({ id: editingTeam.id, data });
+      updateMutation.mutate({ id: editingTeam.id, data: capitalizedData });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(capitalizedData);
     }
   };
 
@@ -260,6 +300,14 @@ export default function Teams() {
             >
               <Upload className="h-4 w-4 mr-2" />
               Import CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowClearConfirm(true)}
+              data-testid="button-clear-all-teams"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All Data
             </Button>
             <Dialog open={isCreateOpen || !!editingTeam} onOpenChange={(open) => {
               if (!open) handleCloseDialog();
@@ -490,6 +538,27 @@ export default function Teams() {
                 data-testid="button-confirm-delete"
               >
                 {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear All Teams</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete all teams? This action cannot be undone and will remove all teams and their associated matches.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-clear-teams">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleClearAllTeams}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-clear-teams"
+              >
+                Clear All Teams
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
