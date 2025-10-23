@@ -2,7 +2,13 @@
 
 ## Overview
 
-Boules League Manager is a web application for managing boules league competitions. It provides functionality for team registration, match tracking, and tournament bracket visualization across multiple stages (initial rounds, quarter-finals, semi-finals, and finals). The application follows a modern SaaS design approach inspired by Linear, emphasizing clarity, efficient workflows, and clean visual hierarchy.
+Boules League Manager is a web application for managing boules league competitions. It provides functionality for team registration, match tracking, tournament bracket visualization across multiple stages (initial rounds, quarter-finals, semi-finals, and finals), and CSV import capabilities for bulk data entry. The application follows a modern SaaS design approach inspired by Linear, emphasizing clarity, efficient workflows, and clean visual hierarchy.
+
+## Key Features
+
+### Data Import
+- **Teams CSV Import**: Upload CSV files containing team and captain information (name, captain name, phone, email). Automatically capitalizes first letter of each word in team names and captain names.
+- **Matches CSV Import**: Upload CSV files to bulk-create matches. Automatically allocates teams sequentially from the teams table (team 1 vs team 2, team 3 vs team 4, wrapping around as needed). All imported matches are set to "initial" stage with no scheduled dates.
 
 ## User Preferences
 
@@ -96,6 +102,11 @@ Preferred communication style: Simple, everyday language.
 - **@hookform/resolvers**: Integration between React Hook Form and Zod
 - **Zod**: Runtime type validation and schema definition
 - **drizzle-zod**: Generate Zod schemas from Drizzle table definitions
+
+**Data Import**
+- **papaparse**: CSV parsing library for browser-based file uploads and data import
+- Supports header parsing, type inference, and error handling
+- Used for bulk team and match imports from CSV files
 
 **Database & ORM**
 - **@neondatabase/serverless**: PostgreSQL client optimized for serverless environments

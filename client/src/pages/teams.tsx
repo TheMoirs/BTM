@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -23,8 +23,9 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Mail, Phone, User, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Mail, Phone, User, Pencil, Trash2, Users, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Papa from "papaparse";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ export default function Teams() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: teams, isLoading } = useQuery<Team[]>({
@@ -116,6 +118,87 @@ export default function Teams() {
     },
   });
 
+  const capitalizeWords = (text: string): string => {
+    return text
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const resetFileInput = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const teamsData = results.data as Array<{
+            name?: string;
+            captainName?: string;
+            captainPhone?: string;
+            captainEmail?: string;
+          }>;
+
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const row of teamsData) {
+            if (!row.name || !row.captainName || !row.captainPhone || !row.captainEmail) {
+              errorCount++;
+              continue;
+            }
+
+            try {
+              const teamData: InsertTeam = {
+                name: capitalizeWords(row.name.trim()),
+                captainName: capitalizeWords(row.captainName.trim()),
+                captainPhone: row.captainPhone.trim(),
+                captainEmail: row.captainEmail.trim(),
+              };
+
+              await apiRequest("POST", "/api/teams", teamData);
+              successCount++;
+            } catch (error) {
+              errorCount++;
+            }
+          }
+
+          queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+
+          toast({
+            title: "Import complete",
+            description: `Successfully imported ${successCount} team(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
+            variant: errorCount > 0 ? "destructive" : "default",
+          });
+        } catch (error) {
+          toast({
+            title: "Import failed",
+            description: "Failed to parse CSV file.",
+            variant: "destructive",
+          });
+        }
+
+        resetFileInput();
+      },
+      error: () => {
+        toast({
+          title: "Import failed",
+          description: "Failed to read CSV file.",
+          variant: "destructive",
+        });
+        resetFileInput();
+      },
+    });
+  };
+
   const onSubmit = (data: InsertTeam) => {
     if (editingTeam) {
       updateMutation.mutate({ id: editingTeam.id, data });
@@ -161,16 +244,33 @@ export default function Teams() {
               Manage registered teams and captain contact details
             </p>
           </div>
-          <Dialog open={isCreateOpen || !!editingTeam} onOpenChange={(open) => {
-            if (!open) handleCloseDialog();
-            else setIsCreateOpen(true);
-          }}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-team">
-                <Plus className="h-4 w-4 mr-2" />
-                Register Team
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleCsvImport}
+              className="hidden"
+              data-testid="input-csv-file"
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="button-import-csv"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import CSV
+            </Button>
+            <Dialog open={isCreateOpen || !!editingTeam} onOpenChange={(open) => {
+              if (!open) handleCloseDialog();
+              else setIsCreateOpen(true);
+            }}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-team">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Register Team
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
               <DialogHeader>
                 <DialogTitle>
@@ -289,6 +389,7 @@ export default function Teams() {
               </Form>
             </DialogContent>
           </Dialog>
+        </div>
         </div>
 
         {!teams || teams.length === 0 ? (

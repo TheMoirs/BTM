@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Papa from "papaparse";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +38,7 @@ import {
   type InsertMatch,
   type UpdateMatchScore,
 } from "@shared/schema";
-import { Plus, Trophy, Circle, CheckCircle2, Calendar } from "lucide-react";
+import { Plus, Trophy, Circle, CheckCircle2, Calendar, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -65,6 +66,7 @@ export default function Matches() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [scoringMatch, setScoringMatch] = useState<Match | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: teams } = useQuery<Team[]>({
@@ -176,6 +178,91 @@ export default function Matches() {
     }
   };
 
+  const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const resetFileInput = () => {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+
+    if (!teams || teams.length < 2) {
+      toast({
+        title: "Insufficient teams",
+        description: "You need at least 2 teams to create matches.",
+        variant: "destructive",
+      });
+      resetFileInput();
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const rowCount = results.data.length;
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (let i = 0; i < rowCount; i++) {
+            const team1Index = (i * 2) % teams.length;
+            const team2Index = (i * 2 + 1) % teams.length;
+
+            const team1 = teams[team1Index];
+            const team2 = teams[team2Index];
+
+            if (!team1 || !team2 || team1.id === team2.id) {
+              errorCount++;
+              continue;
+            }
+
+            try {
+              const matchData: InsertMatch = {
+                team1Id: team1.id,
+                team2Id: team2.id,
+                stage: "initial",
+                status: "scheduled",
+                matchDate: null,
+              };
+
+              await apiRequest("POST", "/api/matches", matchData);
+              successCount++;
+            } catch (error) {
+              errorCount++;
+            }
+          }
+
+          queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+
+          toast({
+            title: "Import complete",
+            description: `Successfully imported ${successCount} match(es). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
+            variant: errorCount > 0 ? "destructive" : "default",
+          });
+        } catch (error) {
+          toast({
+            title: "Import failed",
+            description: "Failed to parse CSV file.",
+            variant: "destructive",
+          });
+        }
+
+        resetFileInput();
+      },
+      error: () => {
+        toast({
+          title: "Import failed",
+          description: "Failed to read CSV file.",
+          variant: "destructive",
+        });
+        resetFileInput();
+      },
+    });
+  };
+
   const filteredMatches = matches?.filter((match) => {
     if (activeTab === "all") return true;
     return match.stage === activeTab;
@@ -202,13 +289,30 @@ export default function Matches() {
               Schedule matches and record results
             </p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-create-match">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Match
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleCsvImport}
+              className="hidden"
+              data-testid="input-csv-file-matches"
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              data-testid="button-import-csv-matches"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import CSV
+            </Button>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-create-match">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Match
+                </Button>
+              </DialogTrigger>
             <DialogContent aria-describedby="match-form-description">
               <DialogHeader>
                 <DialogTitle>Create New Match</DialogTitle>
@@ -338,6 +442,7 @@ export default function Matches() {
               </Form>
             </DialogContent>
           </Dialog>
+        </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
