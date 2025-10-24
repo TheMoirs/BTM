@@ -68,6 +68,22 @@ export type Match = typeof matches.$inferSelect;
 export const updateMatchScoreSchema = z.object({
   team1Score: z.union([z.number().int().min(0), z.null()]),
   team2Score: z.union([z.number().int().min(0), z.null()]),
+  matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
 });
 
 export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;
+
+export const results = pgTable("results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").notNull(),
+  matchInfo: text("match_info").notNull(),
+  matchDate: text("match_date"),
+  teamName: text("team_name").notNull(),
+  points: integer("points").notNull(),
+  score: integer("score").notNull(),
+});
+
+export const insertResultSchema = createInsertSchema(results).omit({ id: true });
+
+export type InsertResult = z.infer<typeof insertResultSchema>;
+export type Result = typeof results.$inferSelect;

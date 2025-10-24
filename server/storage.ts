@@ -1,4 +1,4 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, teams, matches } from "@shared/schema";
+import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, teams, matches, results } from "@shared/schema";
 import { db } from "./db";
 import { eq, or } from "drizzle-orm";
 
@@ -12,8 +12,13 @@ export interface IStorage {
   getAllMatches(): Promise<Match[]>;
   getMatch(id: string): Promise<Match | undefined>;
   createMatch(match: InsertMatch): Promise<Match>;
-  updateMatchScore(id: string, team1Score: number | null, team2Score: number | null): Promise<Match | undefined>;
+  updateMatchScore(id: string, team1Score: number | null, team2Score: number | null, matchDate: string | null): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
+  
+  getAllResults(): Promise<Result[]>;
+  createResult(result: InsertResult): Promise<Result>;
+  deleteAllResults(): Promise<boolean>;
+  deleteResultsByMatchId(matchId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -143,11 +148,14 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateMatchScore(id: string, team1Score: number | null, team2Score: number | null): Promise<Match | undefined> {
+  async updateMatchScore(id: string, team1Score: number | null, team2Score: number | null, matchDate: string | null): Promise<Match | undefined> {
     const match = await this.getMatch(id);
     if (!match) {
       return undefined;
     }
+
+    // Delete existing results for this match if they exist
+    await this.deleteResultsByMatchId(id);
 
     // Only calculate winner and set completed if both scores are provided
     let winnerId = null;
@@ -158,6 +166,37 @@ export class DatabaseStorage implements IStorage {
                  team2Score > team1Score ? match.team2Id : 
                  null;
       status = "completed";
+
+      // Create result records
+      const team1 = await this.getTeam(match.team1Id);
+      const team2 = await this.getTeam(match.team2Id);
+      
+      if (team1 && team2) {
+        const matchInfo = `${team1.name} vs ${team2.name}`;
+        
+        // Determine points for each team
+        const team1Points = team1Score > team2Score ? 2 : team1Score === team2Score ? 1 : 0;
+        const team2Points = team2Score > team1Score ? 2 : team1Score === team2Score ? 1 : 0;
+        
+        // Create result records for both teams
+        await this.createResult({
+          matchId: id,
+          matchInfo,
+          matchDate: matchDate || match.matchDate || null,
+          teamName: team1.name,
+          points: team1Points,
+          score: team1Score,
+        });
+        
+        await this.createResult({
+          matchId: id,
+          matchInfo,
+          matchDate: matchDate || match.matchDate || null,
+          teamName: team2.name,
+          points: team2Points,
+          score: team2Score,
+        });
+      }
     } else {
       // If scores are cleared (both null), reset to scheduled
       status = "scheduled";
@@ -168,6 +207,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         team1Score,
         team2Score,
+        matchDate: matchDate !== undefined ? matchDate : match.matchDate,
         status,
         winnerId,
       })
@@ -178,8 +218,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMatch(id: string): Promise<boolean> {
+    // Delete associated results first
+    await this.deleteResultsByMatchId(id);
     const result = await db.delete(matches).where(eq(matches.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getAllResults(): Promise<Result[]> {
+    return await db.select().from(results);
+  }
+
+  async createResult(insertResult: InsertResult): Promise<Result> {
+    const [result] = await db
+      .insert(results)
+      .values(insertResult)
+      .returning();
+    return result;
+  }
+
+  async deleteAllResults(): Promise<boolean> {
+    await db.delete(results);
+    return true;
+  }
+
+  async deleteResultsByMatchId(matchId: string): Promise<boolean> {
+    await db.delete(results).where(eq(results.matchId, matchId));
+    return true;
   }
 }
 

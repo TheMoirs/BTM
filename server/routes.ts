@@ -215,7 +215,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const match = await storage.updateMatchScore(
         req.params.id,
         validatedData.team1Score,
-        validatedData.team2Score
+        validatedData.team2Score,
+        validatedData.matchDate ?? null
       );
       if (!match) {
         return res.status(404).json({ error: "Match not found" });
@@ -227,6 +228,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to update match score" });
       }
+    }
+  });
+
+  app.get("/api/results", async (_req, res) => {
+    try {
+      const results = await storage.getAllResults();
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch results" });
+    }
+  });
+
+  app.delete("/api/results", async (_req, res) => {
+    try {
+      await storage.deleteAllResults();
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete results" });
     }
   });
 
