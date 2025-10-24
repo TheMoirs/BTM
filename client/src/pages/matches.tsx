@@ -75,6 +75,7 @@ type SortDirection = "asc" | "desc";
 type EditingMatch = {
   team1Score: string;
   team2Score: string;
+  matchDate: string;
 };
 
 export default function Matches() {
@@ -253,6 +254,7 @@ export default function Matches() {
     setEditingValues({
       team1Score: match.team1Score?.toString() || "",
       team2Score: match.team2Score?.toString() || "",
+      matchDate: match.matchDate || "",
     });
   };
 
@@ -269,6 +271,7 @@ export default function Matches() {
     const team2Score = editingValues.team2Score?.trim() 
       ? parseInt(editingValues.team2Score) 
       : null;
+    const matchDate = editingValues.matchDate?.trim() || null;
 
     // Validate that if one score is provided, both must be provided
     if ((team1Score !== null && team2Score === null) || 
@@ -305,6 +308,7 @@ export default function Matches() {
       data: {
         team1Score,
         team2Score,
+        matchDate,
       },
     });
   };
@@ -706,7 +710,15 @@ export default function Matches() {
                           </Badge>
                         </TableCell>
                         <TableCell data-testid={`text-date-${match.id}`}>
-                          {match.matchDate ? (
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              value={editingValues.matchDate || ""}
+                              onChange={(e) => updateEditingValue("matchDate", e.target.value)}
+                              className="h-8 w-36"
+                              data-testid={`input-edit-date-${match.id}`}
+                            />
+                          ) : match.matchDate ? (
                             <span className="text-sm">
                               {new Date(match.matchDate).toLocaleDateString('en-US', {
                                 month: 'short',
