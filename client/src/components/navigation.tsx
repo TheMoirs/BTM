@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, Grid3x3 } from "lucide-react";
+import { Users, Trophy, ListChecks, Grid3x3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navigation() {
@@ -8,6 +8,7 @@ export function Navigation() {
   const navItems = [
     { path: "/", label: "Teams", icon: Users },
     { path: "/matches", label: "Matches", icon: Trophy },
+    { path: "/results", label: "Results", icon: ListChecks },
     { path: "/bracket", label: "Bracket", icon: Grid3x3 },
   ];
 
