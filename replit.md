@@ -1,7 +1,7 @@
 # Boules League Manager
 
 ## Overview
-Boules League Manager is a web application designed to manage boules league competitions. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via CSV imports. The application aims for a modern SaaS design, emphasizing clarity and efficient workflows.
+Boules League Manager is a web application designed to manage boules league competitions. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application aims for a modern SaaS design, emphasizing clarity and efficient workflows.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -38,7 +38,7 @@ Preferred communication style: Simple, everyday language.
 
 - **UI Libraries**: Radix UI (headless components), Lucide React (icons), class-variance-authority, tailwind-merge, clsx.
 - **Form & Validation**: React Hook Form, @hookform/resolvers, Zod, drizzle-zod.
-- **Data Import**: papaparse for CSV parsing.
+- **Data Import**: xlsx for Excel spreadsheet parsing.
 - **Database & ORM**: @neondatabase/serverless (PostgreSQL client), drizzle-orm, drizzle-kit.
 - **Development Tools**: esbuild, tsx, PostCSS, Autoprefixer.
 - **Fonts**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono).
