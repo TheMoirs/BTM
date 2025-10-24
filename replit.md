@@ -59,9 +59,10 @@ Boules League Manager is a web application for managing boules league competitio
 - **Generate Matches**: Automatically creates round-robin matches from the teams table, grouped by division
   - **Server-side generation via POST /api/matches/generate**: Atomic operation with built-in deduplication
   - **Round-robin algorithm**: Every team plays every other team within their division (N*(N-1)/2 matches)
-  - **Database-level uniqueness**: Unique index on LEAST/GREATEST team pair prevents all duplicates
+  - **Database-level uniqueness**: Unique index on LEAST/GREATEST team pair prevents all duplicates (created automatically on server startup)
   - **Concurrent-safe**: Multiple simultaneous generation requests handled gracefully
-  - **Smart feedback**: Reports count of newly created vs skipped (already existing) matches
+  - **Smart feedback**: Reports count of newly created vs skipped (already existing) matches, and teams without divisions that were skipped
+  - **Teams without divisions**: Automatically skipped during generation with count reported to user
   - All generated matches default to "initial" stage with "scheduled" status
 - **Manual Match Creation**: Create individual matches via form by selecting teams and tournament stage
   - Teams shown with their division in the dropdown
@@ -145,6 +146,7 @@ Preferred communication style: Simple, everyday language.
 - DatabaseStorage implementation uses PostgreSQL for persistent data storage
 - Connection managed via Neon serverless driver with WebSocket support
 - All operations are async with proper error handling and transaction support
+- **Automatic Database Initialization**: Server creates unique constraint on startup to ensure database integrity across all environments
 
 **Data Validation**
 - Shared Zod schemas ensure consistency between client and server
