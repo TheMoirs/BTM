@@ -33,7 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
 import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,7 +162,7 @@ export default function Teams() {
       .join(' ');
   };
 
-  const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -172,76 +172,85 @@ export default function Teams() {
       }
     };
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const teamsData = results.data as Array<{
-            name?: string;
-            captainName?: string;
-            captainPhone?: string;
-            captainEmail?: string;
-            division?: string;
-          }>;
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        
+        // Get the first sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const teamsData = XLSX.utils.sheet_to_json(worksheet) as Array<{
+          name?: string;
+          captainName?: string;
+          captainPhone?: string;
+          captainEmail?: string;
+          division?: string;
+        }>;
 
-          let successCount = 0;
-          let errorCount = 0;
+        let successCount = 0;
+        let errorCount = 0;
 
-          for (const row of teamsData) {
-            if (!row.name || !row.captainName || !row.captainPhone || !row.captainEmail) {
-              errorCount++;
-              continue;
-            }
-
-            try {
-              const teamData: InsertTeam = {
-                name: capitalizeWords(row.name.trim()),
-                captainName: capitalizeWords(row.captainName.trim()),
-                captainPhone: row.captainPhone.trim(),
-                captainEmail: row.captainEmail.trim(),
-                division: row.division?.trim().toUpperCase() || null,
-              };
-
-              const existingTeam = teams?.find(t => t.name.toLowerCase() === teamData.name.toLowerCase());
-              
-              if (existingTeam) {
-                await apiRequest("PATCH", `/api/teams/${existingTeam.id}`, teamData);
-              } else {
-                await apiRequest("POST", "/api/teams", teamData);
-              }
-              successCount++;
-            } catch (error) {
-              errorCount++;
-            }
+        for (const row of teamsData) {
+          if (!row.name || !row.captainName || !row.captainPhone || !row.captainEmail) {
+            errorCount++;
+            continue;
           }
 
-          queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+          try {
+            const teamData: InsertTeam = {
+              name: capitalizeWords(String(row.name).trim()),
+              captainName: capitalizeWords(String(row.captainName).trim()),
+              captainPhone: String(row.captainPhone).trim(),
+              captainEmail: String(row.captainEmail).trim(),
+              division: row.division ? String(row.division).trim().toUpperCase() : null,
+            };
 
-          toast({
-            title: "Import complete",
-            description: `Successfully imported ${successCount} team(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
-            variant: errorCount > 0 ? "destructive" : "default",
-          });
-        } catch (error) {
-          toast({
-            title: "Import failed",
-            description: "Failed to parse CSV file.",
-            variant: "destructive",
-          });
+            const existingTeam = teams?.find(t => t.name.toLowerCase() === teamData.name.toLowerCase());
+            
+            if (existingTeam) {
+              await apiRequest("PATCH", `/api/teams/${existingTeam.id}`, teamData);
+            } else {
+              await apiRequest("POST", "/api/teams", teamData);
+            }
+            successCount++;
+          } catch (error) {
+            errorCount++;
+          }
         }
 
-        resetFileInput();
-      },
-      error: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+
+        toast({
+          title: "Import complete",
+          description: `Successfully imported ${successCount} team(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
+          variant: errorCount > 0 ? "destructive" : "default",
+        });
+      } catch (error) {
         toast({
           title: "Import failed",
-          description: "Failed to read CSV file.",
+          description: "Failed to parse Excel file.",
           variant: "destructive",
         });
-        resetFileInput();
-      },
-    });
+      }
+
+      resetFileInput();
+    };
+
+    reader.onerror = () => {
+      toast({
+        title: "Import failed",
+        description: "Failed to read Excel file.",
+        variant: "destructive",
+      });
+      resetFileInput();
+    };
+
+    reader.readAsBinaryString(file);
   };
 
   const onSubmit = (data: InsertTeam) => {
@@ -352,18 +361,18 @@ export default function Teams() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv"
-              onChange={handleCsvImport}
+              accept=".xlsx,.xls"
+              onChange={handleExcelImport}
               className="hidden"
-              data-testid="input-csv-file"
+              data-testid="input-excel-file"
             />
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
-              data-testid="button-import-csv"
+              data-testid="button-import-excel"
             >
               <Upload className="h-4 w-4 mr-2" />
-              Import CSV
+              Import Excel
             </Button>
             <Button
               variant="outline"
