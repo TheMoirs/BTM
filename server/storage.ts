@@ -100,6 +100,11 @@ export class DatabaseStorage implements IStorage {
       throw new Error("A team cannot play against itself");
     }
 
+    // Validate both teams are in the same division
+    if (team1.division !== team2.division) {
+      throw new Error("Both teams must be in the same division");
+    }
+
     const [match] = await db
       .insert(matches)
       .values({
@@ -111,6 +116,7 @@ export class DatabaseStorage implements IStorage {
         status: insertMatch.status || "scheduled",
         winnerId: insertMatch.winnerId ?? null,
         matchDate: insertMatch.matchDate ?? null,
+        division: team1.division ?? null,
       })
       .returning();
     

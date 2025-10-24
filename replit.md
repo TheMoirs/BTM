@@ -32,23 +32,36 @@ Boules League Manager is a web application for managing boules league competitio
 
 ### Match Management
 - **Table View with Inline Editing**: All matches displayed in a table format with the following features:
-  - Columns: Team 1, Team 2, Stage, Status, Date, Score, Actions
+  - Columns: Division, Stage, Date, Team 1, Team 1 Score, Team 2, Team 2 Score, Actions
   - Click edit button to enable inline editing for match scores
   - Score inputs with validation (both scores required together or both empty)
   - Save/Cancel buttons appear when editing
   - Only one row can be edited at a time
+- **Filters**: Filter matches by stage and division
+  - Stage filter: All Stages, Initial, Quarter-Finals, Semi-Finals, Finals
+  - Division filter: All Divisions, or specific divisions (A, B, C, etc.)
+  - Filters work together to show only matching matches
 - **Sortable Columns**: Click any column header to sort the table
   - Default sort: Date (ascending)
   - Click same header to toggle between ascending/descending
   - Visual indicators show active sort column and direction
-  - Sortable columns: Team 1, Team 2, Stage, Status, Date
+  - Sortable columns: Division, Stage, Date, Team 1, Team 2
 - **Score Management**: Inline score editing with smart status handling
-  - Null scores (unplayed matches) display as "— - —"
+  - Null scores (unplayed matches) display as "—" for each team
   - Entering both scores marks match as "completed" and calculates winner
   - Clearing scores reverts match to "scheduled" status
   - Validation ensures both scores provided together or both empty
-- **Generate Matches**: Automatically creates matches from the teams table using modular arithmetic pairing algorithm (team1Index = i*2 % length, team2Index = (i*2+1) % length). All generated matches default to "initial" stage with "scheduled" status
+- **Division Management**: Matches automatically inherit division from participating teams
+  - Both teams must be in the same division (validated on creation)
+  - Division displayed as a badge in the table
+  - Matches can be filtered by division
+- **Generate Matches**: Automatically creates matches from the teams table, grouped by division
+  - Uses modular arithmetic pairing algorithm within each division (team1Index = i*2 % length, team2Index = (i*2+1) % length)
+  - Only generates matches for teams in the same division
+  - All generated matches default to "initial" stage with "scheduled" status
 - **Manual Match Creation**: Create individual matches via form by selecting teams and tournament stage
+  - Teams shown with their division in the dropdown
+  - Validates both teams are in same division before creating
 - **Clear All Matches**: Bulk delete all matches with confirmation dialog
 
 ## User Preferences

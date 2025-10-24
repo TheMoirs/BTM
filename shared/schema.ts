@@ -38,6 +38,7 @@ export const matches = pgTable("matches", {
   status: text("status").notNull().default("scheduled"),
   winnerId: varchar("winner_id"),
   matchDate: text("match_date"),
+  division: text("division"),
 });
 
 export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).extend({
@@ -49,6 +50,12 @@ export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).
   team2Score: z.number().int().min(0).nullable().optional(),
   winnerId: z.string().nullable().optional(),
   matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
+  division: z.string().transform(val => val === "" ? null : val).pipe(
+    z.union([
+      z.string().regex(/^[A-Z]$/, "Division must be a single letter A-Z"),
+      z.null()
+    ])
+  ).optional().nullable(),
 });
 
 export type InsertMatch = z.infer<typeof insertMatchSchema>;

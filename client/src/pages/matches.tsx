@@ -43,7 +43,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -69,15 +69,10 @@ const statusLabels = {
   completed: "Completed",
 };
 
-type SortColumn = "team1" | "team2" | "stage" | "status" | "matchDate";
+type SortColumn = "division" | "stage" | "matchDate" | "team1" | "team2";
 type SortDirection = "asc" | "desc";
 
 type EditingMatch = {
-  team1Id: string;
-  team2Id: string;
-  stage: string;
-  status: string;
-  matchDate: string;
   team1Score: string;
   team2Score: string;
 };
@@ -90,6 +85,8 @@ export default function Matches() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("matchDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const { data: teams } = useQuery<Team[]>({
@@ -184,26 +181,43 @@ export default function Matches() {
     }
 
     try {
+      // Group teams by division
+      const teamsByDivision: Record<string, Team[]> = {};
+      teams.forEach(team => {
+        const div = team.division || "NONE";
+        if (!teamsByDivision[div]) {
+          teamsByDivision[div] = [];
+        }
+        teamsByDivision[div].push(team);
+      });
+
       let successCount = 0;
-      const numMatches = Math.floor(teams.length / 2);
 
-      for (let i = 0; i < numMatches; i++) {
-        const team1Index = (i * 2) % teams.length;
-        const team2Index = (i * 2 + 1) % teams.length;
+      // Generate matches within each division
+      for (const division in teamsByDivision) {
+        const divTeams = teamsByDivision[division];
+        if (divTeams.length < 2) continue;
 
-        const matchData: InsertMatch = {
-          team1Id: teams[team1Index].id,
-          team2Id: teams[team2Index].id,
-          stage: "initial",
-          status: "scheduled",
-          matchDate: null,
-          team1Score: null,
-          team2Score: null,
-          winnerId: null,
-        };
+        const numMatches = Math.floor(divTeams.length / 2);
 
-        await apiRequest("POST", "/api/matches", matchData);
-        successCount++;
+        for (let i = 0; i < numMatches; i++) {
+          const team1Index = (i * 2) % divTeams.length;
+          const team2Index = (i * 2 + 1) % divTeams.length;
+
+          const matchData: InsertMatch = {
+            team1Id: divTeams[team1Index].id,
+            team2Id: divTeams[team2Index].id,
+            stage: "initial",
+            status: "scheduled",
+            matchDate: null,
+            team1Score: null,
+            team2Score: null,
+            winnerId: null,
+          };
+
+          await apiRequest("POST", "/api/matches", matchData);
+          successCount++;
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
@@ -261,11 +275,6 @@ export default function Matches() {
   const startEditing = (match: Match) => {
     setEditingRowId(match.id);
     setEditingValues({
-      team1Id: match.team1Id,
-      team2Id: match.team2Id,
-      stage: match.stage,
-      status: match.status,
-      matchDate: match.matchDate || "",
       team1Score: match.team1Score?.toString() || "",
       team2Score: match.team2Score?.toString() || "",
     });
@@ -333,6 +342,13 @@ export default function Matches() {
     return team?.name || "Unknown Team";
   };
 
+  // Get unique divisions from matches
+  const availableDivisions = useMemo(() => {
+    if (!matches) return [];
+    const divisions = new Set(matches.map(m => m.division).filter(Boolean));
+    return Array.from(divisions).sort();
+  }, [matches]);
+
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -342,14 +358,26 @@ export default function Matches() {
     }
   };
 
-  const getSortedMatches = useMemo(() => {
+  const getFilteredAndSortedMatches = useMemo(() => {
     if (!matches) return [];
 
-    const sorted = [...matches].sort((a, b) => {
+    // Filter matches
+    let filtered = matches.filter(match => {
+      const stageMatch = stageFilter === "all" || match.stage === stageFilter;
+      const divisionMatch = divisionFilter === "all" || match.division === divisionFilter;
+      return stageMatch && divisionMatch;
+    });
+
+    // Sort matches
+    const sorted = [...filtered].sort((a, b) => {
       let aValue: any;
       let bValue: any;
 
       switch (sortColumn) {
+        case "division":
+          aValue = (a.division || "ZZZ").toLowerCase();
+          bValue = (b.division || "ZZZ").toLowerCase();
+          break;
         case "team1":
           aValue = getTeamName(a.team1Id).toLowerCase();
           bValue = getTeamName(b.team1Id).toLowerCase();
@@ -373,7 +401,7 @@ export default function Matches() {
     });
 
     return sorted;
-  }, [matches, sortColumn, sortDirection, teams]);
+  }, [matches, sortColumn, sortDirection, stageFilter, divisionFilter, teams]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
@@ -400,7 +428,7 @@ export default function Matches() {
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Matches</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -455,7 +483,7 @@ export default function Matches() {
                             <SelectContent>
                               {teams?.map((team) => (
                                 <SelectItem key={team.id} value={team.id}>
-                                  {team.name}
+                                  {team.name} {team.division && `(Division ${team.division})`}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -480,7 +508,7 @@ export default function Matches() {
                             <SelectContent>
                               {teams?.map((team) => (
                                 <SelectItem key={team.id} value={team.id}>
-                                  {team.name}
+                                  {team.name} {team.division && `(Division ${team.division})`}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -540,6 +568,48 @@ export default function Matches() {
           </div>
         </div>
 
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <div className="flex gap-4 flex-1">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Stage:</label>
+                  <Select value={stageFilter} onValueChange={setStageFilter}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-stage-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stages</SelectItem>
+                      <SelectItem value="initial">Initial</SelectItem>
+                      <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
+                      <SelectItem value="semi-finals">Semi-Finals</SelectItem>
+                      <SelectItem value="finals">Finals</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Division:</label>
+                  <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-division-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Divisions</SelectItem>
+                      {availableDivisions.map(div => (
+                        <SelectItem key={div} value={div as string}>
+                          Division {div}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {!matches || matches.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -564,33 +634,37 @@ export default function Matches() {
               </div>
             </CardContent>
           </Card>
+        ) : getFilteredAndSortedMatches.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="rounded-full bg-muted p-6 mb-4">
+                <Filter className="h-12 w-12 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No matches match the current filters
+              </h3>
+              <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+                Try adjusting your filters to see more matches
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="w-[100px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("team1")}
-                        data-testid="sort-team1"
+                        onClick={() => handleSort("division")}
+                        data-testid="sort-division"
                       >
-                        Team 1
-                        <SortIcon column="team1" />
+                        Division
+                        <SortIcon column="division" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("team2")}
-                        data-testid="sort-team2"
-                      >
-                        Team 2
-                        <SortIcon column="team2" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[120px]">
+                    <TableHead className="w-[140px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("stage")}
@@ -603,16 +677,6 @@ export default function Matches() {
                     <TableHead className="w-[120px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("status")}
-                        data-testid="sort-status"
-                      >
-                        Status
-                        <SortIcon column="status" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[120px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("matchDate")}
                         data-testid="sort-date"
                       >
@@ -620,30 +684,49 @@ export default function Matches() {
                         <SortIcon column="matchDate" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[100px] text-center">Score</TableHead>
+                    <TableHead className="w-[180px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("team1")}
+                        data-testid="sort-team1"
+                      >
+                        Team 1
+                        <SortIcon column="team1" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[80px] text-center">Score</TableHead>
+                    <TableHead className="w-[180px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("team2")}
+                        data-testid="sort-team2"
+                      >
+                        Team 2
+                        <SortIcon column="team2" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[80px] text-center">Score</TableHead>
                     <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getSortedMatches.map((match) => {
+                  {getFilteredAndSortedMatches.map((match) => {
                     const isEditing = editingRowId === match.id;
 
                     return (
                       <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
-                        <TableCell data-testid={`text-team1-${match.id}`}>
-                          {getTeamName(match.team1Id)}
-                        </TableCell>
-                        <TableCell data-testid={`text-team2-${match.id}`}>
-                          {getTeamName(match.team2Id)}
+                        <TableCell>
+                          {match.division ? (
+                            <Badge variant="outline" data-testid={`badge-division-${match.id}`}>
+                              {match.division}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" data-testid={`badge-stage-${match.id}`}>
                             {stageLabels[match.stage as keyof typeof stageLabels]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" data-testid={`badge-status-${match.id}`}>
-                            {statusLabels[match.status as keyof typeof statusLabels]}
                           </Badge>
                         </TableCell>
                         <TableCell data-testid={`text-date-${match.id}`}>
@@ -659,30 +742,41 @@ export default function Matches() {
                             <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
+                        <TableCell data-testid={`text-team1-${match.id}`}>
+                          {getTeamName(match.team1Id)}
+                        </TableCell>
                         <TableCell className="text-center">
                           {isEditing ? (
-                            <div className="flex items-center justify-center gap-1">
-                              <Input
-                                type="number"
-                                value={editingValues.team1Score || ""}
-                                onChange={(e) => updateEditingValue("team1Score", e.target.value)}
-                                className="h-8 w-14 text-center"
-                                placeholder="0"
-                                data-testid={`input-edit-score1-${match.id}`}
-                              />
-                              <span className="text-muted-foreground">-</span>
-                              <Input
-                                type="number"
-                                value={editingValues.team2Score || ""}
-                                onChange={(e) => updateEditingValue("team2Score", e.target.value)}
-                                className="h-8 w-14 text-center"
-                                placeholder="0"
-                                data-testid={`input-edit-score2-${match.id}`}
-                              />
-                            </div>
+                            <Input
+                              type="number"
+                              value={editingValues.team1Score || ""}
+                              onChange={(e) => updateEditingValue("team1Score", e.target.value)}
+                              className="h-8 w-16 text-center"
+                              placeholder="0"
+                              data-testid={`input-edit-score1-${match.id}`}
+                            />
                           ) : (
-                            <span className="font-mono text-sm" data-testid={`text-score-${match.id}`}>
-                              {match.team1Score ?? "—"} - {match.team2Score ?? "—"}
+                            <span className="font-mono text-sm" data-testid={`text-score1-${match.id}`}>
+                              {match.team1Score ?? "—"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell data-testid={`text-team2-${match.id}`}>
+                          {getTeamName(match.team2Id)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={editingValues.team2Score || ""}
+                              onChange={(e) => updateEditingValue("team2Score", e.target.value)}
+                              className="h-8 w-16 text-center"
+                              placeholder="0"
+                              data-testid={`input-edit-score2-${match.id}`}
+                            />
+                          ) : (
+                            <span className="font-mono text-sm" data-testid={`text-score2-${match.id}`}>
+                              {match.team2Score ?? "—"}
                             </span>
                           )}
                         </TableCell>
