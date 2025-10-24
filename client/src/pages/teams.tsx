@@ -31,7 +31,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import {
@@ -45,12 +45,17 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail";
+type SortDirection = "asc" | "desc";
+
 export default function Teams() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -288,6 +293,45 @@ export default function Teams() {
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortedTeams = () => {
+    if (!teams) return [];
+    
+    const sorted = [...teams].sort((a, b) => {
+      let aValue = a[sortColumn] || "";
+      let bValue = b[sortColumn] || "";
+      
+      // Convert to lowercase for case-insensitive sorting
+      if (typeof aValue === "string") aValue = aValue.toLowerCase();
+      if (typeof bValue === "string") bValue = bValue.toLowerCase();
+      
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
+  };
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 text-muted-foreground" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-4 w-4 ml-1" />
+    ) : (
+      <ArrowDown className="h-4 w-4 ml-1" />
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -502,16 +546,61 @@ export default function Teams() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[200px]">Team Name</TableHead>
-                    <TableHead className="w-[80px]">Division</TableHead>
-                    <TableHead className="w-[180px]">Captain Name</TableHead>
-                    <TableHead className="w-[150px]">Phone</TableHead>
-                    <TableHead className="w-[200px]">Email</TableHead>
+                    <TableHead className="w-[200px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("name")}
+                        data-testid="sort-name"
+                      >
+                        Team Name
+                        <SortIcon column="name" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[80px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("division")}
+                        data-testid="sort-division"
+                      >
+                        Division
+                        <SortIcon column="division" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[180px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("captainName")}
+                        data-testid="sort-captain-name"
+                      >
+                        Captain Name
+                        <SortIcon column="captainName" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[150px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("captainPhone")}
+                        data-testid="sort-phone"
+                      >
+                        Phone
+                        <SortIcon column="captainPhone" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[200px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("captainEmail")}
+                        data-testid="sort-email"
+                      >
+                        Email
+                        <SortIcon column="captainEmail" />
+                      </button>
+                    </TableHead>
                     <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {teams.map((team) => {
+                  {getSortedTeams().map((team) => {
                     const isEditing = editingRowId === team.id;
                     
                     return (

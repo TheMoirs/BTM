@@ -14,6 +14,11 @@ Boules League Manager is a web application for managing boules league competitio
   - All fields editable directly in the table
   - Save/Cancel buttons appear when editing
   - Only one row can be edited at a time
+- **Sortable Columns**: Click any column header to sort the table
+  - Default sort: Team Name (ascending)
+  - Click same header to toggle between ascending/descending
+  - Visual indicators show active sort column and direction
+  - Case-insensitive sorting for all text fields
 - **Division Assignment**: Optional starting division field (A-Z) that can be set during team registration or editing
   - Displayed as a badge in the table
   - Automatically converted to uppercase
