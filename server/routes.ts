@@ -68,6 +68,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/teams", async (_req, res) => {
+    try {
+      await storage.deleteAllTeams();
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete all teams" });
+    }
+  });
+
   app.get("/api/matches", async (_req, res) => {
     try {
       const matches = await storage.getAllMatches();
@@ -258,6 +267,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete match" });
+    }
+  });
+
+  app.delete("/api/matches", async (_req, res) => {
+    try {
+      await storage.deleteAllMatches();
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete all matches" });
     }
   });
 

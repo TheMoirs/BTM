@@ -8,12 +8,14 @@ export interface IStorage {
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: string, team: InsertTeam): Promise<Team | undefined>;
   deleteTeam(id: string): Promise<boolean>;
+  deleteAllTeams(): Promise<boolean>;
   
   getAllMatches(): Promise<Match[]>;
   getMatch(id: string): Promise<Match | undefined>;
   createMatch(match: InsertMatch): Promise<Match>;
   updateMatchScore(id: string, team1Score: number | null, team2Score: number | null, matchDate: string | null): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
+  deleteAllMatches(): Promise<boolean>;
   
   getAllResults(): Promise<Result[]>;
   createResult(result: InsertResult): Promise<Result>;
@@ -73,6 +75,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTeam(id: string): Promise<boolean> {
+    // Get all matches for this team to delete their results
+    const teamMatches = await db.select().from(matches).where(
+      or(
+        eq(matches.team1Id, id),
+        eq(matches.team2Id, id)
+      )
+    );
+    
+    // Delete results for all these matches
+    for (const match of teamMatches) {
+      await this.deleteResultsByMatchId(match.id);
+    }
+    
+    // Delete matches
     await db.delete(matches).where(
       or(
         eq(matches.team1Id, id),
@@ -80,8 +96,19 @@ export class DatabaseStorage implements IStorage {
       )
     );
     
+    // Delete team
     const result = await db.delete(teams).where(eq(teams.id, id)).returning();
     return result.length > 0;
+  }
+
+  async deleteAllTeams(): Promise<boolean> {
+    // Delete all results first
+    await this.deleteAllResults();
+    // Delete all matches
+    await db.delete(matches);
+    // Delete all teams
+    await db.delete(teams);
+    return true;
   }
 
   async getAllMatches(): Promise<Match[]> {
@@ -224,6 +251,14 @@ export class DatabaseStorage implements IStorage {
     await this.deleteResultsByMatchId(id);
     const result = await db.delete(matches).where(eq(matches.id, id)).returning();
     return result.length > 0;
+  }
+
+  async deleteAllMatches(): Promise<boolean> {
+    // Delete all results first
+    await this.deleteAllResults();
+    // Delete all matches
+    await db.delete(matches);
+    return true;
   }
 
   async getAllResults(): Promise<Result[]> {
