@@ -8,8 +8,13 @@ Boules League Manager is a web application for managing boules league competitio
 
 ### Team Management
 - **Team Registration**: Manual team registration via form with automatic capitalization of team and captain names (first letter of each word)
-- **Teams CSV Import**: Upload CSV files containing team and captain information (name, captainName, captainPhone, captainEmail). Features:
+- **Division Assignment**: Optional starting division field (A-Z) that can be set during team registration or editing
+  - Displayed as a badge on team cards
+  - Automatically converted to uppercase
+  - Can be left empty or cleared at any time
+- **Teams CSV Import**: Upload CSV files containing team and captain information (name, captainName, captainPhone, captainEmail, division). Features:
   - Automatically capitalizes first letter of each word in team and captain names
+  - Automatically converts division to uppercase (optional column)
   - **Upsert behavior**: Updates existing teams by name match (case-insensitive) or creates new ones
   - Per-row error handling with aggregate success/failure reporting
 - **Clear All Teams**: Bulk delete all teams and their associated matches with confirmation dialog
@@ -80,7 +85,9 @@ Preferred communication style: Simple, everyday language.
 - Migration support through drizzle-kit
 
 **Data Model**
-- **Teams Table**: Stores team information (name, captain details with name/phone/email)
+- **Teams Table**: Stores team information (name, captain details with name/phone/email, division)
+  - division field: Optional text field storing single letter (A-Z) for team's starting division
+  - Frontend displays division as a badge when present
 - **Matches Table**: Stores match data with team references, scores, stage, status, winner, and optional scheduled date
   - matchDate field: Optional text field storing dates in YYYY-MM-DD format for scheduling
   - Frontend displays formatted dates (e.g., "Jan 15, 2026") with calendar icons when present

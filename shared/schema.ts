@@ -9,6 +9,7 @@ export const teams = pgTable("teams", {
   captainName: text("captain_name").notNull(),
   captainPhone: text("captain_phone").notNull(),
   captainEmail: text("captain_email").notNull(),
+  division: text("division"),
 });
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
@@ -16,6 +17,12 @@ export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).ext
   captainName: z.string().min(1, "Captain name is required"),
   captainPhone: z.string().min(1, "Phone number is required"),
   captainEmail: z.string().email("Valid email is required"),
+  division: z.string().transform(val => val === "" ? null : val).pipe(
+    z.union([
+      z.string().regex(/^[A-Z]$/, "Division must be a single letter A-Z"),
+      z.null()
+    ])
+  ).optional().nullable(),
 });
 
 export type InsertTeam = z.infer<typeof insertTeamSchema>;

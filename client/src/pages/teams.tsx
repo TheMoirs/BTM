@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -56,6 +57,7 @@ export default function Teams() {
       captainName: "",
       captainPhone: "",
       captainEmail: "",
+      division: "",
     },
   });
 
@@ -172,6 +174,7 @@ export default function Teams() {
             captainName?: string;
             captainPhone?: string;
             captainEmail?: string;
+            division?: string;
           }>;
 
           let successCount = 0;
@@ -189,6 +192,7 @@ export default function Teams() {
                 captainName: capitalizeWords(row.captainName.trim()),
                 captainPhone: row.captainPhone.trim(),
                 captainEmail: row.captainEmail.trim(),
+                division: row.division?.trim().toUpperCase() || null,
               };
 
               const existingTeam = teams?.find(t => t.name.toLowerCase() === teamData.name.toLowerCase());
@@ -238,6 +242,7 @@ export default function Teams() {
       captainName: capitalizeWords(data.captainName.trim()),
       captainPhone: data.captainPhone.trim(),
       captainEmail: data.captainEmail.trim(),
+      division: data.division?.trim().toUpperCase() || null,
     };
     
     if (editingTeam) {
@@ -254,6 +259,7 @@ export default function Teams() {
       captainName: team.captainName,
       captainPhone: team.captainPhone,
       captainEmail: team.captainEmail,
+      division: team.division || "",
     });
   };
 
@@ -342,6 +348,27 @@ export default function Teams() {
                               {...field}
                               placeholder="Les Pétanqueurs"
                               data-testid="input-team-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="division"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Starting Division (Optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              value={field.value || ""}
+                              placeholder="A"
+                              maxLength={1}
+                              className="uppercase"
+                              data-testid="input-division"
                             />
                           </FormControl>
                           <FormMessage />
@@ -465,9 +492,16 @@ export default function Teams() {
               <Card key={team.id} className="hover-elevate" data-testid={`card-team-${team.id}`}>
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-card-foreground" data-testid={`text-team-name-${team.id}`}>
-                      {team.name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-card-foreground" data-testid={`text-team-name-${team.id}`}>
+                        {team.name}
+                      </h3>
+                      {team.division && (
+                        <Badge variant="outline" data-testid={`badge-division-${team.id}`}>
+                          Division {team.division}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-1">
                     <Button
