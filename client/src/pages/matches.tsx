@@ -136,6 +136,7 @@ export default function Matches() {
       apiRequest("PATCH", `/api/matches/${id}/score`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setEditingRowId(null);
       setEditingValues({});
       toast({
