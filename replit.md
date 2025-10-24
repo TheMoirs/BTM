@@ -8,8 +8,14 @@ Boules League Manager is a web application for managing boules league competitio
 
 ### Team Management
 - **Team Registration**: Manual team registration via form with automatic capitalization of team and captain names (first letter of each word)
+- **Table View with Inline Editing**: All teams displayed in a table format with the following features:
+  - Columns: Team Name, Division, Captain Name, Phone, Email, Actions
+  - Click edit button to enable inline editing for any row
+  - All fields editable directly in the table
+  - Save/Cancel buttons appear when editing
+  - Only one row can be edited at a time
 - **Division Assignment**: Optional starting division field (A-Z) that can be set during team registration or editing
-  - Displayed as a badge on team cards
+  - Displayed as a badge in the table
   - Automatically converted to uppercase
   - Can be left empty or cleared at any time
 - **Teams CSV Import**: Upload CSV files containing team and captain information (name, captainName, captainPhone, captainEmail, division). Features:

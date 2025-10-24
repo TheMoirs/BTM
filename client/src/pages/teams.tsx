@@ -1,11 +1,10 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -21,10 +20,18 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Mail, Phone, User, Pencil, Trash2, Users, Upload, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import {
@@ -40,7 +47,8 @@ import {
 
 export default function Teams() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,8 +94,8 @@ export default function Teams() {
       apiRequest("PATCH", `/api/teams/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-      setEditingTeam(null);
-      form.reset();
+      setEditingRowId(null);
+      setEditingValues({});
       toast({
         title: "Team updated",
         description: "The team has been successfully updated.",
@@ -245,16 +253,12 @@ export default function Teams() {
       division: data.division?.trim().toUpperCase() || null,
     };
     
-    if (editingTeam) {
-      updateMutation.mutate({ id: editingTeam.id, data: capitalizedData });
-    } else {
-      createMutation.mutate(capitalizedData);
-    }
+    createMutation.mutate(capitalizedData);
   };
 
-  const handleEdit = (team: Team) => {
-    setEditingTeam(team);
-    form.reset({
+  const startEditing = (team: Team) => {
+    setEditingRowId(team.id);
+    setEditingValues({
       name: team.name,
       captainName: team.captainName,
       captainPhone: team.captainPhone,
@@ -263,10 +267,25 @@ export default function Teams() {
     });
   };
 
-  const handleCloseDialog = () => {
-    setIsCreateOpen(false);
-    setEditingTeam(null);
-    form.reset();
+  const cancelEditing = () => {
+    setEditingRowId(null);
+    setEditingValues({});
+  };
+
+  const saveEditing = (teamId: string) => {
+    const capitalizedData: InsertTeam = {
+      name: capitalizeWords(editingValues.name?.trim() || ""),
+      captainName: capitalizeWords(editingValues.captainName?.trim() || ""),
+      captainPhone: editingValues.captainPhone?.trim() || "",
+      captainEmail: editingValues.captainEmail?.trim() || "",
+      division: editingValues.division?.trim().toUpperCase() || null,
+    };
+    
+    updateMutation.mutate({ id: teamId, data: capitalizedData });
+  };
+
+  const updateEditingValue = (field: keyof InsertTeam, value: string) => {
+    setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
   if (isLoading) {
@@ -315,82 +334,34 @@ export default function Teams() {
               <Trash2 className="h-4 w-4 mr-2" />
               Clear All Data
             </Button>
-            <Dialog open={isCreateOpen || !!editingTeam} onOpenChange={(open) => {
-              if (!open) handleCloseDialog();
-              else setIsCreateOpen(true);
-            }}>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
                 <Button data-testid="button-add-team">
                   <Plus className="h-4 w-4 mr-2" />
-                  Register Team
+                  Add Team
                 </Button>
               </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingTeam ? "Edit Team" : "Register New Team"}
-                </DialogTitle>
-                <p id="team-form-description" className="sr-only">
-                  {editingTeam ? "Update team information and captain contact details" : "Enter team name and captain contact information to register a new team"}
-                </p>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Team Name</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Les Pétanqueurs"
-                              data-testid="input-team-name"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="division"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Starting Division (Optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              value={field.value || ""}
-                              placeholder="A"
-                              maxLength={1}
-                              className="uppercase"
-                              data-testid="input-division"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="space-y-4 pt-2">
-                      <h3 className="text-sm font-semibold text-foreground">
-                        Captain Contact Details
-                      </h3>
+              <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
+                <DialogHeader>
+                  <DialogTitle>Register New Team</DialogTitle>
+                  <p id="team-form-description" className="sr-only">
+                    Enter team name and captain contact information to register a new team
+                  </p>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
-                        name="captainName"
+                        name="name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Captain Name</FormLabel>
+                            <FormLabel>Team Name</FormLabel>
                             <FormControl>
                               <Input
                                 {...field}
-                                placeholder="Jean Dupont"
-                                data-testid="input-captain-name"
+                                placeholder="Les Pétanqueurs"
+                                data-testid="input-team-name"
                               />
                             </FormControl>
                             <FormMessage />
@@ -400,15 +371,18 @@ export default function Teams() {
 
                       <FormField
                         control={form.control}
-                        name="captainPhone"
+                        name="division"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
+                            <FormLabel>Starting Division (Optional)</FormLabel>
                             <FormControl>
                               <Input
                                 {...field}
-                                placeholder="+33 6 12 34 56 78"
-                                data-testid="input-captain-phone"
+                                value={field.value || ""}
+                                placeholder="A"
+                                maxLength={1}
+                                className="uppercase"
+                                data-testid="input-division"
                               />
                             </FormControl>
                             <FormMessage />
@@ -416,55 +390,91 @@ export default function Teams() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="captainEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                type="email"
-                                placeholder="captain@example.com"
-                                data-testid="input-captain-email"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="space-y-4 pt-2">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Captain Contact Details
+                        </h3>
+                        <FormField
+                          control={form.control}
+                          name="captainName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Captain Name</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="Jean Dupont"
+                                  data-testid="input-captain-name"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="captainPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="+33 6 12 34 56 78"
+                                  data-testid="input-captain-phone"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="captainEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  type="email"
+                                  placeholder="captain@example.com"
+                                  data-testid="input-captain-email"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleCloseDialog}
-                      className="flex-1"
-                      data-testid="button-cancel"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      className="flex-1"
-                      disabled={createMutation.isPending || updateMutation.isPending}
-                      data-testid="button-submit-team"
-                    >
-                      {createMutation.isPending || updateMutation.isPending
-                        ? "Saving..."
-                        : editingTeam
-                        ? "Update Team"
-                        : "Register Team"}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsCreateOpen(false)}
+                        className="flex-1"
+                        data-testid="button-cancel"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={createMutation.isPending}
+                        data-testid="button-submit-team"
+                      >
+                        {createMutation.isPending ? "Saving..." : "Register Team"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {!teams || teams.length === 0 ? (
@@ -487,71 +497,145 @@ export default function Teams() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {teams.map((team) => (
-              <Card key={team.id} className="hover-elevate" data-testid={`card-team-${team.id}`}>
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold text-card-foreground" data-testid={`text-team-name-${team.id}`}>
-                        {team.name}
-                      </h3>
-                      {team.division && (
-                        <Badge variant="outline" data-testid={`badge-division-${team.id}`}>
-                          Division {team.division}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleEdit(team)}
-                      data-testid={`button-edit-${team.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setDeletingTeam(team)}
-                      data-testid={`button-delete-${team.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Team Captain
-                    </p>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-card-foreground" data-testid={`text-captain-name-${team.id}`}>
-                          {team.captainName}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-card-foreground" data-testid={`text-captain-phone-${team.id}`}>
-                          {team.captainPhone}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-card-foreground" data-testid={`text-captain-email-${team.id}`}>
-                          {team.captainEmail}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Team Name</TableHead>
+                    <TableHead className="w-[80px]">Division</TableHead>
+                    <TableHead className="w-[180px]">Captain Name</TableHead>
+                    <TableHead className="w-[150px]">Phone</TableHead>
+                    <TableHead className="w-[200px]">Email</TableHead>
+                    <TableHead className="w-[120px] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teams.map((team) => {
+                    const isEditing = editingRowId === team.id;
+                    
+                    return (
+                      <TableRow key={team.id} data-testid={`row-team-${team.id}`}>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.name || ""}
+                              onChange={(e) => updateEditingValue("name", e.target.value)}
+                              className="h-8"
+                              data-testid={`input-edit-name-${team.id}`}
+                            />
+                          ) : (
+                            <span data-testid={`text-team-name-${team.id}`}>{team.name}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.division || ""}
+                              onChange={(e) => updateEditingValue("division", e.target.value)}
+                              maxLength={1}
+                              className="h-8 w-16 uppercase"
+                              data-testid={`input-edit-division-${team.id}`}
+                            />
+                          ) : (
+                            team.division ? (
+                              <Badge variant="outline" data-testid={`badge-division-${team.id}`}>
+                                {team.division}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.captainName || ""}
+                              onChange={(e) => updateEditingValue("captainName", e.target.value)}
+                              className="h-8"
+                              data-testid={`input-edit-captain-name-${team.id}`}
+                            />
+                          ) : (
+                            <span data-testid={`text-captain-name-${team.id}`}>{team.captainName}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.captainPhone || ""}
+                              onChange={(e) => updateEditingValue("captainPhone", e.target.value)}
+                              className="h-8"
+                              data-testid={`input-edit-captain-phone-${team.id}`}
+                            />
+                          ) : (
+                            <span data-testid={`text-captain-phone-${team.id}`}>{team.captainPhone}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.captainEmail || ""}
+                              onChange={(e) => updateEditingValue("captainEmail", e.target.value)}
+                              type="email"
+                              className="h-8"
+                              data-testid={`input-edit-captain-email-${team.id}`}
+                            />
+                          ) : (
+                            <span data-testid={`text-captain-email-${team.id}`}>{team.captainEmail}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => saveEditing(team.id)}
+                                disabled={updateMutation.isPending}
+                                data-testid={`button-save-${team.id}`}
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={cancelEditing}
+                                disabled={updateMutation.isPending}
+                                data-testid={`button-cancel-edit-${team.id}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => startEditing(team)}
+                                data-testid={`button-edit-${team.id}`}
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setDeletingTeam(team)}
+                                data-testid={`button-delete-${team.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
         )}
 
         <AlertDialog open={!!deletingTeam} onOpenChange={(open) => !open && setDeletingTeam(null)}>
