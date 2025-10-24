@@ -28,6 +28,11 @@ Preferred communication style: Simple, everyday language.
     - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, points, and scores. Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage.
 - **Validation**: Shared Zod schemas ensure client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints on startup.
+- **Cascade Deletion**: Data integrity enforced through cascade deletion:
+    - Deleting a team removes all matches involving that team and all results for those matches
+    - Deleting all teams removes all matches and all results
+    - Deleting a match removes all results for that match
+    - Deleting all matches removes all results (teams remain)
 
 ## External Dependencies
 
