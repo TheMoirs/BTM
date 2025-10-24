@@ -31,6 +31,22 @@ Boules League Manager is a web application for managing boules league competitio
 - **Clear All Teams**: Bulk delete all teams and their associated matches with confirmation dialog
 
 ### Match Management
+- **Table View with Inline Editing**: All matches displayed in a table format with the following features:
+  - Columns: Team 1, Team 2, Stage, Status, Date, Score, Actions
+  - Click edit button to enable inline editing for match scores
+  - Score inputs with validation (both scores required together or both empty)
+  - Save/Cancel buttons appear when editing
+  - Only one row can be edited at a time
+- **Sortable Columns**: Click any column header to sort the table
+  - Default sort: Date (ascending)
+  - Click same header to toggle between ascending/descending
+  - Visual indicators show active sort column and direction
+  - Sortable columns: Team 1, Team 2, Stage, Status, Date
+- **Score Management**: Inline score editing with smart status handling
+  - Null scores (unplayed matches) display as "— - —"
+  - Entering both scores marks match as "completed" and calculates winner
+  - Clearing scores reverts match to "scheduled" status
+  - Validation ensures both scores provided together or both empty
 - **Generate Matches**: Automatically creates matches from the teams table using modular arithmetic pairing algorithm (team1Index = i*2 % length, team2Index = (i*2+1) % length). All generated matches default to "initial" stage with "scheduled" status
 - **Manual Match Creation**: Create individual matches via form by selecting teams and tournament stage
 - **Clear All Matches**: Bulk delete all matches with confirmation dialog

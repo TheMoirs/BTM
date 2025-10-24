@@ -12,7 +12,7 @@ export interface IStorage {
   getAllMatches(): Promise<Match[]>;
   getMatch(id: string): Promise<Match | undefined>;
   createMatch(match: InsertMatch): Promise<Match>;
-  updateMatchScore(id: string, team1Score: number, team2Score: number): Promise<Match | undefined>;
+  updateMatchScore(id: string, team1Score: number | null, team2Score: number | null): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
 }
 
@@ -117,22 +117,32 @@ export class DatabaseStorage implements IStorage {
     return match;
   }
 
-  async updateMatchScore(id: string, team1Score: number, team2Score: number): Promise<Match | undefined> {
+  async updateMatchScore(id: string, team1Score: number | null, team2Score: number | null): Promise<Match | undefined> {
     const match = await this.getMatch(id);
     if (!match) {
       return undefined;
     }
 
-    const winnerId = team1Score > team2Score ? match.team1Id : 
-                     team2Score > team1Score ? match.team2Id : 
-                     null;
+    // Only calculate winner and set completed if both scores are provided
+    let winnerId = null;
+    let status = match.status;
+
+    if (team1Score !== null && team2Score !== null) {
+      winnerId = team1Score > team2Score ? match.team1Id : 
+                 team2Score > team1Score ? match.team2Id : 
+                 null;
+      status = "completed";
+    } else {
+      // If scores are cleared (both null), reset to scheduled
+      status = "scheduled";
+    }
 
     const [updatedMatch] = await db
       .update(matches)
       .set({
         team1Score,
         team2Score,
-        status: "completed",
+        status,
         winnerId,
       })
       .where(eq(matches.id, id))

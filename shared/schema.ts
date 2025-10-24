@@ -55,8 +55,8 @@ export type InsertMatch = z.infer<typeof insertMatchSchema>;
 export type Match = typeof matches.$inferSelect;
 
 export const updateMatchScoreSchema = z.object({
-  team1Score: z.coerce.number().int().min(0),
-  team2Score: z.coerce.number().int().min(0),
+  team1Score: z.union([z.number().int().min(0), z.null()]),
+  team2Score: z.union([z.number().int().min(0), z.null()]),
 });
 
 export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;
