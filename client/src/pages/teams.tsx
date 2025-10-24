@@ -135,29 +135,24 @@ export default function Teams() {
   });
 
   const handleClearAllTeams = async () => {
-    if (!teams) {
+    try {
+      await apiRequest("DELETE", "/api/teams");
+      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setShowClearConfirm(false);
-      return;
+      toast({
+        title: "All data cleared",
+        description: "All teams, matches, and results have been removed.",
+      });
+    } catch (error) {
+      console.error("Error clearing teams:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear teams.",
+        variant: "destructive",
+      });
     }
-    
-    let deletedCount = 0;
-    for (const team of teams) {
-      try {
-        await apiRequest("DELETE", `/api/teams/${team.id}`);
-        deletedCount++;
-      } catch (error) {
-        console.error(`Failed to delete team ${team.id}`, error);
-      }
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-    setShowClearConfirm(false);
-    
-    toast({
-      title: "All teams cleared",
-      description: `Deleted ${deletedCount} team(s) and all associated matches.`,
-    });
   };
 
   const capitalizeWords = (text: string): string => {
@@ -755,7 +750,7 @@ export default function Teams() {
             <AlertDialogHeader>
               <AlertDialogTitle>Clear All Teams</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete all teams? This action cannot be undone and will remove all teams and their associated matches.
+                Are you sure you want to delete all teams? This action cannot be undone and will remove all teams, matches, and results.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

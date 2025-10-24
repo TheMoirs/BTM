@@ -214,28 +214,23 @@ export default function Matches() {
   };
 
   const handleClearAllMatches = async () => {
-    if (!matches) {
+    try {
+      await apiRequest("DELETE", "/api/matches");
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setShowClearConfirm(false);
-      return;
+      toast({
+        title: "All matches cleared",
+        description: "All matches and results have been removed.",
+      });
+    } catch (error) {
+      console.error("Error clearing matches:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear matches.",
+        variant: "destructive",
+      });
     }
-
-    let deletedCount = 0;
-    for (const match of matches) {
-      try {
-        await apiRequest("DELETE", `/api/matches/${match.id}`);
-        deletedCount++;
-      } catch (error) {
-        console.error(`Failed to delete match ${match.id}`, error);
-      }
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-    setShowClearConfirm(false);
-
-    toast({
-      title: "All matches cleared",
-      description: `Deleted ${deletedCount} match(es) from the system.`,
-    });
   };
 
   const onSubmit = (data: InsertMatch) => {
@@ -849,7 +844,7 @@ export default function Matches() {
             <AlertDialogHeader>
               <AlertDialogTitle>Clear All Matches</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete all matches? This action cannot be undone.
+                Are you sure you want to delete all matches? This action cannot be undone and will remove all matches and their results.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
