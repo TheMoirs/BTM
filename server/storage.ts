@@ -100,10 +100,22 @@ export class DatabaseStorage implements IStorage {
       throw new Error("A team cannot play against itself");
     }
 
-    // Validate both teams are in the same division
-    if (team1.division !== team2.division) {
-      throw new Error("Both teams must be in the same division");
+    // Only validate division matching for initial stage matches
+    // For other stages (quarter-finals, semi-finals, finals), teams can be from different divisions
+    if (insertMatch.stage === "initial") {
+      // Both teams must have a division assigned
+      if (!team1.division || !team2.division) {
+        throw new Error("Both teams must have a division assigned for initial stage matches");
+      }
+      // Both teams must be in the same division
+      if (team1.division !== team2.division) {
+        throw new Error("Both teams must be in the same division for initial stage matches");
+      }
     }
+
+    // Set division only for initial stage matches
+    // For other stages, division is null (cross-division matches are allowed)
+    const matchDivision = insertMatch.stage === "initial" ? (team1.division ?? null) : null;
 
     const [match] = await db
       .insert(matches)
@@ -116,7 +128,7 @@ export class DatabaseStorage implements IStorage {
         status: insertMatch.status || "scheduled",
         winnerId: insertMatch.winnerId ?? null,
         matchDate: insertMatch.matchDate ?? null,
-        division: team1.division ?? null,
+        division: matchDivision,
       })
       .returning();
     

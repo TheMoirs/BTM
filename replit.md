@@ -51,9 +51,10 @@ Boules League Manager is a web application for managing boules league competitio
   - Entering both scores marks match as "completed" and calculates winner
   - Clearing scores reverts match to "scheduled" status
   - Validation ensures both scores provided together or both empty
-- **Division Management**: Matches automatically inherit division from participating teams
-  - Both teams must be in the same division (validated on creation)
-  - Division displayed as a badge in the table
+- **Division Management**: Division rules vary by tournament stage
+  - **Initial Stage**: Both teams must be in the same division (validated on creation)
+  - **Other Stages** (Quarter-Finals, Semi-Finals, Finals): Teams can be from different divisions (cross-division matches allowed)
+  - Initial stage matches display division badge; other stages show no division
   - Matches can be filtered by division
 - **Generate Matches**: Automatically creates matches from the teams table, grouped by division
   - Uses modular arithmetic pairing algorithm within each division (team1Index = i*2 % length, team2Index = (i*2+1) % length)
