@@ -69,6 +69,32 @@ Boules League Manager is a web application for managing boules league competitio
   - Validates both teams are in same division before creating
 - **Clear All Matches**: Bulk delete all matches with confirmation dialog
 
+### Results Tracking
+- **Automatic Result Recording**: Results are automatically created and updated when match scores are saved
+  - Each completed match generates 2 result records (one for each team)
+  - **Point Allocation System**:
+    - Winner receives 2 points
+    - Loser receives 0 points
+    - Draw: both teams receive 1 point each
+  - Results include match information, date, team name, points earned, and score
+  - **Smart Lifecycle Management**:
+    - Results created automatically when scores are entered
+    - Results deleted automatically when scores are cleared
+    - No manual result management needed
+- **Table View with Sorting**: All results displayed in a comprehensive table format
+  - Columns: Match, Date, Team, Points, Score
+  - Click any column header to sort (ascending/descending toggle)
+  - Default sort: Match name (ascending)
+  - Visual indicators show active sort column and direction
+- **Visual Point Badges**: Points displayed with color-coded badges for quick recognition
+  - Winner (2 points): Blue badge
+  - Draw (1 point): Default badge
+  - Loser (0 points): Secondary badge
+- **Match Date Display**: Dates formatted in readable format (e.g., "Jan 15, 2026") with calendar icons
+- **Clear All Results**: Bulk delete all results with confirmation dialog
+- **Empty State**: Helpful message with trophy icon when no results exist
+- **Real-time Updates**: Cache invalidation ensures results update immediately after match score changes
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -80,7 +106,7 @@ Preferred communication style: Simple, everyday language.
 **Framework & Tooling**
 - **React 18** with TypeScript for type-safe component development
 - **Vite** as the build tool and development server for fast refresh and optimized builds
-- **Wouter** for lightweight client-side routing (Teams, Matches, Bracket views)
+- **Wouter** for lightweight client-side routing (Teams, Matches, Results, Bracket views)
 - **TanStack Query (React Query)** for server state management, caching, and data synchronization
 
 **UI Component System**
@@ -113,6 +139,7 @@ Preferred communication style: Simple, everyday language.
 - Resource-based endpoints following REST conventions:
   - `/api/teams` - CRUD operations for team management
   - `/api/matches` - CRUD operations for match management and score updates
+  - `/api/results` - GET all results, DELETE all results (results created/updated automatically via match score updates)
 - Request validation using Zod schemas before database operations
 - Error responses with appropriate HTTP status codes (400, 404, 500)
 
@@ -138,6 +165,15 @@ Preferred communication style: Simple, everyday language.
   - matchDate field: Optional text field storing dates in YYYY-MM-DD format for scheduling
   - Frontend displays formatted dates (e.g., "Jan 15, 2026") with calendar icons when present
   - **Unique constraint on team pairs**: Database index on `LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id)` ensures no duplicate matches regardless of team order
+- **Results Table**: Stores match outcomes with point allocation (auto-managed via match score updates)
+  - matchId: References the parent match
+  - matchInfo: Formatted match name (e.g., "Team 1 vs Team 2")
+  - matchDate: Optional match date copied from match record
+  - teamName: Name of the team this result belongs to
+  - points: Integer points earned (2 for winner, 0 for loser, 1 for draw)
+  - score: The team's score in the match
+  - Two result records created per completed match (one for each team)
+  - Automatically deleted when match scores are cleared
 - Stage progression: initial → quarter-finals → semi-finals → finals
 - Match status workflow: scheduled → in-progress → completed
 
