@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 
@@ -46,7 +48,25 @@ app.use((req, res, next) => {
   next();
 });
 
+async function initializeDatabase() {
+  try {
+    // Create unique index on matches table to prevent duplicate team pairings
+    // This index ensures that matches like (Team A vs Team B) and (Team B vs Team A)
+    // are treated as duplicates regardless of team order
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS unique_team_pair 
+      ON matches (LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id))
+    `);
+    log("Database initialized: unique_team_pair index ensured");
+  } catch (error) {
+    log(`Warning: Could not create unique index: ${error instanceof Error ? error.message : error}`);
+  }
+}
+
 (async () => {
+  // Initialize database constraints
+  await initializeDatabase();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

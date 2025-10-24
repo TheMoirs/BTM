@@ -117,22 +117,30 @@ export class DatabaseStorage implements IStorage {
     // For other stages, division is null (cross-division matches are allowed)
     const matchDivision = insertMatch.stage === "initial" ? (team1.division ?? null) : null;
 
-    const [match] = await db
-      .insert(matches)
-      .values({
-        team1Id: insertMatch.team1Id,
-        team2Id: insertMatch.team2Id,
-        team1Score: insertMatch.team1Score ?? null,
-        team2Score: insertMatch.team2Score ?? null,
-        stage: insertMatch.stage,
-        status: insertMatch.status || "scheduled",
-        winnerId: insertMatch.winnerId ?? null,
-        matchDate: insertMatch.matchDate ?? null,
-        division: matchDivision,
-      })
-      .returning();
-    
-    return match;
+    try {
+      const [match] = await db
+        .insert(matches)
+        .values({
+          team1Id: insertMatch.team1Id,
+          team2Id: insertMatch.team2Id,
+          team1Score: insertMatch.team1Score ?? null,
+          team2Score: insertMatch.team2Score ?? null,
+          stage: insertMatch.stage,
+          status: insertMatch.status || "scheduled",
+          winnerId: insertMatch.winnerId ?? null,
+          matchDate: insertMatch.matchDate ?? null,
+          division: matchDivision,
+        })
+        .returning();
+      
+      return match;
+    } catch (error: any) {
+      // Handle database unique constraint violation
+      if (error.code === '23505' && error.constraint === 'unique_team_pair') {
+        throw new Error("A match between these two teams already exists");
+      }
+      throw error;
+    }
   }
 
   async updateMatchScore(id: string, team1Score: number | null, team2Score: number | null): Promise<Match | undefined> {

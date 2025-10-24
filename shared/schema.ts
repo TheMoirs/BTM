@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
@@ -40,6 +40,10 @@ export const matches = pgTable("matches", {
   matchDate: text("match_date"),
   division: text("division"),
 });
+
+// Note: A unique index exists on the database:
+// CREATE UNIQUE INDEX unique_team_pair ON matches (LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id));
+// This prevents duplicate matches regardless of team order
 
 export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).extend({
   team1Id: z.string().min(1, "Team 1 is required"),

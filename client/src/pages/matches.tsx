@@ -89,7 +89,7 @@ export default function Matches() {
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const { toast } = useToast();
 
-  const { data: teams } = useQuery<Team[]>({
+  const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
   });
 
@@ -171,65 +171,41 @@ export default function Matches() {
   });
 
   const handleGenerateMatches = async () => {
-    if (!teams || teams.length < 2) {
-      toast({
-        title: "Not enough teams",
-        description: "You need at least 2 teams to generate matches.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      // Group teams by division
-      const teamsByDivision: Record<string, Team[]> = {};
-      teams.forEach(team => {
-        const div = team.division || "NONE";
-        if (!teamsByDivision[div]) {
-          teamsByDivision[div] = [];
-        }
-        teamsByDivision[div].push(team);
-      });
-
-      let successCount = 0;
-
-      // Generate matches within each division
-      for (const division in teamsByDivision) {
-        const divTeams = teamsByDivision[division];
-        if (divTeams.length < 2) continue;
-
-        const numMatches = Math.floor(divTeams.length / 2);
-
-        for (let i = 0; i < numMatches; i++) {
-          const team1Index = (i * 2) % divTeams.length;
-          const team2Index = (i * 2 + 1) % divTeams.length;
-
-          const matchData: InsertMatch = {
-            team1Id: divTeams[team1Index].id,
-            team2Id: divTeams[team2Index].id,
-            stage: "initial",
-            status: "scheduled",
-            matchDate: null,
-            team1Score: null,
-            team2Score: null,
-            winnerId: null,
-          };
-
-          await apiRequest("POST", "/api/matches", matchData);
-          successCount++;
-        }
-      }
+      const response = await apiRequest<{
+        created: number;
+        skipped: number;
+        teamsWithoutDivision: number;
+        matches: Match[];
+      }>("POST", "/api/matches/generate", {});
 
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
 
+      let message = "";
+      if (response.created > 0 && response.skipped > 0) {
+        message = `Created ${response.created} new match(es). Skipped ${response.skipped} existing match(es).`;
+      } else if (response.created > 0) {
+        message = `Successfully created ${response.created} match(es).`;
+      } else if (response.skipped > 0) {
+        message = `No new matches created. ${response.skipped} match(es) already exist.`;
+      } else {
+        message = "No matches were created.";
+      }
+
+      if (response.teamsWithoutDivision > 0) {
+        message += ` Note: ${response.teamsWithoutDivision} team(s) without divisions were skipped.`;
+      }
+
       toast({
         title: "Matches generated",
-        description: `Successfully created ${successCount} match(es).`,
+        description: message,
       });
     } catch (error) {
+      console.error("Error generating matches:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate matches.";
       toast({
         title: "Error",
-        description: "Failed to generate matches.",
+        description: errorMessage,
         variant: "destructive",
       });
     }

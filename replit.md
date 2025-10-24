@@ -56,9 +56,12 @@ Boules League Manager is a web application for managing boules league competitio
   - **Other Stages** (Quarter-Finals, Semi-Finals, Finals): Teams can be from different divisions (cross-division matches allowed)
   - Initial stage matches display division badge; other stages show no division
   - Matches can be filtered by division
-- **Generate Matches**: Automatically creates matches from the teams table, grouped by division
-  - Uses modular arithmetic pairing algorithm within each division (team1Index = i*2 % length, team2Index = (i*2+1) % length)
-  - Only generates matches for teams in the same division
+- **Generate Matches**: Automatically creates round-robin matches from the teams table, grouped by division
+  - **Server-side generation via POST /api/matches/generate**: Atomic operation with built-in deduplication
+  - **Round-robin algorithm**: Every team plays every other team within their division (N*(N-1)/2 matches)
+  - **Database-level uniqueness**: Unique index on LEAST/GREATEST team pair prevents all duplicates
+  - **Concurrent-safe**: Multiple simultaneous generation requests handled gracefully
+  - **Smart feedback**: Reports count of newly created vs skipped (already existing) matches
   - All generated matches default to "initial" stage with "scheduled" status
 - **Manual Match Creation**: Create individual matches via form by selecting teams and tournament stage
   - Teams shown with their division in the dropdown
@@ -129,9 +132,11 @@ Preferred communication style: Simple, everyday language.
 - **Teams Table**: Stores team information (name, captain details with name/phone/email, division)
   - division field: Optional text field storing single letter (A-Z) for team's starting division
   - Frontend displays division as a badge when present
+  - Unique constraint on team name prevents duplicates
 - **Matches Table**: Stores match data with team references, scores, stage, status, winner, and optional scheduled date
   - matchDate field: Optional text field storing dates in YYYY-MM-DD format for scheduling
   - Frontend displays formatted dates (e.g., "Jan 15, 2026") with calendar icons when present
+  - **Unique constraint on team pairs**: Database index on `LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id)` ensures no duplicate matches regardless of team order
 - Stage progression: initial → quarter-finals → semi-finals → finals
 - Match status workflow: scheduled → in-progress → completed
 
