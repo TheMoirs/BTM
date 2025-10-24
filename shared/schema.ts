@@ -78,6 +78,7 @@ export const results = pgTable("results", {
   matchId: varchar("match_id").notNull(),
   matchInfo: text("match_info").notNull(),
   matchDate: text("match_date"),
+  stage: text("stage").notNull(),
   teamName: text("team_name").notNull(),
   points: integer("points").notNull(),
   score: integer("score").notNull(),
