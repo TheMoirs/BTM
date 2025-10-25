@@ -55,6 +55,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 const stageLabels = {
   initial: "Initial",
@@ -811,6 +813,16 @@ export default function Matches() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Helper Info */}
+        <Alert className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+            <strong>How to complete matches and create results:</strong> Each match uses best-of-3 scoring. 
+            To complete a match and generate results, enter scores for <strong>at least 2 games</strong> where one team wins both 
+            (e.g., Team A: 13-2, 13-5). Results appear only when match status becomes "Completed".
+          </AlertDescription>
+        </Alert>
 
         {!matches || matches.length === 0 ? (
           <Card className="border-dashed">
