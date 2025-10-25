@@ -92,7 +92,9 @@ export const results = pgTable("results", {
   matchDate: text("match_date"),
   stage: text("stage").notNull(),
   teamName: text("team_name").notNull(),
-  points: integer("points").notNull(),
+  pointsFor: integer("points_for").notNull(),
+  pointsAgainst: integer("points_against").notNull(),
+  pointsDifference: integer("points_difference").notNull(),
   score: integer("score").notNull(),
 });
 

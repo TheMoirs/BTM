@@ -267,8 +267,12 @@ export class DatabaseStorage implements IStorage {
           
           // Determine points for each team based on match winner
           // Winner gets 2 points, loser gets 0, draw gives 1 point to each
-          const team1Points = winnerId === match.team1Id ? 2 : winnerId === null ? 1 : 0;
-          const team2Points = winnerId === match.team2Id ? 2 : winnerId === null ? 1 : 0;
+          const team1PointsFor = winnerId === match.team1Id ? 2 : winnerId === null ? 1 : 0;
+          const team2PointsFor = winnerId === match.team2Id ? 2 : winnerId === null ? 1 : 0;
+          
+          // Points against is the opponent's points
+          const team1PointsAgainst = team2PointsFor;
+          const team2PointsAgainst = team1PointsFor;
           
           // Create result records for both teams
           await this.createResult({
@@ -277,7 +281,9 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team1.name,
-            points: team1Points,
+            pointsFor: team1PointsFor,
+            pointsAgainst: team1PointsAgainst,
+            pointsDifference: team1PointsFor - team1PointsAgainst,
             score: team1TotalScore,
           });
           
@@ -287,7 +293,9 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team2.name,
-            points: team2Points,
+            pointsFor: team2PointsFor,
+            pointsAgainst: team2PointsAgainst,
+            pointsDifference: team2PointsFor - team2PointsAgainst,
             score: team2TotalScore,
           });
         }
