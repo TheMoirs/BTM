@@ -73,8 +73,12 @@ type SortColumn = "division" | "stage" | "matchDate" | "team1" | "team2";
 type SortDirection = "asc" | "desc";
 
 type EditingMatch = {
-  team1Score: string;
-  team2Score: string;
+  team1Game1Score: string;
+  team2Game1Score: string;
+  team1Game2Score: string;
+  team2Game2Score: string;
+  team1Game3Score: string;
+  team2Game3Score: string;
   matchDate: string;
 };
 
@@ -106,8 +110,12 @@ export default function Matches() {
       stage: "initial",
       status: "scheduled",
       matchDate: null,
-      team1Score: null,
-      team2Score: null,
+      team1Game1Score: null,
+      team2Game1Score: null,
+      team1Game2Score: null,
+      team2Game2Score: null,
+      team1Game3Score: null,
+      team2Game3Score: null,
     },
   });
 
@@ -248,8 +256,12 @@ export default function Matches() {
   const startEditing = (match: Match) => {
     setEditingRowId(match.id);
     setEditingValues({
-      team1Score: match.team1Score?.toString() || "",
-      team2Score: match.team2Score?.toString() || "",
+      team1Game1Score: match.team1Game1Score?.toString() || "",
+      team2Game1Score: match.team2Game1Score?.toString() || "",
+      team1Game2Score: match.team1Game2Score?.toString() || "",
+      team2Game2Score: match.team2Game2Score?.toString() || "",
+      team1Game3Score: match.team1Game3Score?.toString() || "",
+      team2Game3Score: match.team2Game3Score?.toString() || "",
       matchDate: match.matchDate || "",
     });
   };
@@ -260,50 +272,88 @@ export default function Matches() {
   };
 
   const saveEditing = (matchId: string) => {
-    // Parse scores, keeping null for empty values
-    const team1Score = editingValues.team1Score?.trim() 
-      ? parseInt(editingValues.team1Score) 
+    // Parse all game scores, keeping null for empty values
+    const team1Game1Score = editingValues.team1Game1Score?.trim() 
+      ? parseInt(editingValues.team1Game1Score) 
       : null;
-    const team2Score = editingValues.team2Score?.trim() 
-      ? parseInt(editingValues.team2Score) 
+    const team2Game1Score = editingValues.team2Game1Score?.trim() 
+      ? parseInt(editingValues.team2Game1Score) 
+      : null;
+    const team1Game2Score = editingValues.team1Game2Score?.trim() 
+      ? parseInt(editingValues.team1Game2Score) 
+      : null;
+    const team2Game2Score = editingValues.team2Game2Score?.trim() 
+      ? parseInt(editingValues.team2Game2Score) 
+      : null;
+    const team1Game3Score = editingValues.team1Game3Score?.trim() 
+      ? parseInt(editingValues.team1Game3Score) 
+      : null;
+    const team2Game3Score = editingValues.team2Game3Score?.trim() 
+      ? parseInt(editingValues.team2Game3Score) 
       : null;
     const matchDate = editingValues.matchDate?.trim() || null;
 
-    // Validate that if one score is provided, both must be provided
-    if ((team1Score !== null && team2Score === null) || 
-        (team1Score === null && team2Score !== null)) {
+    // Validate that for each game, if one score is provided, both must be provided
+    if ((team1Game1Score !== null && team2Game1Score === null) || 
+        (team1Game1Score === null && team2Game1Score !== null)) {
       toast({
         title: "Invalid scores",
-        description: "Please provide both scores or leave both empty.",
+        description: "Please provide both scores for Game 1 or leave both empty.",
         variant: "destructive",
       });
       return;
     }
 
-    // Validate scores are non-negative integers
-    if (team1Score !== null && (isNaN(team1Score) || team1Score < 0)) {
+    if ((team1Game2Score !== null && team2Game2Score === null) || 
+        (team1Game2Score === null && team2Game2Score !== null)) {
       toast({
-        title: "Invalid score",
-        description: "Team 1 score must be a non-negative number.",
+        title: "Invalid scores",
+        description: "Please provide both scores for Game 2 or leave both empty.",
         variant: "destructive",
       });
       return;
     }
 
-    if (team2Score !== null && (isNaN(team2Score) || team2Score < 0)) {
+    if ((team1Game3Score !== null && team2Game3Score === null) || 
+        (team1Game3Score === null && team2Game3Score !== null)) {
       toast({
-        title: "Invalid score",
-        description: "Team 2 score must be a non-negative number.",
+        title: "Invalid scores",
+        description: "Please provide both scores for Game 3 or leave both empty.",
         variant: "destructive",
       });
       return;
+    }
+
+    // Validate all scores are non-negative integers
+    const scores = [
+      { value: team1Game1Score, name: "Team 1 Game 1" },
+      { value: team2Game1Score, name: "Team 2 Game 1" },
+      { value: team1Game2Score, name: "Team 1 Game 2" },
+      { value: team2Game2Score, name: "Team 2 Game 2" },
+      { value: team1Game3Score, name: "Team 1 Game 3" },
+      { value: team2Game3Score, name: "Team 2 Game 3" },
+    ];
+
+    for (const score of scores) {
+      if (score.value !== null && (isNaN(score.value) || score.value < 0)) {
+        toast({
+          title: "Invalid score",
+          description: `${score.name} score must be a non-negative number.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     updateMutation.mutate({
       id: matchId,
       data: {
-        team1Score,
-        team2Score,
+        team1Game1Score,
+        team2Game1Score,
+        team1Game2Score,
+        team2Game2Score,
+        team1Game3Score,
+        team2Game3Score,
         matchDate,
       },
     });
@@ -670,7 +720,9 @@ export default function Matches() {
                         <SortIcon column="team1" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[80px] text-center">Score</TableHead>
+                    <TableHead className="w-[70px] text-center">Game 1</TableHead>
+                    <TableHead className="w-[70px] text-center">Game 2</TableHead>
+                    <TableHead className="w-[70px] text-center">Game 3</TableHead>
                     <TableHead className="w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -681,7 +733,9 @@ export default function Matches() {
                         <SortIcon column="team2" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[80px] text-center">Score</TableHead>
+                    <TableHead className="w-[70px] text-center">Game 1</TableHead>
+                    <TableHead className="w-[70px] text-center">Game 2</TableHead>
+                    <TableHead className="w-[70px] text-center">Game 3</TableHead>
                     <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -733,15 +787,47 @@ export default function Matches() {
                           {isEditing ? (
                             <Input
                               type="number"
-                              value={editingValues.team1Score || ""}
-                              onChange={(e) => updateEditingValue("team1Score", e.target.value)}
-                              className="h-8 w-16 text-center"
+                              value={editingValues.team1Game1Score || ""}
+                              onChange={(e) => updateEditingValue("team1Game1Score", e.target.value)}
+                              className="h-8 w-14 text-center"
                               placeholder="0"
-                              data-testid={`input-edit-score1-${match.id}`}
+                              data-testid={`input-edit-team1-game1-${match.id}`}
                             />
                           ) : (
-                            <span className="font-mono text-sm" data-testid={`text-score1-${match.id}`}>
-                              {match.team1Score ?? "—"}
+                            <span className="font-mono text-sm" data-testid={`text-team1-game1-${match.id}`}>
+                              {match.team1Game1Score ?? "—"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={editingValues.team1Game2Score || ""}
+                              onChange={(e) => updateEditingValue("team1Game2Score", e.target.value)}
+                              className="h-8 w-14 text-center"
+                              placeholder="0"
+                              data-testid={`input-edit-team1-game2-${match.id}`}
+                            />
+                          ) : (
+                            <span className="font-mono text-sm" data-testid={`text-team1-game2-${match.id}`}>
+                              {match.team1Game2Score ?? "—"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={editingValues.team1Game3Score || ""}
+                              onChange={(e) => updateEditingValue("team1Game3Score", e.target.value)}
+                              className="h-8 w-14 text-center"
+                              placeholder="0"
+                              data-testid={`input-edit-team1-game3-${match.id}`}
+                            />
+                          ) : (
+                            <span className="font-mono text-sm" data-testid={`text-team1-game3-${match.id}`}>
+                              {match.team1Game3Score ?? "—"}
                             </span>
                           )}
                         </TableCell>
@@ -752,15 +838,47 @@ export default function Matches() {
                           {isEditing ? (
                             <Input
                               type="number"
-                              value={editingValues.team2Score || ""}
-                              onChange={(e) => updateEditingValue("team2Score", e.target.value)}
-                              className="h-8 w-16 text-center"
+                              value={editingValues.team2Game1Score || ""}
+                              onChange={(e) => updateEditingValue("team2Game1Score", e.target.value)}
+                              className="h-8 w-14 text-center"
                               placeholder="0"
-                              data-testid={`input-edit-score2-${match.id}`}
+                              data-testid={`input-edit-team2-game1-${match.id}`}
                             />
                           ) : (
-                            <span className="font-mono text-sm" data-testid={`text-score2-${match.id}`}>
-                              {match.team2Score ?? "—"}
+                            <span className="font-mono text-sm" data-testid={`text-team2-game1-${match.id}`}>
+                              {match.team2Game1Score ?? "—"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={editingValues.team2Game2Score || ""}
+                              onChange={(e) => updateEditingValue("team2Game2Score", e.target.value)}
+                              className="h-8 w-14 text-center"
+                              placeholder="0"
+                              data-testid={`input-edit-team2-game2-${match.id}`}
+                            />
+                          ) : (
+                            <span className="font-mono text-sm" data-testid={`text-team2-game2-${match.id}`}>
+                              {match.team2Game2Score ?? "—"}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={editingValues.team2Game3Score || ""}
+                              onChange={(e) => updateEditingValue("team2Game3Score", e.target.value)}
+                              className="h-8 w-14 text-center"
+                              placeholder="0"
+                              data-testid={`input-edit-team2-game3-${match.id}`}
+                            />
+                          ) : (
+                            <span className="font-mono text-sm" data-testid={`text-team2-game3-${match.id}`}>
+                              {match.team2Game3Score ?? "—"}
                             </span>
                           )}
                         </TableCell>
