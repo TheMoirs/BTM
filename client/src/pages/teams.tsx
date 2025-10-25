@@ -177,7 +177,7 @@ export default function Teams() {
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        const workbook = XLSX.read(data, { type: 'array' });
         
         // Get the first sheet
         const sheetName = workbook.SheetNames[0];
@@ -250,7 +250,7 @@ export default function Teams() {
       resetFileInput();
     };
 
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const onSubmit = (data: InsertTeam) => {
