@@ -46,6 +46,13 @@ Preferred communication style: Simple, everyday language.
     - Deleting all teams removes all matches and all results
     - Deleting a match removes all results for that match
     - Deleting all matches removes all results (teams remain)
+- **Tournament Progression**: Automated match generation follows tournament stages:
+    - **Initial Stage**: Generates round-robin matches within divisions when no matches exist
+    - **Quarter Finals**: Generates when initial matches are completed (with dates & results) and >8 divisions exist (selects division winners by points)
+    - **Semi Finals**: Generates when quarter finals are completed and 2-4 winners exist
+    - **Finals**: Generates when semi finals are completed and exactly 2 winners exist
+    - Generate Matches button intelligently determines next stage based on current state
+    - Provides clear error messages when requirements aren't met
 
 ## External Dependencies
 
