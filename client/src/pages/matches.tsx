@@ -405,11 +405,13 @@ export default function Matches() {
     );
 
     let successCount = 0;
-    let errorCount = 0;
+    const errors: string[] = [];
 
     for (const match of matchesToUpdate) {
       const values = allEditingValues[match.id];
       if (!values) continue;
+
+      const matchLabel = `${getTeamName(match.team1Id)} vs ${getTeamName(match.team2Id)}`;
 
       try {
         // Parse scores
@@ -421,26 +423,45 @@ export default function Matches() {
         const team2Game3Score = values.team2Game3Score?.trim() !== "" ? parseInt(values.team2Game3Score!) : null;
         const matchDate = values.matchDate?.trim() || null;
 
-        // Validate scores
+        // Validate paired scores for each game
+        if ((team1Game1Score !== null && team2Game1Score === null) || 
+            (team1Game1Score === null && team2Game1Score !== null)) {
+          errors.push(`${matchLabel}: Both Game 1 scores must be provided or both left empty`);
+          continue;
+        }
+
+        if ((team1Game2Score !== null && team2Game2Score === null) || 
+            (team1Game2Score === null && team2Game2Score !== null)) {
+          errors.push(`${matchLabel}: Both Game 2 scores must be provided or both left empty`);
+          continue;
+        }
+
+        if ((team1Game3Score !== null && team2Game3Score === null) || 
+            (team1Game3Score === null && team2Game3Score !== null)) {
+          errors.push(`${matchLabel}: Both Game 3 scores must be provided or both left empty`);
+          continue;
+        }
+
+        // Validate all scores are non-negative integers
         const scores = [
-          { value: team1Game1Score, name: `${getTeamName(match.team1Id)} Game 1` },
-          { value: team2Game1Score, name: `${getTeamName(match.team2Id)} Game 1` },
-          { value: team1Game2Score, name: `${getTeamName(match.team1Id)} Game 2` },
-          { value: team2Game2Score, name: `${getTeamName(match.team2Id)} Game 2` },
-          { value: team1Game3Score, name: `${getTeamName(match.team1Id)} Game 3` },
-          { value: team2Game3Score, name: `${getTeamName(match.team2Id)} Game 3` },
+          { value: team1Game1Score, name: `Game 1` },
+          { value: team2Game1Score, name: `Game 1` },
+          { value: team1Game2Score, name: `Game 2` },
+          { value: team2Game2Score, name: `Game 2` },
+          { value: team1Game3Score, name: `Game 3` },
+          { value: team2Game3Score, name: `Game 3` },
         ];
 
-        let hasError = false;
+        let hasInvalidScore = false;
         for (const score of scores) {
           if (score.value !== null && (isNaN(score.value) || score.value < 0)) {
-            hasError = true;
+            errors.push(`${matchLabel}: ${score.name} score must be a non-negative number`);
+            hasInvalidScore = true;
             break;
           }
         }
 
-        if (hasError) {
-          errorCount++;
+        if (hasInvalidScore) {
           continue;
         }
 
@@ -457,29 +478,41 @@ export default function Matches() {
 
         successCount++;
       } catch (error) {
-        errorCount++;
+        errors.push(`${matchLabel}: Failed to save changes`);
       }
     }
 
-    // Invalidate queries and show results
-    await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-    await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
-
-    if (successCount > 0) {
-      toast({
-        title: "Matches updated",
-        description: `Successfully updated ${successCount} match${successCount > 1 ? 'es' : ''}.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
-      });
-    } else if (errorCount > 0) {
-      toast({
-        title: "Update failed",
-        description: `Failed to update ${errorCount} match${errorCount > 1 ? 'es' : ''}.`,
-        variant: "destructive",
-      });
+    // Only invalidate and exit edit mode if there were successful updates or no errors
+    if (successCount > 0 || errors.length > 0) {
+      await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
     }
 
-    setIsEditAllMode(false);
-    setAllEditingValues({});
+    if (successCount > 0 && errors.length === 0) {
+      // All updates successful - exit edit mode
+      toast({
+        title: "Matches updated",
+        description: `Successfully updated ${successCount} match${successCount > 1 ? 'es' : ''}.`,
+      });
+      setIsEditAllMode(false);
+      setAllEditingValues({});
+    } else if (successCount > 0 && errors.length > 0) {
+      // Some succeeded, some failed - show partial success and stay in edit mode
+      toast({
+        title: "Partially updated",
+        description: `Updated ${successCount} match${successCount > 1 ? 'es' : ''}. ${errors.length} failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`,
+        variant: "destructive",
+      });
+      // Stay in edit mode so user can fix errors
+    } else if (errors.length > 0) {
+      // All failed - show error and stay in edit mode
+      toast({
+        title: "Update failed",
+        description: errors.length === 1 ? errors[0] : `${errors.length} errors: ${errors[0]} (+${errors.length - 1} more)`,
+        variant: "destructive",
+      });
+      // Stay in edit mode so user can fix errors
+    }
   };
 
   const getTeamName = (teamId: string) => {
