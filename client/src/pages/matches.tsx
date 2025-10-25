@@ -86,6 +86,8 @@ export default function Matches() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<EditingMatch>>({});
+  const [isEditAllMode, setIsEditAllMode] = useState(false);
+  const [allEditingValues, setAllEditingValues] = useState<Record<string, Partial<EditingMatch>>>({});
   const [deletingMatch, setDeletingMatch] = useState<Match | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("matchDate");
@@ -364,6 +366,122 @@ export default function Matches() {
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
+  const updateAllEditingValue = (matchId: string, field: keyof EditingMatch, value: string) => {
+    setAllEditingValues(prev => ({
+      ...prev,
+      [matchId]: {
+        ...prev[matchId],
+        [field]: value
+      }
+    }));
+  };
+
+  const toggleEditAllMode = () => {
+    if (isEditAllMode) {
+      // Exiting edit all mode - save all changes
+      saveAllEdits();
+    } else {
+      // Entering edit all mode - initialize editing values for all matches
+      const initialValues: Record<string, Partial<EditingMatch>> = {};
+      getFilteredAndSortedMatches.forEach(match => {
+        initialValues[match.id] = {
+          team1Game1Score: match.team1Game1Score !== null ? match.team1Game1Score.toString() : "",
+          team2Game1Score: match.team2Game1Score !== null ? match.team2Game1Score.toString() : "",
+          team1Game2Score: match.team1Game2Score !== null ? match.team1Game2Score.toString() : "",
+          team2Game2Score: match.team2Game2Score !== null ? match.team2Game2Score.toString() : "",
+          team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
+          team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
+          matchDate: match.matchDate || "",
+        };
+      });
+      setAllEditingValues(initialValues);
+      setIsEditAllMode(true);
+    }
+  };
+
+  const saveAllEdits = async () => {
+    const matchesToUpdate = getFilteredAndSortedMatches.filter(match => 
+      allEditingValues[match.id] !== undefined
+    );
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const match of matchesToUpdate) {
+      const values = allEditingValues[match.id];
+      if (!values) continue;
+
+      try {
+        // Parse scores
+        const team1Game1Score = values.team1Game1Score?.trim() !== "" ? parseInt(values.team1Game1Score!) : null;
+        const team2Game1Score = values.team2Game1Score?.trim() !== "" ? parseInt(values.team2Game1Score!) : null;
+        const team1Game2Score = values.team1Game2Score?.trim() !== "" ? parseInt(values.team1Game2Score!) : null;
+        const team2Game2Score = values.team2Game2Score?.trim() !== "" ? parseInt(values.team2Game2Score!) : null;
+        const team1Game3Score = values.team1Game3Score?.trim() !== "" ? parseInt(values.team1Game3Score!) : null;
+        const team2Game3Score = values.team2Game3Score?.trim() !== "" ? parseInt(values.team2Game3Score!) : null;
+        const matchDate = values.matchDate?.trim() || null;
+
+        // Validate scores
+        const scores = [
+          { value: team1Game1Score, name: `${getTeamName(match.team1Id)} Game 1` },
+          { value: team2Game1Score, name: `${getTeamName(match.team2Id)} Game 1` },
+          { value: team1Game2Score, name: `${getTeamName(match.team1Id)} Game 2` },
+          { value: team2Game2Score, name: `${getTeamName(match.team2Id)} Game 2` },
+          { value: team1Game3Score, name: `${getTeamName(match.team1Id)} Game 3` },
+          { value: team2Game3Score, name: `${getTeamName(match.team2Id)} Game 3` },
+        ];
+
+        let hasError = false;
+        for (const score of scores) {
+          if (score.value !== null && (isNaN(score.value) || score.value < 0)) {
+            hasError = true;
+            break;
+          }
+        }
+
+        if (hasError) {
+          errorCount++;
+          continue;
+        }
+
+        // Update the match
+        await apiRequest("PATCH", `/api/matches/${match.id}/score`, {
+          team1Game1Score,
+          team2Game1Score,
+          team1Game2Score,
+          team2Game2Score,
+          team1Game3Score,
+          team2Game3Score,
+          matchDate,
+        });
+
+        successCount++;
+      } catch (error) {
+        errorCount++;
+      }
+    }
+
+    // Invalidate queries and show results
+    await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+    await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+
+    if (successCount > 0) {
+      toast({
+        title: "Matches updated",
+        description: `Successfully updated ${successCount} match${successCount > 1 ? 'es' : ''}.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
+      });
+    } else if (errorCount > 0) {
+      toast({
+        title: "Update failed",
+        description: `Failed to update ${errorCount} match${errorCount > 1 ? 'es' : ''}.`,
+        variant: "destructive",
+      });
+    }
+
+    setIsEditAllMode(false);
+    setAllEditingValues({});
+  };
+
   const getTeamName = (teamId: string) => {
     const team = teams?.find(t => t.id === teamId);
     return team?.name || "Unknown Team";
@@ -463,6 +581,23 @@ export default function Matches() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant={isEditAllMode ? "default" : "outline"}
+              onClick={toggleEditAllMode}
+              data-testid="button-edit-all"
+            >
+              {isEditAllMode ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Save All
+                </>
+              ) : (
+                <>
+                  <Users className="h-4 w-4 mr-2" />
+                  Edit All
+                </>
+              )}
+            </Button>
             <Button
               variant="outline"
               onClick={handleGenerateMatches}
@@ -743,6 +878,12 @@ export default function Matches() {
                 <TableBody>
                   {getFilteredAndSortedMatches.map((match) => {
                     const isEditing = editingRowId === match.id;
+                    const isEditingInBulk = isEditAllMode && allEditingValues[match.id];
+                    const shouldShowInputs = isEditing || isEditingInBulk;
+                    const currentValues = isEditingInBulk ? allEditingValues[match.id] : editingValues;
+                    const updateValue = isEditingInBulk 
+                      ? (field: keyof EditingMatch, value: string) => updateAllEditingValue(match.id, field, value)
+                      : updateEditingValue;
 
                     return (
                       <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
@@ -761,11 +902,11 @@ export default function Matches() {
                           </Badge>
                         </TableCell>
                         <TableCell data-testid={`text-date-${match.id}`}>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="date"
-                              value={editingValues.matchDate || ""}
-                              onChange={(e) => updateEditingValue("matchDate", e.target.value)}
+                              value={currentValues?.matchDate || ""}
+                              onChange={(e) => updateValue("matchDate", e.target.value)}
                               className="h-8 w-36"
                               data-testid={`input-edit-date-${match.id}`}
                             />
@@ -785,11 +926,11 @@ export default function Matches() {
                           {getTeamName(match.team1Id)}
                         </TableCell>
                         <TableCell className="text-center">
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="number"
-                              value={editingValues.team1Game1Score || ""}
-                              onChange={(e) => updateEditingValue("team1Game1Score", e.target.value)}
+                              value={currentValues?.team1Game1Score || ""}
+                              onChange={(e) => updateValue("team1Game1Score", e.target.value)}
                               className="h-8 w-14 text-center"
                               placeholder="0"
                               data-testid={`input-edit-team1-game1-${match.id}`}
@@ -801,11 +942,11 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="number"
-                              value={editingValues.team1Game2Score || ""}
-                              onChange={(e) => updateEditingValue("team1Game2Score", e.target.value)}
+                              value={currentValues?.team1Game2Score || ""}
+                              onChange={(e) => updateValue("team1Game2Score", e.target.value)}
                               className="h-8 w-14 text-center"
                               placeholder="0"
                               data-testid={`input-edit-team1-game2-${match.id}`}
@@ -817,11 +958,11 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="number"
-                              value={editingValues.team1Game3Score || ""}
-                              onChange={(e) => updateEditingValue("team1Game3Score", e.target.value)}
+                              value={currentValues?.team1Game3Score || ""}
+                              onChange={(e) => updateValue("team1Game3Score", e.target.value)}
                               className="h-8 w-14 text-center"
                               placeholder="0"
                               data-testid={`input-edit-team1-game3-${match.id}`}
@@ -836,11 +977,11 @@ export default function Matches() {
                           {getTeamName(match.team2Id)}
                         </TableCell>
                         <TableCell className="text-center">
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="number"
-                              value={editingValues.team2Game1Score || ""}
-                              onChange={(e) => updateEditingValue("team2Game1Score", e.target.value)}
+                              value={currentValues?.team2Game1Score || ""}
+                              onChange={(e) => updateValue("team2Game1Score", e.target.value)}
                               className="h-8 w-14 text-center"
                               placeholder="0"
                               data-testid={`input-edit-team2-game1-${match.id}`}
@@ -852,11 +993,11 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="number"
-                              value={editingValues.team2Game2Score || ""}
-                              onChange={(e) => updateEditingValue("team2Game2Score", e.target.value)}
+                              value={currentValues?.team2Game2Score || ""}
+                              onChange={(e) => updateValue("team2Game2Score", e.target.value)}
                               className="h-8 w-14 text-center"
                               placeholder="0"
                               data-testid={`input-edit-team2-game2-${match.id}`}
@@ -868,11 +1009,11 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
                               type="number"
-                              value={editingValues.team2Game3Score || ""}
-                              onChange={(e) => updateEditingValue("team2Game3Score", e.target.value)}
+                              value={currentValues?.team2Game3Score || ""}
+                              onChange={(e) => updateValue("team2Game3Score", e.target.value)}
                               className="h-8 w-14 text-center"
                               placeholder="0"
                               data-testid={`input-edit-team2-game3-${match.id}`}
@@ -884,7 +1025,10 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {isEditing ? (
+                          {isEditAllMode ? (
+                            // Hide individual actions in Edit All mode
+                            <span className="text-muted-foreground text-sm">—</span>
+                          ) : isEditing ? (
                             <div className="flex gap-1 justify-end">
                               <Button
                                 size="icon"
