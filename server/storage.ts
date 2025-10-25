@@ -265,14 +265,10 @@ export class DatabaseStorage implements IStorage {
           const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
           const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
           
-          // Determine points for each team based on match winner
+          // Determine match points for each team based on match winner
           // Winner gets 2 points, loser gets 0, draw gives 1 point to each
-          const team1PointsFor = winnerId === match.team1Id ? 2 : winnerId === null ? 1 : 0;
-          const team2PointsFor = winnerId === match.team2Id ? 2 : winnerId === null ? 1 : 0;
-          
-          // Points against is the opponent's points
-          const team1PointsAgainst = team2PointsFor;
-          const team2PointsAgainst = team1PointsFor;
+          const team1Points = winnerId === match.team1Id ? 2 : winnerId === null ? 1 : 0;
+          const team2Points = winnerId === match.team2Id ? 2 : winnerId === null ? 1 : 0;
           
           // Create result records for both teams
           await this.createResult({
@@ -281,10 +277,10 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team1.name,
-            pointsFor: team1PointsFor,
-            pointsAgainst: team1PointsAgainst,
-            pointsDifference: team1PointsFor - team1PointsAgainst,
-            score: team1TotalScore,
+            points: team1Points,
+            scoreFor: team1TotalScore,
+            scoreAgainst: team2TotalScore,
+            scoreDifference: team1TotalScore - team2TotalScore,
           });
           
           await this.createResult({
@@ -293,10 +289,10 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team2.name,
-            pointsFor: team2PointsFor,
-            pointsAgainst: team2PointsAgainst,
-            pointsDifference: team2PointsFor - team2PointsAgainst,
-            score: team2TotalScore,
+            points: team2Points,
+            scoreFor: team2TotalScore,
+            scoreAgainst: team1TotalScore,
+            scoreDifference: team2TotalScore - team1TotalScore,
           });
         }
       }

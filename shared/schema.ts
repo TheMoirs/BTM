@@ -92,10 +92,10 @@ export const results = pgTable("results", {
   matchDate: text("match_date"),
   stage: text("stage").notNull(),
   teamName: text("team_name").notNull(),
-  pointsFor: integer("points_for").notNull(),
-  pointsAgainst: integer("points_against").notNull(),
-  pointsDifference: integer("points_difference").notNull(),
-  score: integer("score").notNull(),
+  points: integer("points").notNull(),
+  scoreFor: integer("score_for").notNull(),
+  scoreAgainst: integer("score_against").notNull(),
+  scoreDifference: integer("score_difference").notNull(),
 });
 
 export const insertResultSchema = createInsertSchema(results).omit({ id: true });
