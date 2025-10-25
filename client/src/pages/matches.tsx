@@ -256,12 +256,12 @@ export default function Matches() {
   const startEditing = (match: Match) => {
     setEditingRowId(match.id);
     setEditingValues({
-      team1Game1Score: match.team1Game1Score?.toString() || "",
-      team2Game1Score: match.team2Game1Score?.toString() || "",
-      team1Game2Score: match.team1Game2Score?.toString() || "",
-      team2Game2Score: match.team2Game2Score?.toString() || "",
-      team1Game3Score: match.team1Game3Score?.toString() || "",
-      team2Game3Score: match.team2Game3Score?.toString() || "",
+      team1Game1Score: match.team1Game1Score !== null ? match.team1Game1Score.toString() : "",
+      team2Game1Score: match.team2Game1Score !== null ? match.team2Game1Score.toString() : "",
+      team1Game2Score: match.team1Game2Score !== null ? match.team1Game2Score.toString() : "",
+      team2Game2Score: match.team2Game2Score !== null ? match.team2Game2Score.toString() : "",
+      team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
+      team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
       matchDate: match.matchDate || "",
     });
   };
@@ -273,23 +273,24 @@ export default function Matches() {
 
   const saveEditing = (matchId: string) => {
     // Parse all game scores, keeping null for empty values
-    const team1Game1Score = editingValues.team1Game1Score?.trim() 
-      ? parseInt(editingValues.team1Game1Score) 
+    // Use !== "" to allow 0 as a valid score
+    const team1Game1Score = editingValues.team1Game1Score?.trim() !== "" 
+      ? parseInt(editingValues.team1Game1Score!) 
       : null;
-    const team2Game1Score = editingValues.team2Game1Score?.trim() 
-      ? parseInt(editingValues.team2Game1Score) 
+    const team2Game1Score = editingValues.team2Game1Score?.trim() !== "" 
+      ? parseInt(editingValues.team2Game1Score!) 
       : null;
-    const team1Game2Score = editingValues.team1Game2Score?.trim() 
-      ? parseInt(editingValues.team1Game2Score) 
+    const team1Game2Score = editingValues.team1Game2Score?.trim() !== "" 
+      ? parseInt(editingValues.team1Game2Score!) 
       : null;
-    const team2Game2Score = editingValues.team2Game2Score?.trim() 
-      ? parseInt(editingValues.team2Game2Score) 
+    const team2Game2Score = editingValues.team2Game2Score?.trim() !== "" 
+      ? parseInt(editingValues.team2Game2Score!) 
       : null;
-    const team1Game3Score = editingValues.team1Game3Score?.trim() 
-      ? parseInt(editingValues.team1Game3Score) 
+    const team1Game3Score = editingValues.team1Game3Score?.trim() !== "" 
+      ? parseInt(editingValues.team1Game3Score!) 
       : null;
-    const team2Game3Score = editingValues.team2Game3Score?.trim() 
-      ? parseInt(editingValues.team2Game3Score) 
+    const team2Game3Score = editingValues.team2Game3Score?.trim() !== "" 
+      ? parseInt(editingValues.team2Game3Score!) 
       : null;
     const matchDate = editingValues.matchDate?.trim() || null;
 
