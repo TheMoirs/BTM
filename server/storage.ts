@@ -206,7 +206,7 @@ export class DatabaseStorage implements IStorage {
     // Delete existing results for this match if they exist
     await this.deleteResultsByMatchId(id);
 
-    // Calculate winner based on games won
+    // Calculate winner based on games won (best of 3)
     let winnerId = null;
     let status = match.status;
     let team1GamesWon = 0;
@@ -232,51 +232,65 @@ export class DatabaseStorage implements IStorage {
                          team1Game3Score !== null || team2Game3Score !== null;
 
     if (hasAnyScores) {
-      // Determine winner based on games won
-      if (team1GamesWon > team2GamesWon) {
-        winnerId = match.team1Id;
-      } else if (team2GamesWon > team1GamesWon) {
-        winnerId = match.team2Id;
-      } else {
-        winnerId = null; // Draw
-      }
-      status = "completed";
-
-      // Create result records
-      const team1 = await this.getTeam(match.team1Id);
-      const team2 = await this.getTeam(match.team2Id);
+      // For best of 3: need to win 2 games to win the match
+      // Only mark as completed if one team has won 2+ games OR all 3 games are played
+      const allGamesPlayed = team1Game1Score !== null && team2Game1Score !== null &&
+                              team1Game2Score !== null && team2Game2Score !== null &&
+                              team1Game3Score !== null && team2Game3Score !== null;
       
-      if (team1 && team2) {
-        const matchInfo = `${team1.name} vs ${team2.name}`;
+      if (team1GamesWon >= 2) {
+        winnerId = match.team1Id;
+        status = "completed";
+      } else if (team2GamesWon >= 2) {
+        winnerId = match.team2Id;
+        status = "completed";
+      } else if (allGamesPlayed) {
+        // All 3 games played but tied (1-1 with 1 draw game, or all draws)
+        winnerId = null; // Draw
+        status = "completed";
+      } else {
+        // Games in progress but not yet decided
+        status = "in-progress";
+      }
+
+      // Only create result records if match is completed
+      if (status === "completed") {
+        const team1 = await this.getTeam(match.team1Id);
+        const team2 = await this.getTeam(match.team2Id);
         
-        // Calculate total scores across all games
-        const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
-        const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
-        
-        // Determine points for each team based on games won
-        const team1Points = team1GamesWon > team2GamesWon ? 2 : team1GamesWon === team2GamesWon ? 1 : 0;
-        const team2Points = team2GamesWon > team1GamesWon ? 2 : team1GamesWon === team2GamesWon ? 1 : 0;
-        
-        // Create result records for both teams
-        await this.createResult({
-          matchId: id,
-          matchInfo,
-          matchDate: matchDate || match.matchDate || null,
-          stage: match.stage,
-          teamName: team1.name,
-          points: team1Points,
-          score: team1TotalScore,
-        });
-        
-        await this.createResult({
-          matchId: id,
-          matchInfo,
-          matchDate: matchDate || match.matchDate || null,
-          stage: match.stage,
-          teamName: team2.name,
-          points: team2Points,
-          score: team2TotalScore,
-        });
+        if (team1 && team2) {
+          const matchInfo = `${team1.name} vs ${team2.name}`;
+          
+          // Calculate total scores across all games
+          const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
+          const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
+          
+          // Determine points for each team based on match winner
+          // Winner gets 2 points, loser gets 0, draw gives 1 point to each
+          const team1Points = winnerId === match.team1Id ? 2 : winnerId === null ? 1 : 0;
+          const team2Points = winnerId === match.team2Id ? 2 : winnerId === null ? 1 : 0;
+          
+          // Create result records for both teams
+          await this.createResult({
+            matchId: id,
+            matchInfo,
+            matchDate: matchDate || match.matchDate || null,
+            stage: match.stage,
+            teamName: team1.name,
+            points: team1Points,
+            score: team1TotalScore,
+          });
+          
+          await this.createResult({
+            matchId: id,
+            matchInfo,
+            matchDate: matchDate || match.matchDate || null,
+            stage: match.stage,
+            teamName: team2.name,
+            points: team2Points,
+            score: team2TotalScore,
+          });
+        }
       }
     } else {
       // If all scores are null, reset to scheduled
