@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type SortColumn = "matchInfo" | "matchDate" | "teamName" | "points" | "score" | "stage";
+type SortColumn = "matchInfo" | "matchDate" | "teamName" | "pointsFor" | "pointsAgainst" | "pointsDifference" | "score" | "stage";
 type SortDirection = "asc" | "desc";
 
 const stageLabels = {
@@ -56,14 +56,16 @@ type TeamSummary = {
   gamesWon: number;
   gamesDrawn: number;
   gamesLost: number;
-  matchPoints: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  pointsDifference: number;
   totalPointsScored: number;
 };
 
 export default function Results() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("points");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("pointsFor");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const { toast } = useToast();
@@ -109,9 +111,17 @@ export default function Results() {
           aVal = a.stage.toLowerCase();
           bVal = b.stage.toLowerCase();
           break;
-        case "points":
-          aVal = a.points;
-          bVal = b.points;
+        case "pointsFor":
+          aVal = a.pointsFor;
+          bVal = b.pointsFor;
+          break;
+        case "pointsAgainst":
+          aVal = a.pointsAgainst;
+          bVal = b.pointsAgainst;
+          break;
+        case "pointsDifference":
+          aVal = a.pointsDifference;
+          bVal = b.pointsDifference;
           break;
         case "score":
           aVal = a.score;
@@ -138,26 +148,36 @@ export default function Results() {
           gamesWon: 0,
           gamesDrawn: 0,
           gamesLost: 0,
-          matchPoints: 0,
+          pointsFor: 0,
+          pointsAgainst: 0,
+          pointsDifference: 0,
           totalPointsScored: 0,
         });
       }
 
       const summary = summaryMap.get(result.teamName)!;
       summary.gamesPlayed += 1;
-      summary.matchPoints += result.points;
+      summary.pointsFor += result.pointsFor;
+      summary.pointsAgainst += result.pointsAgainst;
+      summary.pointsDifference += result.pointsDifference;
       summary.totalPointsScored += result.score;
 
-      if (result.points === 2) {
+      if (result.pointsFor === 2) {
         summary.gamesWon += 1;
-      } else if (result.points === 1) {
+      } else if (result.pointsFor === 1) {
         summary.gamesDrawn += 1;
       } else {
         summary.gamesLost += 1;
       }
     });
 
-    return Array.from(summaryMap.values()).sort((a, b) => b.matchPoints - a.matchPoints);
+    return Array.from(summaryMap.values()).sort((a, b) => {
+      // Sort by points for first, then by points difference
+      if (b.pointsFor !== a.pointsFor) {
+        return b.pointsFor - a.pointsFor;
+      }
+      return b.pointsDifference - a.pointsDifference;
+    });
   }, [filteredResults]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
@@ -231,7 +251,9 @@ export default function Results() {
                           <TableHead className="text-center">Won</TableHead>
                           <TableHead className="text-center">Drawn</TableHead>
                           <TableHead className="text-center">Lost</TableHead>
-                          <TableHead className="text-center">Match Points</TableHead>
+                          <TableHead className="text-center">Points For</TableHead>
+                          <TableHead className="text-center">Points Against</TableHead>
+                          <TableHead className="text-center">Points Difference</TableHead>
                           <TableHead className="text-center">Total Points Scored</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -253,9 +275,20 @@ export default function Results() {
                             <TableCell className="text-center" data-testid={`text-lost-${summary.teamName}`}>
                               <span className="font-mono">{summary.gamesLost}</span>
                             </TableCell>
-                            <TableCell className="text-center" data-testid={`text-match-points-${summary.teamName}`}>
+                            <TableCell className="text-center" data-testid={`text-points-for-${summary.teamName}`}>
                               <Badge variant="default" className="font-mono">
-                                {summary.matchPoints}
+                                {summary.pointsFor}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center" data-testid={`text-points-against-${summary.teamName}`}>
+                              <span className="font-mono">{summary.pointsAgainst}</span>
+                            </TableCell>
+                            <TableCell className="text-center" data-testid={`text-points-difference-${summary.teamName}`}>
+                              <Badge 
+                                variant={summary.pointsDifference > 0 ? "default" : summary.pointsDifference < 0 ? "destructive" : "secondary"}
+                                className="font-mono"
+                              >
+                                {summary.pointsDifference > 0 ? '+' : ''}{summary.pointsDifference}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center" data-testid={`text-total-scored-${summary.teamName}`}>
@@ -392,11 +425,31 @@ export default function Results() {
                     <TableHead className="text-center">
                       <button
                         className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("points")}
-                        data-testid="sort-points"
+                        onClick={() => handleSort("pointsFor")}
+                        data-testid="sort-pointsFor"
                       >
-                        Points
-                        <SortIcon column="points" />
+                        Points For
+                        <SortIcon column="pointsFor" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                        onClick={() => handleSort("pointsAgainst")}
+                        data-testid="sort-pointsAgainst"
+                      >
+                        Points Against
+                        <SortIcon column="pointsAgainst" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                        onClick={() => handleSort("pointsDifference")}
+                        data-testid="sort-pointsDifference"
+                      >
+                        Points Diff
+                        <SortIcon column="pointsDifference" />
                       </button>
                     </TableHead>
                     <TableHead className="text-center">
@@ -438,12 +491,23 @@ export default function Results() {
                       <TableCell data-testid={`text-team-${result.id}`}>
                         {result.teamName}
                       </TableCell>
-                      <TableCell className="text-center" data-testid={`text-points-${result.id}`}>
+                      <TableCell className="text-center" data-testid={`text-points-for-${result.id}`}>
                         <Badge 
-                          variant={result.points === 2 ? "default" : result.points === 1 ? "secondary" : "outline"}
+                          variant={result.pointsFor === 2 ? "default" : result.pointsFor === 1 ? "secondary" : "outline"}
                           className="font-mono"
                         >
-                          {result.points}
+                          {result.pointsFor}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-points-against-${result.id}`}>
+                        <span className="font-mono">{result.pointsAgainst}</span>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-points-difference-${result.id}`}>
+                        <Badge 
+                          variant={result.pointsDifference > 0 ? "default" : result.pointsDifference < 0 ? "destructive" : "secondary"}
+                          className="font-mono"
+                        >
+                          {result.pointsDifference > 0 ? '+' : ''}{result.pointsDifference}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center" data-testid={`text-score-${result.id}`}>
