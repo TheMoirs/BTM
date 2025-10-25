@@ -13,7 +13,16 @@ export interface IStorage {
   getAllMatches(): Promise<Match[]>;
   getMatch(id: string): Promise<Match | undefined>;
   createMatch(match: InsertMatch): Promise<Match>;
-  updateMatchScore(id: string, team1Score: number | null, team2Score: number | null, matchDate: string | null): Promise<Match | undefined>;
+  updateMatchScore(
+    id: string, 
+    team1Game1Score: number | null, 
+    team2Game1Score: number | null,
+    team1Game2Score: number | null,
+    team2Game2Score: number | null,
+    team1Game3Score: number | null,
+    team2Game3Score: number | null,
+    matchDate: string | null
+  ): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
   deleteAllMatches(): Promise<boolean>;
   
@@ -155,8 +164,12 @@ export class DatabaseStorage implements IStorage {
         .values({
           team1Id: insertMatch.team1Id,
           team2Id: insertMatch.team2Id,
-          team1Score: insertMatch.team1Score ?? null,
-          team2Score: insertMatch.team2Score ?? null,
+          team1Game1Score: insertMatch.team1Game1Score ?? null,
+          team2Game1Score: insertMatch.team2Game1Score ?? null,
+          team1Game2Score: insertMatch.team1Game2Score ?? null,
+          team2Game2Score: insertMatch.team2Game2Score ?? null,
+          team1Game3Score: insertMatch.team1Game3Score ?? null,
+          team2Game3Score: insertMatch.team2Game3Score ?? null,
           stage: insertMatch.stage,
           status: insertMatch.status || "scheduled",
           winnerId: insertMatch.winnerId ?? null,
@@ -175,7 +188,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateMatchScore(id: string, team1Score: number | null, team2Score: number | null, matchDate: string | null): Promise<Match | undefined> {
+  async updateMatchScore(
+    id: string, 
+    team1Game1Score: number | null, 
+    team2Game1Score: number | null,
+    team1Game2Score: number | null,
+    team2Game2Score: number | null,
+    team1Game3Score: number | null,
+    team2Game3Score: number | null,
+    matchDate: string | null
+  ): Promise<Match | undefined> {
     const match = await this.getMatch(id);
     if (!match) {
       return undefined;
@@ -184,14 +206,40 @@ export class DatabaseStorage implements IStorage {
     // Delete existing results for this match if they exist
     await this.deleteResultsByMatchId(id);
 
-    // Only calculate winner and set completed if both scores are provided
+    // Calculate winner based on games won
     let winnerId = null;
     let status = match.status;
+    let team1GamesWon = 0;
+    let team2GamesWon = 0;
 
-    if (team1Score !== null && team2Score !== null) {
-      winnerId = team1Score > team2Score ? match.team1Id : 
-                 team2Score > team1Score ? match.team2Id : 
-                 null;
+    // Count games won for each team
+    if (team1Game1Score !== null && team2Game1Score !== null) {
+      if (team1Game1Score > team2Game1Score) team1GamesWon++;
+      else if (team2Game1Score > team1Game1Score) team2GamesWon++;
+    }
+    if (team1Game2Score !== null && team2Game2Score !== null) {
+      if (team1Game2Score > team2Game2Score) team1GamesWon++;
+      else if (team2Game2Score > team1Game2Score) team2GamesWon++;
+    }
+    if (team1Game3Score !== null && team2Game3Score !== null) {
+      if (team1Game3Score > team2Game3Score) team1GamesWon++;
+      else if (team2Game3Score > team1Game3Score) team2GamesWon++;
+    }
+
+    // Determine overall winner and status
+    const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
+                         team1Game2Score !== null || team2Game2Score !== null ||
+                         team1Game3Score !== null || team2Game3Score !== null;
+
+    if (hasAnyScores) {
+      // Determine winner based on games won
+      if (team1GamesWon > team2GamesWon) {
+        winnerId = match.team1Id;
+      } else if (team2GamesWon > team1GamesWon) {
+        winnerId = match.team2Id;
+      } else {
+        winnerId = null; // Draw
+      }
       status = "completed";
 
       // Create result records
@@ -201,9 +249,13 @@ export class DatabaseStorage implements IStorage {
       if (team1 && team2) {
         const matchInfo = `${team1.name} vs ${team2.name}`;
         
-        // Determine points for each team
-        const team1Points = team1Score > team2Score ? 2 : team1Score === team2Score ? 1 : 0;
-        const team2Points = team2Score > team1Score ? 2 : team1Score === team2Score ? 1 : 0;
+        // Calculate total scores across all games
+        const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
+        const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
+        
+        // Determine points for each team based on games won
+        const team1Points = team1GamesWon > team2GamesWon ? 2 : team1GamesWon === team2GamesWon ? 1 : 0;
+        const team2Points = team2GamesWon > team1GamesWon ? 2 : team1GamesWon === team2GamesWon ? 1 : 0;
         
         // Create result records for both teams
         await this.createResult({
@@ -213,7 +265,7 @@ export class DatabaseStorage implements IStorage {
           stage: match.stage,
           teamName: team1.name,
           points: team1Points,
-          score: team1Score,
+          score: team1TotalScore,
         });
         
         await this.createResult({
@@ -223,19 +275,23 @@ export class DatabaseStorage implements IStorage {
           stage: match.stage,
           teamName: team2.name,
           points: team2Points,
-          score: team2Score,
+          score: team2TotalScore,
         });
       }
     } else {
-      // If scores are cleared (both null), reset to scheduled
+      // If all scores are null, reset to scheduled
       status = "scheduled";
     }
 
     const [updatedMatch] = await db
       .update(matches)
       .set({
-        team1Score,
-        team2Score,
+        team1Game1Score,
+        team2Game1Score,
+        team1Game2Score,
+        team2Game2Score,
+        team1Game3Score,
+        team2Game3Score,
         matchDate: matchDate !== undefined ? matchDate : match.matchDate,
         status,
         winnerId,

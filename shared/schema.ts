@@ -32,8 +32,12 @@ export const matches = pgTable("matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   team1Id: varchar("team1_id").notNull(),
   team2Id: varchar("team2_id").notNull(),
-  team1Score: integer("team1_score"),
-  team2Score: integer("team2_score"),
+  team1Game1Score: integer("team1_game1_score"),
+  team2Game1Score: integer("team2_game1_score"),
+  team1Game2Score: integer("team1_game2_score"),
+  team2Game2Score: integer("team2_game2_score"),
+  team1Game3Score: integer("team1_game3_score"),
+  team2Game3Score: integer("team2_game3_score"),
   stage: text("stage").notNull(),
   status: text("status").notNull().default("scheduled"),
   winnerId: varchar("winner_id"),
@@ -50,8 +54,12 @@ export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).
   team2Id: z.string().min(1, "Team 2 is required"),
   stage: z.enum(["initial", "quarter-finals", "semi-finals", "finals"]),
   status: z.enum(["scheduled", "in-progress", "completed"]).default("scheduled"),
-  team1Score: z.number().int().min(0).nullable().optional(),
-  team2Score: z.number().int().min(0).nullable().optional(),
+  team1Game1Score: z.number().int().min(0).nullable().optional(),
+  team2Game1Score: z.number().int().min(0).nullable().optional(),
+  team1Game2Score: z.number().int().min(0).nullable().optional(),
+  team2Game2Score: z.number().int().min(0).nullable().optional(),
+  team1Game3Score: z.number().int().min(0).nullable().optional(),
+  team2Game3Score: z.number().int().min(0).nullable().optional(),
   winnerId: z.string().nullable().optional(),
   matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   division: z.string().transform(val => val === "" ? null : val).pipe(
@@ -66,8 +74,12 @@ export type InsertMatch = z.infer<typeof insertMatchSchema>;
 export type Match = typeof matches.$inferSelect;
 
 export const updateMatchScoreSchema = z.object({
-  team1Score: z.union([z.number().int().min(0), z.null()]),
-  team2Score: z.union([z.number().int().min(0), z.null()]),
+  team1Game1Score: z.union([z.number().int().min(0), z.null()]),
+  team2Game1Score: z.union([z.number().int().min(0), z.null()]),
+  team1Game2Score: z.union([z.number().int().min(0), z.null()]),
+  team2Game2Score: z.union([z.number().int().min(0), z.null()]),
+  team1Game3Score: z.union([z.number().int().min(0), z.null()]),
+  team2Game3Score: z.union([z.number().int().min(0), z.null()]),
   matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
 });
 

@@ -177,8 +177,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               stage: "initial" as const,
               status: "scheduled" as const,
               matchDate: null,
-              team1Score: null,
-              team2Score: null,
+              team1Game1Score: null,
+              team2Game1Score: null,
+              team1Game2Score: null,
+              team2Game2Score: null,
+              team1Game3Score: null,
+              team2Game3Score: null,
               winnerId: null,
             };
 
@@ -223,8 +227,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = updateMatchScoreSchema.parse(req.body);
       const match = await storage.updateMatchScore(
         req.params.id,
-        validatedData.team1Score,
-        validatedData.team2Score,
+        validatedData.team1Game1Score,
+        validatedData.team2Game1Score,
+        validatedData.team1Game2Score,
+        validatedData.team2Game2Score,
+        validatedData.team1Game3Score,
+        validatedData.team2Game3Score,
         validatedData.matchDate ?? null
       );
       if (!match) {
