@@ -184,20 +184,27 @@ export default function Matches() {
 
   const handleGenerateMatches = async () => {
     try {
-      const response = await apiRequest<{
+      const res = await apiRequest("POST", "/api/matches/generate", {});
+      const response: {
         created: number;
         skipped: number;
         teamsWithoutDivision: number;
+        stage: string;
         matches: Match[];
-      }>("POST", "/api/matches/generate", {});
+      } = await res.json();
 
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
 
       let message = "";
+      const stageName = response.stage === "initial" ? "initial round" :
+                       response.stage === "quarter-finals" ? "quarter finals" :
+                       response.stage === "semi-finals" ? "semi finals" :
+                       "finals";
+      
       if (response.created > 0 && response.skipped > 0) {
-        message = `Created ${response.created} new match(es). Skipped ${response.skipped} existing match(es).`;
+        message = `Created ${response.created} ${stageName} match(es). Skipped ${response.skipped} existing match(es).`;
       } else if (response.created > 0) {
-        message = `Successfully created ${response.created} match(es).`;
+        message = `Successfully created ${response.created} ${stageName} match(es).`;
       } else if (response.skipped > 0) {
         message = `No new matches created. ${response.skipped} match(es) already exist.`;
       } else {

@@ -114,16 +114,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/matches/generate", async (_req, res) => {
     try {
-      // Get all teams and matches atomically
-      const [teams, existingMatches] = await Promise.all([
+      // Get all teams, matches, and results atomically
+      const [teams, existingMatches, results] = await Promise.all([
         storage.getAllTeams(),
-        storage.getAllMatches()
+        storage.getAllMatches(),
+        storage.getAllResults()
       ]);
 
       if (teams.length < 2) {
         return res.status(400).json({ 
           error: "Not enough teams. You need at least 2 teams to generate matches." 
         });
+      }
+
+      // Determine what stage to generate based on current state
+      const hasInitialMatches = existingMatches.some(m => m.stage === "initial");
+      const hasQuarterFinals = existingMatches.some(m => m.stage === "quarter-finals");
+      const hasSemiFinals = existingMatches.some(m => m.stage === "semi-finals");
+      const hasFinals = existingMatches.some(m => m.stage === "finals");
+
+      let stageToGenerate: "initial" | "quarter-finals" | "semi-finals" | "finals";
+      let teamsForStage: typeof teams = [];
+
+      if (!hasInitialMatches) {
+        // No matches exist → generate initial matches
+        stageToGenerate = "initial";
+      } else {
+        // Check if all initial matches are completed with dates and results
+        const initialMatches = existingMatches.filter(m => m.stage === "initial");
+        const allInitialCompleted = initialMatches.length > 0 && 
+          initialMatches.every(m => m.status === "completed" && m.matchDate && 
+            results.some(r => r.matchId === m.id));
+
+        // Count unique divisions
+        const divisions = new Set(teams.filter(t => t.division).map(t => t.division));
+        const divisionCount = divisions.size;
+
+        if (!hasQuarterFinals && allInitialCompleted && divisionCount > 8) {
+          // Generate quarter finals: top teams from each division
+          stageToGenerate = "quarter-finals";
+          
+          // Get division winners (team with most points in each division)
+          const divisionWinners: typeof teams = [];
+          divisions.forEach(division => {
+            const divisionResults = results.filter(r => {
+              const match = initialMatches.find(m => m.id === r.matchId);
+              return match?.division === division;
+            });
+            
+            // Group by team and sum points
+            const teamPoints = new Map<string, number>();
+            divisionResults.forEach(r => {
+              teamPoints.set(r.teamName, (teamPoints.get(r.teamName) || 0) + r.points);
+            });
+            
+            // Find team with most points
+            let maxPoints = -1;
+            let winnerName = "";
+            teamPoints.forEach((points, teamName) => {
+              if (points > maxPoints) {
+                maxPoints = points;
+                winnerName = teamName;
+              }
+            });
+            
+            if (winnerName) {
+              const winnerTeam = teams.find(t => t.name === winnerName);
+              if (winnerTeam) divisionWinners.push(winnerTeam);
+            }
+          });
+          
+          teamsForStage = divisionWinners;
+        } else if (!hasSemiFinals && hasQuarterFinals) {
+          // Get quarter finals winners
+          const quarterFinals = existingMatches.filter(m => m.stage === "quarter-finals");
+          const quarterWinners = quarterFinals
+            .filter(m => m.status === "completed" && m.winnerId)
+            .map(m => m.winnerId!)
+            .filter((id, index, self) => self.indexOf(id) === index);
+          
+          if (quarterWinners.length <= 4 && quarterWinners.length >= 2) {
+            stageToGenerate = "semi-finals";
+            teamsForStage = teams.filter(t => quarterWinners.includes(t.id));
+          } else {
+            return res.status(400).json({ 
+              error: "Quarter finals are not ready. Need 2-4 completed quarter final matches with winners." 
+            });
+          }
+        } else if (!hasFinals && hasSemiFinals) {
+          // Get semi finals winners
+          const semiFinals = existingMatches.filter(m => m.stage === "semi-finals");
+          const semiWinners = semiFinals
+            .filter(m => m.status === "completed" && m.winnerId)
+            .map(m => m.winnerId!)
+            .filter((id, index, self) => self.indexOf(id) === index);
+          
+          if (semiWinners.length === 2) {
+            stageToGenerate = "finals";
+            teamsForStage = teams.filter(t => semiWinners.includes(t.id));
+          } else {
+            return res.status(400).json({ 
+              error: "Semi finals are not ready. Need exactly 2 semi final winners." 
+            });
+          }
+        } else {
+          return res.status(400).json({ 
+            error: "All tournament stages are already generated or requirements not met." 
+            + (hasInitialMatches && !allInitialCompleted 
+                ? " Initial matches must be completed with dates and results." 
+                : "")
+            + (!hasQuarterFinals && divisionCount <= 8 
+                ? " Need more than 8 divisions to generate quarter finals." 
+                : "")
+          });
+        }
       }
 
       // Build set of existing match pairs (normalized)
@@ -133,74 +237,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         existingPairs.add(pair1);
       });
 
-      // Group teams by division (excluding teams without divisions)
-      const teamsByDivision: Record<string, typeof teams> = {};
-      let teamsWithoutDivision = 0;
-      
-      teams.forEach(team => {
-        if (!team.division) {
-          teamsWithoutDivision++;
-          return; // Skip teams without divisions
-        }
-        const div = team.division;
-        if (!teamsByDivision[div]) {
-          teamsByDivision[div] = [];
-        }
-        teamsByDivision[div].push(team);
-      });
-
       const createdMatches = [];
       let skippedCount = 0;
+      let teamsWithoutDivision = 0;
 
-      // Generate round-robin matches within each division
-      for (const division in teamsByDivision) {
-        const divTeams = teamsByDivision[division];
-        if (divTeams.length < 2) continue;
+      if (stageToGenerate === "initial") {
+        // Generate round-robin matches within each division
+        const teamsByDivision: Record<string, typeof teams> = {};
+        
+        teams.forEach(team => {
+          if (!team.division) {
+            teamsWithoutDivision++;
+            return;
+          }
+          const div = team.division;
+          if (!teamsByDivision[div]) {
+            teamsByDivision[div] = [];
+          }
+          teamsByDivision[div].push(team);
+        });
 
-        // Round-robin: every team plays every other team once
-        for (let i = 0; i < divTeams.length; i++) {
-          for (let j = i + 1; j < divTeams.length; j++) {
-            const team1Id = divTeams[i].id;
-            const team2Id = divTeams[j].id;
-            
-            // Check if match already exists (order-independent)
-            const pairKey = [team1Id, team2Id].sort().join('-');
-            if (existingPairs.has(pairKey)) {
-              skippedCount++;
-              continue;
-            }
+        for (const division in teamsByDivision) {
+          const divTeams = teamsByDivision[division];
+          if (divTeams.length < 2) continue;
 
-            // Create the match
-            const matchData = {
-              team1Id,
-              team2Id,
-              stage: "initial" as const,
-              status: "scheduled" as const,
-              matchDate: null,
-              team1Game1Score: null,
-              team2Game1Score: null,
-              team1Game2Score: null,
-              team2Game2Score: null,
-              team1Game3Score: null,
-              team2Game3Score: null,
-              winnerId: null,
-            };
-
-            try {
-              const match = await storage.createMatch(matchData);
-              createdMatches.push(match);
+          for (let i = 0; i < divTeams.length; i++) {
+            for (let j = i + 1; j < divTeams.length; j++) {
+              const team1Id = divTeams[i].id;
+              const team2Id = divTeams[j].id;
               
-              // Add to set to prevent duplicates within this generation
-              existingPairs.add(pairKey);
-            } catch (error) {
-              // If match creation fails due to duplicate (from concurrent request), count as skipped
-              if (error instanceof Error && error.message.includes("already exists")) {
+              const pairKey = [team1Id, team2Id].sort().join('-');
+              if (existingPairs.has(pairKey)) {
                 skippedCount++;
-                existingPairs.add(pairKey);
-              } else {
-                // Re-throw other errors
-                throw error;
+                continue;
               }
+
+              const matchData = {
+                team1Id,
+                team2Id,
+                stage: "initial" as const,
+                status: "scheduled" as const,
+                matchDate: null,
+                team1Game1Score: null,
+                team2Game1Score: null,
+                team1Game2Score: null,
+                team2Game2Score: null,
+                team1Game3Score: null,
+                team2Game3Score: null,
+                winnerId: null,
+              };
+
+              try {
+                const match = await storage.createMatch(matchData);
+                createdMatches.push(match);
+                existingPairs.add(pairKey);
+              } catch (error) {
+                if (error instanceof Error && error.message.includes("already exists")) {
+                  skippedCount++;
+                  existingPairs.add(pairKey);
+                } else {
+                  throw error;
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Generate knockout stage matches (quarter-finals, semi-finals, finals)
+        if (teamsForStage.length < 2) {
+          return res.status(400).json({ 
+            error: `Not enough teams for ${stageToGenerate}. Need at least 2 teams.` 
+          });
+        }
+
+        // Create matches by pairing teams
+        for (let i = 0; i < teamsForStage.length; i += 2) {
+          if (i + 1 >= teamsForStage.length) break;
+          
+          const team1Id = teamsForStage[i].id;
+          const team2Id = teamsForStage[i + 1].id;
+          
+          const pairKey = [team1Id, team2Id].sort().join('-');
+          if (existingPairs.has(pairKey)) {
+            skippedCount++;
+            continue;
+          }
+
+          const matchData = {
+            team1Id,
+            team2Id,
+            stage: stageToGenerate,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          try {
+            const match = await storage.createMatch(matchData);
+            createdMatches.push(match);
+            existingPairs.add(pairKey);
+          } catch (error) {
+            if (error instanceof Error && error.message.includes("already exists")) {
+              skippedCount++;
+              existingPairs.add(pairKey);
+            } else {
+              throw error;
             }
           }
         }
@@ -210,6 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         created: createdMatches.length,
         skipped: skippedCount,
         teamsWithoutDivision,
+        stage: stageToGenerate,
         matches: createdMatches
       });
     } catch (error) {
