@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import {
@@ -45,11 +45,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail" | "homePiste";
 type SortDirection = "asc" | "desc";
@@ -267,130 +262,6 @@ export default function Teams() {
     reader.readAsArrayBuffer(file);
   };
 
-  const handleDownloadSample = () => {
-    const sampleTeams = [
-      {
-        "name": "Les Pétanqueurs",
-        "division": "A",
-        "homePiste": "Terrain Municipal",
-        "otherPlayers": "Marie Dubois, Pierre Martin, Sophie Laurent",
-        "captainName": "Jean Dupont",
-        "captainPhone": "+33 6 12 34 56 78",
-        "captainEmail": "jean.dupont@example.com"
-      },
-      {
-        "name": "Les Boules d'Or",
-        "division": "A",
-        "homePiste": "Parc Central",
-        "otherPlayers": "André Moreau, Claire Petit, Julien Bernard",
-        "captainName": "Michel Rousseau",
-        "captainPhone": "+33 6 23 45 67 89",
-        "captainEmail": "michel.rousseau@example.com"
-      },
-      {
-        "name": "Les Champions",
-        "division": "B",
-        "homePiste": "Stade Municipal",
-        "otherPlayers": "Isabelle Leroy, François Girard, Nicole Blanc",
-        "captainName": "Paul Lambert",
-        "captainPhone": "+33 6 34 56 78 90",
-        "captainEmail": "paul.lambert@example.com"
-      },
-      {
-        "name": "Les Imbattables",
-        "division": "B",
-        "homePiste": "Place du Village",
-        "otherPlayers": "Henri Fournier, Monique Simon, Robert Mercier",
-        "captainName": "Louis Garnier",
-        "captainPhone": "+33 6 45 67 89 01",
-        "captainEmail": "louis.garnier@example.com"
-      },
-      {
-        "name": "Les Maîtres",
-        "division": "C",
-        "homePiste": "Jardin Public",
-        "otherPlayers": "Catherine Durand, Georges Fabre, Sylvie Morel",
-        "captainName": "Jacques Bonnet",
-        "captainPhone": "+33 6 56 78 90 12",
-        "captainEmail": "jacques.bonnet@example.com"
-      },
-      {
-        "name": "Les Experts",
-        "division": "C",
-        "homePiste": "Esplanade des Platanes",
-        "otherPlayers": "Yves Fontaine, Martine Chevalier, Daniel Gauthier",
-        "captainName": "Bernard Lefebvre",
-        "captainPhone": "+33 6 67 89 01 23",
-        "captainEmail": "bernard.lefebvre@example.com"
-      },
-      {
-        "name": "Les Boulistes",
-        "division": "D",
-        "homePiste": "Terrain des Sports",
-        "otherPlayers": "Françoise Marchand, Philippe Renard, Nathalie Vincent",
-        "captainName": "René Muller",
-        "captainPhone": "+33 6 78 90 12 34",
-        "captainEmail": "rene.muller@example.com"
-      },
-      {
-        "name": "Les Joueurs",
-        "division": "D",
-        "homePiste": "Boulodrome Municipal",
-        "otherPlayers": "Thierry Lemoine, Corinne Roussel, Alain Perrin",
-        "captainName": "Claude Bertrand",
-        "captainPhone": "+33 6 89 01 23 45",
-        "captainEmail": "claude.bertrand@example.com"
-      },
-      {
-        "name": "Les Marseillais",
-        "division": "E",
-        "homePiste": "Port Vieux",
-        "otherPlayers": "Marc Dufour, Brigitte Roy, Gérard Clement",
-        "captainName": "Antoine Mathieu",
-        "captainPhone": "+33 6 90 12 34 56",
-        "captainEmail": "antoine.mathieu@example.com"
-      },
-      {
-        "name": "Les Provençaux",
-        "division": "E",
-        "homePiste": "Place de la Mairie",
-        "otherPlayers": "Dominique Garcia, Chantal Lopez, Patrick Sanchez",
-        "captainName": "Olivier Roux",
-        "captainPhone": "+33 6 01 23 45 67",
-        "captainEmail": "olivier.roux@example.com"
-      },
-      {
-        "name": "Les Gagnants",
-        "division": "F",
-        "homePiste": "Terrain de Pétanque",
-        "otherPlayers": "Yvette Giraud, Maurice Dupuis, Denise Guerin",
-        "captainName": "Marcel Lefevre",
-        "captainPhone": "+33 6 12 34 56 78",
-        "captainEmail": "marcel.lefevre@example.com"
-      },
-      {
-        "name": "Les Amis du Cochonnet",
-        "division": "F",
-        "homePiste": "Boulodrome des Pins",
-        "otherPlayers": "Simone Barbier, Albert Noel, Odette Legrand",
-        "captainName": "Raymond Boyer",
-        "captainPhone": "+33 6 23 45 67 89",
-        "captainEmail": "raymond.boyer@example.com"
-      }
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(sampleTeams);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
-
-    XLSX.writeFile(workbook, "sample_teams.xlsx");
-
-    toast({
-      title: "Sample downloaded",
-      description: "File 'sample_teams.xlsx' has been saved to your Downloads folder.",
-      duration: Infinity,
-    });
-  };
 
   const onSubmit = (data: InsertTeam) => {
     const capitalizedData: InsertTeam = {
@@ -515,22 +386,6 @@ export default function Teams() {
               className="hidden"
               data-testid="input-excel-file"
             />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadSample}
-                  data-testid="button-download-sample"
-                >
-                  <Download className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Download Sample</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>File will be saved to your browser's Downloads folder</p>
-              </TooltipContent>
-            </Tooltip>
             <Button
               variant="outline"
               size="sm"
