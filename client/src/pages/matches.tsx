@@ -71,7 +71,7 @@ const statusLabels = {
   completed: "Completed",
 };
 
-type SortColumn = "division" | "stage" | "matchDate" | "team1" | "team2";
+type SortColumn = "division" | "stage" | "status" | "matchDate" | "team1" | "team2";
 type SortDirection = "asc" | "desc";
 
 type EditingMatch = {
@@ -892,6 +892,16 @@ export default function Matches() {
                     <TableHead className="w-[120px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("status")}
+                        data-testid="sort-status"
+                      >
+                        Status
+                        <SortIcon column="status" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[120px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("matchDate")}
                         data-testid="sort-date"
                       >
@@ -952,6 +962,18 @@ export default function Matches() {
                         <TableCell>
                           <Badge variant="outline" data-testid={`badge-stage-${match.id}`}>
                             {stageLabels[match.stage as keyof typeof stageLabels]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              match.status === "completed" ? "default" : 
+                              match.status === "in-progress" ? "secondary" : 
+                              "outline"
+                            }
+                            data-testid={`badge-status-${match.id}`}
+                          >
+                            {statusLabels[match.status as keyof typeof statusLabels]}
                           </Badge>
                         </TableCell>
                         <TableCell data-testid={`text-date-${match.id}`}>
