@@ -387,7 +387,8 @@ export default function Teams() {
 
     toast({
       title: "Sample downloaded",
-      description: "Sample Excel file with 12 teams has been downloaded.",
+      description: "File 'sample_teams.xlsx' has been saved to your Downloads folder.",
+      duration: Infinity,
     });
   };
 
