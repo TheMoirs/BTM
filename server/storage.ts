@@ -227,25 +227,35 @@ export class DatabaseStorage implements IStorage {
     const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
                          team1Game2Score !== null || team2Game2Score !== null ||
                          team1Game3Score !== null || team2Game3Score !== null;
+    
+    // Check if at least one complete game has been played (both scores entered for at least one game)
+    const hasCompleteGame = (team1Game1Score !== null && team2Game1Score !== null) ||
+                            (team1Game2Score !== null && team2Game2Score !== null) ||
+                            (team1Game3Score !== null && team2Game3Score !== null);
+
+    // Determine the matchDate to use (new value or existing)
+    const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
-      // Best-of-3: match completes when one team wins 2+ games OR all 3 games are played
-      const allGamesPlayed = team1Game1Score !== null && team2Game1Score !== null &&
-                              team1Game2Score !== null && team2Game2Score !== null &&
-                              team1Game3Score !== null && team2Game3Score !== null;
-      
-      if (team1GamesWon >= 2) {
-        winnerId = match.team1Id;
+      // Match is completed when date is populated AND at least one complete game has been played
+      if (finalMatchDate && hasCompleteGame) {
         status = "completed";
-      } else if (team2GamesWon >= 2) {
-        winnerId = match.team2Id;
-        status = "completed";
-      } else if (allGamesPlayed) {
-        // All 3 games played but tied (1-1 with 1 draw game, or all draws)
-        winnerId = null; // Draw
-        status = "completed";
+        
+        // Determine winner based on games won
+        if (team1GamesWon >= 2) {
+          winnerId = match.team1Id;
+        } else if (team2GamesWon >= 2) {
+          winnerId = match.team2Id;
+        } else if (team1GamesWon > team2GamesWon) {
+          winnerId = match.team1Id;
+        } else if (team2GamesWon > team1GamesWon) {
+          winnerId = match.team2Id;
+        } else {
+          // Tie or no clear winner yet
+          winnerId = null;
+        }
       } else {
-        // Games in progress but not yet decided
+        // Games in progress but either no date or no complete game yet
         status = "in-progress";
       }
 
