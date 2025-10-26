@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type SortColumn = "matchInfo" | "matchDate" | "teamName" | "points" | "scoreFor" | "scoreAgainst" | "scoreDifference" | "stage";
+type SortColumn = "matchInfo" | "matchDate" | "teamName" | "gamesPlayed" | "gamesWon" | "gamesLost" | "gamesDrawn" | "points" | "scoreFor" | "scoreAgainst" | "scoreDifference" | "stage";
 type SortDirection = "asc" | "desc";
 
 const stageLabels = {
@@ -110,6 +110,22 @@ export default function Results() {
         case "stage":
           aVal = a.stage.toLowerCase();
           bVal = b.stage.toLowerCase();
+          break;
+        case "gamesPlayed":
+          aVal = a.gamesPlayed;
+          bVal = b.gamesPlayed;
+          break;
+        case "gamesWon":
+          aVal = a.gamesWon;
+          bVal = b.gamesWon;
+          break;
+        case "gamesLost":
+          aVal = a.gamesLost;
+          bVal = b.gamesLost;
+          break;
+        case "gamesDrawn":
+          aVal = a.gamesDrawn;
+          bVal = b.gamesDrawn;
           break;
         case "points":
           aVal = a.points;
@@ -425,6 +441,46 @@ export default function Results() {
                     <TableHead className="text-center">
                       <button
                         className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                        onClick={() => handleSort("gamesPlayed")}
+                        data-testid="sort-gamesPlayed"
+                      >
+                        Played
+                        <SortIcon column="gamesPlayed" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                        onClick={() => handleSort("gamesWon")}
+                        data-testid="sort-gamesWon"
+                      >
+                        Won
+                        <SortIcon column="gamesWon" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                        onClick={() => handleSort("gamesLost")}
+                        data-testid="sort-gamesLost"
+                      >
+                        Lost
+                        <SortIcon column="gamesLost" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                        onClick={() => handleSort("gamesDrawn")}
+                        data-testid="sort-gamesDrawn"
+                      >
+                        Drawn
+                        <SortIcon column="gamesDrawn" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <button
+                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
                         onClick={() => handleSort("points")}
                         data-testid="sort-points"
                       >
@@ -490,6 +546,18 @@ export default function Results() {
                       </TableCell>
                       <TableCell data-testid={`text-team-${result.id}`}>
                         {result.teamName}
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-games-played-${result.id}`}>
+                        <span className="font-mono">{result.gamesPlayed}</span>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-games-won-${result.id}`}>
+                        <span className="font-mono">{result.gamesWon}</span>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-games-lost-${result.id}`}>
+                        <span className="font-mono">{result.gamesLost}</span>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-games-drawn-${result.id}`}>
+                        <span className="font-mono">{result.gamesDrawn}</span>
                       </TableCell>
                       <TableCell className="text-center" data-testid={`text-points-${result.id}`}>
                         <Badge 
