@@ -10,6 +10,8 @@ export const teams = pgTable("teams", {
   captainPhone: text("captain_phone").notNull(),
   captainEmail: text("captain_email").notNull(),
   division: text("division"),
+  homePiste: text("home_piste"),
+  otherPlayers: text("other_players").array(),
 });
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
@@ -23,6 +25,8 @@ export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).ext
       z.null()
     ])
   ).optional().nullable(),
+  homePiste: z.string().transform(val => val === "" ? null : val).nullable().optional(),
+  otherPlayers: z.array(z.string()).nullable().optional(),
 });
 
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
