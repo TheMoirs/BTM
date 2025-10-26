@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 - **Data Model**:
     - **Teams**: Stores team name (unique), captain details, and an optional division (A-Z).
     - **Matches**: Stores team references, best-of-3 game scores (6 fields: team1Game1Score through team3Game3Score), stage, status, winner, and an optional scheduled date. Features a unique constraint on team pairs to prevent duplicate matches.
-    - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, match points (2 for win, 1 for draw, 0 for loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage.
+    - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, points (sum of individual game points: 2 per game win, 1 per draw, 0 per loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage.
 - **Best-of-3 Match System**:
     - Each match consists of up to 3 games
     - Winner determination: Team that wins 2+ games wins the match
@@ -33,11 +33,11 @@ Preferred communication style: Simple, everyday language.
         - "scheduled": No scores entered yet
         - "in-progress": Games being played but no team has won 2 games yet
         - "completed": One team has won 2+ games OR all 3 games played
-    - Point allocation (based on overall match winner, not individual games):
-        - Winner: 2 points
-        - Loser: 0 points
-        - Draw (1-1-1 or tied with draws): 1 point each
-    - Results are created when match status is "completed" and include total scores from all played games
+    - Point allocation (based on individual game results):
+        - Each game awards points independently: 2 points for win, 1 point for draw, 0 points for loss
+        - Example: Team wins Games 1 & 2, draws Game 3 = 2 + 2 + 1 = 5 points total
+        - Opponent gets: 0 + 0 + 1 = 1 point total
+    - Results are created when match status is "completed" and include total scores and points from all played games
     - Clearing all scores reverts match to "scheduled" and deletes associated results
 - **Validation**: Shared Zod schemas ensure client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints on startup.

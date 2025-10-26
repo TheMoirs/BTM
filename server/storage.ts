@@ -203,9 +203,6 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Delete existing results for this match if they exist
-    await this.deleteResultsByMatchId(id);
-
     // Calculate winner based on games won (best of 3)
     let winnerId = null;
     let status = match.status;
@@ -252,8 +249,11 @@ export class DatabaseStorage implements IStorage {
         status = "in-progress";
       }
 
-      // Only create result records if match is completed
+      // Handle results based on match status
       if (status === "completed") {
+        // Delete existing results for this match before creating new ones
+        await this.deleteResultsByMatchId(id);
+        
         const team1 = await this.getTeam(match.team1Id);
         const team2 = await this.getTeam(match.team2Id);
         
@@ -264,10 +264,46 @@ export class DatabaseStorage implements IStorage {
           const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
           const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
           
-          // Determine match points for each team based on match winner
-          // Winner gets 2 points, loser gets 0, draw gives 1 point to each
-          const team1Points = winnerId === match.team1Id ? 2 : winnerId === null ? 1 : 0;
-          const team2Points = winnerId === match.team2Id ? 2 : winnerId === null ? 1 : 0;
+          // Calculate points based on individual game results
+          // Each game awards: 2 points for win, 1 point for draw, 0 points for loss
+          let team1Points = 0;
+          let team2Points = 0;
+          
+          // Game 1
+          if (team1Game1Score !== null && team2Game1Score !== null) {
+            if (team1Game1Score > team2Game1Score) {
+              team1Points += 2;
+            } else if (team2Game1Score > team1Game1Score) {
+              team2Points += 2;
+            } else {
+              team1Points += 1;
+              team2Points += 1;
+            }
+          }
+          
+          // Game 2
+          if (team1Game2Score !== null && team2Game2Score !== null) {
+            if (team1Game2Score > team2Game2Score) {
+              team1Points += 2;
+            } else if (team2Game2Score > team1Game2Score) {
+              team2Points += 2;
+            } else {
+              team1Points += 1;
+              team2Points += 1;
+            }
+          }
+          
+          // Game 3
+          if (team1Game3Score !== null && team2Game3Score !== null) {
+            if (team1Game3Score > team2Game3Score) {
+              team1Points += 2;
+            } else if (team2Game3Score > team1Game3Score) {
+              team2Points += 2;
+            } else {
+              team1Points += 1;
+              team2Points += 1;
+            }
+          }
           
           // Create result records for both teams
           await this.createResult({
@@ -294,10 +330,14 @@ export class DatabaseStorage implements IStorage {
             scoreDifference: team2TotalScore - team1TotalScore,
           });
         }
+      } else if (status === "in-progress") {
+        // Match is in-progress, delete any existing results from when it was previously completed
+        await this.deleteResultsByMatchId(id);
       }
     } else {
-      // If all scores are null, reset to scheduled
+      // If all scores are null, reset to scheduled and delete results
       status = "scheduled";
+      await this.deleteResultsByMatchId(id);
     }
 
     const [updatedMatch] = await db
