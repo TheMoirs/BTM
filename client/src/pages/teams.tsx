@@ -498,15 +498,15 @@ export default function Teams() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Teams</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Teams</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Manage registered teams and captain contact details
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -519,11 +519,12 @@ export default function Teams() {
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={handleDownloadSample}
                   data-testid="button-download-sample"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Sample
+                  <Download className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Download Sample</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -532,25 +533,27 @@ export default function Teams() {
             </Tooltip>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => fileInputRef.current?.click()}
               data-testid="button-import-excel"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Import Excel
+              <Upload className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Import Excel</span>
             </Button>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => setShowClearConfirm(true)}
               data-testid="button-clear-all-teams"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear All Data
+              <Trash2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Clear All Data</span>
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
-                <Button data-testid="button-add-team">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Team
+                <Button size="sm" data-testid="button-add-team">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Team</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
@@ -752,9 +755,183 @@ export default function Teams() {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <div className="overflow-x-auto">
-              <Table>
+          <>
+            {/* Mobile Card View */}
+            <div className="block sm:hidden space-y-3">
+              {getSortedTeams().map((team) => {
+                const isEditing = editingRowId === team.id;
+                
+                return (
+                  <Card key={team.id} className="p-4" data-testid={`card-team-${team.id}`}>
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Team Name</label>
+                          <Input
+                            value={editingValues.name || ""}
+                            onChange={(e) => updateEditingValue("name", e.target.value)}
+                            className="h-8 mt-1"
+                            data-testid={`input-edit-name-${team.id}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Division</label>
+                          <Input
+                            value={editingValues.division || ""}
+                            onChange={(e) => updateEditingValue("division", e.target.value)}
+                            maxLength={1}
+                            className="h-8 w-16 uppercase mt-1"
+                            data-testid={`input-edit-division-${team.id}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Captain Name</label>
+                          <Input
+                            value={editingValues.captainName || ""}
+                            onChange={(e) => updateEditingValue("captainName", e.target.value)}
+                            className="h-8 mt-1"
+                            data-testid={`input-edit-captain-name-${team.id}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                          <Input
+                            value={editingValues.captainPhone || ""}
+                            onChange={(e) => updateEditingValue("captainPhone", e.target.value)}
+                            className="h-8 mt-1"
+                            data-testid={`input-edit-captain-phone-${team.id}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Email</label>
+                          <Input
+                            value={editingValues.captainEmail || ""}
+                            onChange={(e) => updateEditingValue("captainEmail", e.target.value)}
+                            type="email"
+                            className="h-8 mt-1"
+                            data-testid={`input-edit-captain-email-${team.id}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Home Piste</label>
+                          <Input
+                            value={editingValues.homePiste || ""}
+                            onChange={(e) => updateEditingValue("homePiste", e.target.value)}
+                            className="h-8 mt-1"
+                            data-testid={`input-edit-home-piste-${team.id}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Other Players</label>
+                          <Textarea
+                            value={editingValues.otherPlayers ? editingValues.otherPlayers.join("\n") : ""}
+                            onChange={(e) => {
+                              const lines = e.target.value.split("\n").filter(line => line.trim());
+                              updateEditingValue("otherPlayers", lines as any);
+                            }}
+                            className="min-h-[60px] text-sm mt-1"
+                            placeholder="One per line"
+                            data-testid={`input-edit-other-players-${team.id}`}
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cancelEditing}
+                            disabled={updateMutation.isPending}
+                            className="flex-1"
+                            data-testid={`button-cancel-edit-${team.id}`}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => saveEditing(team.id)}
+                            disabled={updateMutation.isPending}
+                            className="flex-1"
+                            data-testid={`button-save-${team.id}`}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground truncate" data-testid={`text-team-name-${team.id}`}>
+                              {team.name}
+                            </h3>
+                            {team.division && (
+                              <Badge variant="outline" className="mt-1" data-testid={`badge-division-${team.id}`}>
+                                Division {team.division}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => startEditing(team)}
+                              data-testid={`button-edit-${team.id}`}
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setDeletingTeam(team)}
+                              data-testid={`button-delete-${team.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1 text-sm">
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground min-w-[70px]">Captain:</span>
+                            <span className="text-foreground" data-testid={`text-captain-name-${team.id}`}>{team.captainName}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground min-w-[70px]">Phone:</span>
+                            <span className="text-foreground" data-testid={`text-captain-phone-${team.id}`}>{team.captainPhone}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <span className="text-muted-foreground min-w-[70px]">Email:</span>
+                            <span className="text-foreground truncate" data-testid={`text-captain-email-${team.id}`}>{team.captainEmail}</span>
+                          </div>
+                          {team.homePiste && (
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground min-w-[70px]">Home:</span>
+                              <span className="text-foreground" data-testid={`text-home-piste-${team.id}`}>{team.homePiste}</span>
+                            </div>
+                          )}
+                          {team.otherPlayers && team.otherPlayers.length > 0 && (
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground min-w-[70px]">Players:</span>
+                              <span className="text-foreground" data-testid={`text-other-players-${team.id}`}>
+                                {team.otherPlayers.join(", ")}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View */}
+            <Card className="hidden sm:block">
+              <div className="overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[200px]">
@@ -985,6 +1162,7 @@ export default function Teams() {
               </Table>
             </div>
           </Card>
+          </>
         )}
 
         <AlertDialog open={!!deletingTeam} onOpenChange={(open) => !open && setDeletingTeam(null)}>
