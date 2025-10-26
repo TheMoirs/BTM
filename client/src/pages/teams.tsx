@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
@@ -45,7 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail";
+type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail" | "homePiste";
 type SortDirection = "asc" | "desc";
 
 export default function Teams() {
@@ -71,6 +72,8 @@ export default function Teams() {
       captainPhone: "",
       captainEmail: "",
       division: "",
+      homePiste: "",
+      otherPlayers: [],
     },
   });
 
@@ -260,6 +263,10 @@ export default function Teams() {
       captainPhone: data.captainPhone.trim(),
       captainEmail: data.captainEmail.trim(),
       division: data.division?.trim().toUpperCase() || null,
+      homePiste: data.homePiste?.trim() || null,
+      otherPlayers: data.otherPlayers && data.otherPlayers.length > 0 
+        ? data.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
+        : null,
     };
     
     createMutation.mutate(capitalizedData);
@@ -273,6 +280,8 @@ export default function Teams() {
       captainPhone: team.captainPhone,
       captainEmail: team.captainEmail,
       division: team.division || "",
+      homePiste: team.homePiste || "",
+      otherPlayers: team.otherPlayers || [],
     });
   };
 
@@ -288,12 +297,16 @@ export default function Teams() {
       captainPhone: editingValues.captainPhone?.trim() || "",
       captainEmail: editingValues.captainEmail?.trim() || "",
       division: editingValues.division?.trim().toUpperCase() || null,
+      homePiste: editingValues.homePiste?.trim() || null,
+      otherPlayers: editingValues.otherPlayers && editingValues.otherPlayers.length > 0
+        ? editingValues.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
+        : null,
     };
     
     updateMutation.mutate({ id: teamId, data: capitalizedData });
   };
 
-  const updateEditingValue = (field: keyof InsertTeam, value: string) => {
+  const updateEditingValue = (field: keyof InsertTeam, value: string | string[]) => {
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
@@ -431,6 +444,49 @@ export default function Teams() {
                                 maxLength={1}
                                 className="uppercase"
                                 data-testid="input-division"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="homePiste"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Home Piste (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value || ""}
+                                placeholder="Terrain Municipal"
+                                data-testid="input-home-piste"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="otherPlayers"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Other Players (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                value={field.value ? field.value.join("\n") : ""}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split("\n").filter(line => line.trim());
+                                  field.onChange(lines);
+                                }}
+                                placeholder="Enter player names (one per line)&#10;Marie Dubois&#10;Pierre Martin"
+                                rows={4}
+                                data-testid="input-other-players"
                               />
                             </FormControl>
                             <FormMessage />
@@ -600,6 +656,17 @@ export default function Teams() {
                         <SortIcon column="captainEmail" />
                       </button>
                     </TableHead>
+                    <TableHead className="w-[180px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("homePiste")}
+                        data-testid="sort-home-piste"
+                      >
+                        Home Piste
+                        <SortIcon column="homePiste" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[200px]">Other Players</TableHead>
                     <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -675,6 +742,44 @@ export default function Teams() {
                             />
                           ) : (
                             <span data-testid={`text-captain-email-${team.id}`}>{team.captainEmail}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.homePiste || ""}
+                              onChange={(e) => updateEditingValue("homePiste", e.target.value)}
+                              className="h-8"
+                              data-testid={`input-edit-home-piste-${team.id}`}
+                            />
+                          ) : (
+                            team.homePiste ? (
+                              <span data-testid={`text-home-piste-${team.id}`}>{team.homePiste}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Textarea
+                              value={editingValues.otherPlayers ? editingValues.otherPlayers.join("\n") : ""}
+                              onChange={(e) => {
+                                const lines = e.target.value.split("\n").filter(line => line.trim());
+                                updateEditingValue("otherPlayers", lines as any);
+                              }}
+                              className="min-h-[60px] text-sm"
+                              placeholder="One per line"
+                              data-testid={`input-edit-other-players-${team.id}`}
+                            />
+                          ) : (
+                            team.otherPlayers && team.otherPlayers.length > 0 ? (
+                              <div className="text-sm" data-testid={`text-other-players-${team.id}`}>
+                                {team.otherPlayers.join(", ")}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )
                           )}
                         </TableCell>
                         <TableCell className="text-right">
