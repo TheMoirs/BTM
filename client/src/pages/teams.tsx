@@ -45,6 +45,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail" | "homePiste";
 type SortDirection = "asc" | "desc";
@@ -509,14 +514,21 @@ export default function Teams() {
               className="hidden"
               data-testid="input-excel-file"
             />
-            <Button
-              variant="outline"
-              onClick={handleDownloadSample}
-              data-testid="button-download-sample"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Sample
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadSample}
+                  data-testid="button-download-sample"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Sample
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>File will be saved to your browser's Downloads folder</p>
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}

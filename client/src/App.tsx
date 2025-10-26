@@ -14,6 +14,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Teams} />
+      <Route path="/teams" component={Teams} />
       <Route path="/matches" component={Matches} />
       <Route path="/results" component={Results} />
       <Route path="/bracket" component={Bracket} />
