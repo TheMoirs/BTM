@@ -172,19 +172,14 @@ export default function Results() {
       }
 
       const summary = summaryMap.get(result.teamName)!;
-      summary.gamesPlayed += 1;
+      summary.gamesPlayed += result.gamesPlayed;
+      summary.gamesWon += result.gamesWon;
+      summary.gamesLost += result.gamesLost;
+      summary.gamesDrawn += result.gamesDrawn;
       summary.points += result.points;
       summary.scoreFor += result.scoreFor;
       summary.scoreAgainst += result.scoreAgainst;
       summary.scoreDifference += result.scoreDifference;
-
-      if (result.points === 2) {
-        summary.gamesWon += 1;
-      } else if (result.points === 1) {
-        summary.gamesDrawn += 1;
-      } else {
-        summary.gamesLost += 1;
-      }
     });
 
     return Array.from(summaryMap.values()).sort((a, b) => {
