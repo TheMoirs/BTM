@@ -818,7 +818,7 @@ export default function Matches() {
         <Alert className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800" data-testid="alert-match-completion-guide">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
-            <strong>How to complete matches and create results:</strong> Each match uses best-of-3 scoring. 
+            <strong>How to complete matches and create results:</strong> Each match consists of up to 3 games. 
             A match completes when one team wins <strong>2 games</strong> or when all 3 games are played. 
             <strong>Points are awarded per game:</strong> 2 points for a win, 1 for a draw, 0 for a loss. 
             Results appear only when match status becomes <strong>"Completed"</strong>.
