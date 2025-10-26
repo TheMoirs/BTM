@@ -127,105 +127,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Determine what stage to generate based on current state
-      const hasInitialMatches = existingMatches.some(m => m.stage === "initial");
-      const hasQuarterFinals = existingMatches.some(m => m.stage === "quarter-finals");
-      const hasSemiFinals = existingMatches.some(m => m.stage === "semi-finals");
-      const hasFinals = existingMatches.some(m => m.stage === "finals");
-
       let stageToGenerate: "initial" | "quarter-finals" | "semi-finals" | "finals";
       let teamsForStage: typeof teams = [];
 
-      if (!hasInitialMatches) {
-        // No matches exist → generate initial matches
+      // If no matches exist, generate initial stage
+      if (existingMatches.length === 0) {
         stageToGenerate = "initial";
       } else {
-        // Check if all initial matches are completed with dates and results
-        const initialMatches = existingMatches.filter(m => m.stage === "initial");
-        const allInitialCompleted = initialMatches.length > 0 && 
-          initialMatches.every(m => m.status === "completed" && m.matchDate && 
+        // Find the latest stage with matches
+        const hasInitialMatches = existingMatches.some(m => m.stage === "initial");
+        const hasQuarterFinals = existingMatches.some(m => m.stage === "quarter-finals");
+        const hasSemiFinals = existingMatches.some(m => m.stage === "semi-finals");
+        const hasFinals = existingMatches.some(m => m.stage === "finals");
+
+        let latestStage: "initial" | "quarter-finals" | "semi-finals" | "finals";
+        if (hasFinals) latestStage = "finals";
+        else if (hasSemiFinals) latestStage = "semi-finals";
+        else if (hasQuarterFinals) latestStage = "quarter-finals";
+        else latestStage = "initial";
+
+        // Check if all matches in latest stage are complete
+        const latestStageMatches = existingMatches.filter(m => m.stage === latestStage);
+        const allLatestCompleted = latestStageMatches.length > 0 && 
+          latestStageMatches.every(m => m.status === "completed" && m.matchDate && 
             results.some(r => r.matchId === m.id));
 
-        // Count unique divisions
-        const divisions = new Set(teams.filter(t => t.division).map(t => t.division));
-        const divisionCount = divisions.size;
+        if (!allLatestCompleted) {
+          return res.status(400).json({ 
+            error: `Cannot generate next stage. All ${latestStage} matches must be completed with dates and results.` 
+          });
+        }
 
-        if (!hasQuarterFinals && allInitialCompleted && divisionCount > 8) {
-          // Generate quarter finals: top teams from each division
-          stageToGenerate = "quarter-finals";
-          
-          // Get division winners (team with most points in each division)
+        // Latest stage is complete, determine next stage and get winners
+        if (latestStage === "finals") {
+          return res.status(400).json({ 
+            error: "Tournament is complete. All stages have been generated." 
+          });
+        }
+
+        // Function to get division winners using points and score difference
+        const getDivisionWinners = (stageMatches: typeof existingMatches) => {
+          const divisions = new Set(teams.filter(t => t.division).map(t => t.division));
           const divisionWinners: typeof teams = [];
+
           divisions.forEach(division => {
             const divisionResults = results.filter(r => {
-              const match = initialMatches.find(m => m.id === r.matchId);
+              const match = stageMatches.find(m => m.id === r.matchId);
               return match?.division === division;
             });
             
-            // Group by team and sum points
-            const teamPoints = new Map<string, number>();
+            // Group by team and aggregate stats
+            const teamStats = new Map<string, { points: number, scoreDiff: number }>();
             divisionResults.forEach(r => {
-              teamPoints.set(r.teamName, (teamPoints.get(r.teamName) || 0) + r.points);
+              const current = teamStats.get(r.teamName) || { points: 0, scoreDiff: 0 };
+              teamStats.set(r.teamName, {
+                points: current.points + r.points,
+                scoreDiff: current.scoreDiff + r.scoreDifference
+              });
             });
             
-            // Find team with most points
-            let maxPoints = -1;
-            let winnerName = "";
-            teamPoints.forEach((points, teamName) => {
-              if (points > maxPoints) {
-                maxPoints = points;
-                winnerName = teamName;
+            // Find team with most points, use score difference as tiebreaker
+            let bestTeamName = "";
+            let bestPoints = -1;
+            let bestScoreDiff = -Infinity;
+            
+            teamStats.forEach((stats, teamName) => {
+              if (stats.points > bestPoints || 
+                  (stats.points === bestPoints && stats.scoreDiff > bestScoreDiff)) {
+                bestPoints = stats.points;
+                bestScoreDiff = stats.scoreDiff;
+                bestTeamName = teamName;
               }
             });
             
-            if (winnerName) {
-              const winnerTeam = teams.find(t => t.name === winnerName);
+            if (bestTeamName) {
+              const winnerTeam = teams.find(t => t.name === bestTeamName);
               if (winnerTeam) divisionWinners.push(winnerTeam);
             }
           });
-          
-          teamsForStage = divisionWinners;
-        } else if (!hasSemiFinals && hasQuarterFinals) {
-          // Get quarter finals winners
-          const quarterFinals = existingMatches.filter(m => m.stage === "quarter-finals");
-          const quarterWinners = quarterFinals
-            .filter(m => m.status === "completed" && m.winnerId)
-            .map(m => m.winnerId!)
-            .filter((id, index, self) => self.indexOf(id) === index);
-          
-          if (quarterWinners.length <= 4 && quarterWinners.length >= 2) {
-            stageToGenerate = "semi-finals";
-            teamsForStage = teams.filter(t => quarterWinners.includes(t.id));
-          } else {
+
+          return divisionWinners;
+        };
+
+        if (latestStage === "initial") {
+          // Get division winners from initial stage
+          const divisionWinners = getDivisionWinners(latestStageMatches);
+          const winnerCount = divisionWinners.length;
+
+          if (winnerCount < 2) {
             return res.status(400).json({ 
-              error: "Quarter finals are not ready. Need 2-4 completed quarter final matches with winners." 
+              error: "Not enough division winners. Need at least 2 divisions with completed matches." 
             });
           }
-        } else if (!hasFinals && hasSemiFinals) {
-          // Get semi finals winners
-          const semiFinals = existingMatches.filter(m => m.stage === "semi-finals");
-          const semiWinners = semiFinals
+
+          // Determine stage based on number of divisions/winners
+          if (winnerCount === 2) {
+            stageToGenerate = "finals";
+          } else if (winnerCount === 4) {
+            stageToGenerate = "semi-finals";
+          } else {
+            stageToGenerate = "quarter-finals";
+          }
+
+          teamsForStage = divisionWinners;
+        } else if (latestStage === "quarter-finals") {
+          // Get quarter finals winners
+          const quarterWinners = latestStageMatches
             .filter(m => m.status === "completed" && m.winnerId)
             .map(m => m.winnerId!)
             .filter((id, index, self) => self.indexOf(id) === index);
           
-          if (semiWinners.length === 2) {
+          if (quarterWinners.length < 2) {
+            return res.status(400).json({ 
+              error: "Not enough quarter final winners. Need at least 2 completed matches with winners." 
+            });
+          }
+
+          // Determine stage based on number of winners
+          if (quarterWinners.length === 2) {
             stageToGenerate = "finals";
-            teamsForStage = teams.filter(t => semiWinners.includes(t.id));
           } else {
+            stageToGenerate = "semi-finals";
+          }
+
+          teamsForStage = teams.filter(t => quarterWinners.includes(t.id));
+        } else if (latestStage === "semi-finals") {
+          // Get semi finals winners
+          const semiWinners = latestStageMatches
+            .filter(m => m.status === "completed" && m.winnerId)
+            .map(m => m.winnerId!)
+            .filter((id, index, self) => self.indexOf(id) === index);
+          
+          if (semiWinners.length !== 2) {
             return res.status(400).json({ 
               error: "Semi finals are not ready. Need exactly 2 semi final winners." 
             });
           }
+
+          stageToGenerate = "finals";
+          teamsForStage = teams.filter(t => semiWinners.includes(t.id));
         } else {
+          // This should never happen, but TypeScript needs a default
           return res.status(400).json({ 
-            error: "All tournament stages are already generated or requirements not met." 
-            + (hasInitialMatches && !allInitialCompleted 
-                ? " Initial matches must be completed with dates and results." 
-                : "")
-            + (!hasQuarterFinals && divisionCount <= 8 
-                ? " Need more than 8 divisions to generate quarter finals." 
-                : "")
+            error: "Unable to determine next stage." 
           });
         }
       }

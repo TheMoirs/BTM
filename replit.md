@@ -48,9 +48,13 @@ Preferred communication style: Simple, everyday language.
     - Deleting all matches removes all results (teams remain)
 - **Tournament Progression**: Automated match generation follows tournament stages:
     - **Initial Stage**: Generates round-robin matches within divisions when no matches exist
-    - **Quarter Finals**: Generates when initial matches are completed (with dates & results) and >8 divisions exist (selects division winners by points)
-    - **Semi Finals**: Generates when quarter finals are completed and 2-4 winners exist
-    - **Finals**: Generates when semi finals are completed and exactly 2 winners exist
+    - **Next Stage Determination**: When all matches in the latest stage are complete (with dates & results), generates next stage based on winner count:
+        - **Division Winners**: Selected by highest points; score difference used as tiebreaker if points are equal
+        - **Stage Selection**:
+            - 2 divisions/winners → Finals
+            - 4 divisions/winners → Semi-Finals
+            - >4 divisions/winners → Quarter-Finals
+    - **Knockout Stage Progression**: Winners advance from quarter-finals → semi-finals → finals
     - Generate Matches button intelligently determines next stage based on current state
     - Provides clear error messages when requirements aren't met
 
