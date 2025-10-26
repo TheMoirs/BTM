@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import {
@@ -256,6 +256,130 @@ export default function Teams() {
     reader.readAsArrayBuffer(file);
   };
 
+  const handleDownloadSample = () => {
+    const sampleTeams = [
+      {
+        "Team Name": "Les Pétanqueurs",
+        "Division": "A",
+        "Home Piste": "Terrain Municipal",
+        "Other Players": "Marie Dubois, Pierre Martin, Sophie Laurent",
+        "Captain Name": "Jean Dupont",
+        "Captain Phone": "+33 6 12 34 56 78",
+        "Captain Email": "jean.dupont@example.com"
+      },
+      {
+        "Team Name": "Les Boules d'Or",
+        "Division": "A",
+        "Home Piste": "Parc Central",
+        "Other Players": "André Moreau, Claire Petit, Julien Bernard",
+        "Captain Name": "Michel Rousseau",
+        "Captain Phone": "+33 6 23 45 67 89",
+        "Captain Email": "michel.rousseau@example.com"
+      },
+      {
+        "Team Name": "Les Champions",
+        "Division": "B",
+        "Home Piste": "Stade Municipal",
+        "Other Players": "Isabelle Leroy, François Girard, Nicole Blanc",
+        "Captain Name": "Paul Lambert",
+        "Captain Phone": "+33 6 34 56 78 90",
+        "Captain Email": "paul.lambert@example.com"
+      },
+      {
+        "Team Name": "Les Imbattables",
+        "Division": "B",
+        "Home Piste": "Place du Village",
+        "Other Players": "Henri Fournier, Monique Simon, Robert Mercier",
+        "Captain Name": "Louis Garnier",
+        "Captain Phone": "+33 6 45 67 89 01",
+        "Captain Email": "louis.garnier@example.com"
+      },
+      {
+        "Team Name": "Les Maîtres",
+        "Division": "C",
+        "Home Piste": "Jardin Public",
+        "Other Players": "Catherine Durand, Georges Fabre, Sylvie Morel",
+        "Captain Name": "Jacques Bonnet",
+        "Captain Phone": "+33 6 56 78 90 12",
+        "Captain Email": "jacques.bonnet@example.com"
+      },
+      {
+        "Team Name": "Les Experts",
+        "Division": "C",
+        "Home Piste": "Esplanade des Platanes",
+        "Other Players": "Yves Fontaine, Martine Chevalier, Daniel Gauthier",
+        "Captain Name": "Bernard Lefebvre",
+        "Captain Phone": "+33 6 67 89 01 23",
+        "Captain Email": "bernard.lefebvre@example.com"
+      },
+      {
+        "Team Name": "Les Boulistes",
+        "Division": "D",
+        "Home Piste": "Terrain des Sports",
+        "Other Players": "Françoise Marchand, Philippe Renard, Nathalie Vincent",
+        "Captain Name": "René Muller",
+        "Captain Phone": "+33 6 78 90 12 34",
+        "Captain Email": "rene.muller@example.com"
+      },
+      {
+        "Team Name": "Les Joueurs",
+        "Division": "D",
+        "Home Piste": "Boulodrome Municipal",
+        "Other Players": "Thierry Lemoine, Corinne Roussel, Alain Perrin",
+        "Captain Name": "Claude Bertrand",
+        "Captain Phone": "+33 6 89 01 23 45",
+        "Captain Email": "claude.bertrand@example.com"
+      },
+      {
+        "Team Name": "Les Marseillais",
+        "Division": "E",
+        "Home Piste": "Port Vieux",
+        "Other Players": "Marc Dufour, Brigitte Roy, Gérard Clement",
+        "Captain Name": "Antoine Mathieu",
+        "Captain Phone": "+33 6 90 12 34 56",
+        "Captain Email": "antoine.mathieu@example.com"
+      },
+      {
+        "Team Name": "Les Provençaux",
+        "Division": "E",
+        "Home Piste": "Place de la Mairie",
+        "Other Players": "Dominique Garcia, Chantal Lopez, Patrick Sanchez",
+        "Captain Name": "Olivier Roux",
+        "Captain Phone": "+33 6 01 23 45 67",
+        "Captain Email": "olivier.roux@example.com"
+      },
+      {
+        "Team Name": "Les Gagnants",
+        "Division": "F",
+        "Home Piste": "Terrain de Pétanque",
+        "Other Players": "Yvette Giraud, Maurice Dupuis, Denise Guerin",
+        "Captain Name": "Marcel Lefevre",
+        "Captain Phone": "+33 6 12 34 56 78",
+        "Captain Email": "marcel.lefevre@example.com"
+      },
+      {
+        "Team Name": "Les Amis du Cochonnet",
+        "Division": "F",
+        "Home Piste": "Boulodrome des Pins",
+        "Other Players": "Simone Barbier, Albert Noel, Odette Legrand",
+        "Captain Name": "Raymond Boyer",
+        "Captain Phone": "+33 6 23 45 67 89",
+        "Captain Email": "raymond.boyer@example.com"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleTeams);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
+
+    XLSX.writeFile(workbook, "sample_teams.xlsx");
+
+    toast({
+      title: "Sample downloaded",
+      description: "Sample Excel file with 12 teams has been downloaded.",
+    });
+  };
+
   const onSubmit = (data: InsertTeam) => {
     const capitalizedData: InsertTeam = {
       name: capitalizeWords(data.name.trim()),
@@ -379,6 +503,14 @@ export default function Teams() {
               className="hidden"
               data-testid="input-excel-file"
             />
+            <Button
+              variant="outline"
+              onClick={handleDownloadSample}
+              data-testid="button-download-sample"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Sample
+            </Button>
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
