@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 - **Data Model**:
     - **Teams**: Stores team name (unique), captain details, and an optional division (A-Z).
     - **Matches**: Stores team references, best-of-3 game scores (6 fields: team1Game1Score through team3Game3Score), stage, status, winner, and an optional scheduled date. Features a unique constraint on team pairs to prevent duplicate matches.
-    - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, points (sum of individual game points: 2 per game win, 1 per draw, 0 per loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage.
+    - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, game statistics (games played, games won, games lost, games drawn), points (sum of individual game points: 2 per game win, 1 per draw, 0 per loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage. Game statistics track individual games (1-3 games per match) rather than overall match outcomes.
 - **Best-of-3 Match System**:
     - Each match consists of up to 3 games
     - Winner determination: Team that wins 2+ games wins the match
