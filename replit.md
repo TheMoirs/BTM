@@ -26,18 +26,18 @@ Preferred communication style: Simple, everyday language.
     - **Teams**: Stores team name (unique), captain details, and an optional division (A-Z).
     - **Matches**: Stores team references, best-of-3 game scores (6 fields: team1Game1Score through team3Game3Score), stage, status, winner, and an optional scheduled date. Features a unique constraint on team pairs to prevent duplicate matches.
     - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, match points (2 for win, 1 for draw, 0 for loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage.
-- **Best-of-3 Scoring System**:
-    - Each match consists of up to 3 games
-    - Winner determination: Team that wins 2+ games wins the match
+- **3-Game Match System**:
+    - Each match consists of exactly 3 games - ALL games must be recorded
+    - Winner determination: Team that wins the most games (2 or 3 out of 3) wins the match
     - Match status progression:
         - "scheduled": No scores entered yet
-        - "in-progress": Games being played but no team has won 2 games yet
-        - "completed": One team has won 2+ games OR all 3 games played
+        - "in-progress": Some games scored but not all 3 games complete
+        - "completed": All 3 games have scores recorded
     - Point allocation (based on overall match winner, not individual games):
         - Winner: 2 points
         - Loser: 0 points
-        - Draw (1-1 or tied with draws): 1 point each
-    - Results are only created when match status is "completed"
+        - Draw (tied 1-1-1 or all draws): 1 point each
+    - Results are only created when match status is "completed" (all 3 games scored)
     - Clearing all scores reverts match to "scheduled" and deletes associated results
 - **Validation**: Shared Zod schemas ensure client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints on startup.

@@ -232,24 +232,24 @@ export class DatabaseStorage implements IStorage {
                          team1Game3Score !== null || team2Game3Score !== null;
 
     if (hasAnyScores) {
-      // For best of 3: need to win 2 games to win the match
-      // Only mark as completed if one team has won 2+ games OR all 3 games are played
+      // ALL 3 games must be recorded for a match to be complete
       const allGamesPlayed = team1Game1Score !== null && team2Game1Score !== null &&
                               team1Game2Score !== null && team2Game2Score !== null &&
                               team1Game3Score !== null && team2Game3Score !== null;
       
-      if (team1GamesWon >= 2) {
-        winnerId = match.team1Id;
-        status = "completed";
-      } else if (team2GamesWon >= 2) {
-        winnerId = match.team2Id;
-        status = "completed";
-      } else if (allGamesPlayed) {
-        // All 3 games played but tied (1-1 with 1 draw game, or all draws)
-        winnerId = null; // Draw
+      if (allGamesPlayed) {
+        // Determine winner based on games won
+        if (team1GamesWon > team2GamesWon) {
+          winnerId = match.team1Id;
+        } else if (team2GamesWon > team1GamesWon) {
+          winnerId = match.team2Id;
+        } else {
+          // Tied games (e.g., 1-1 with 1 draw, or all draws)
+          winnerId = null;
+        }
         status = "completed";
       } else {
-        // Games in progress but not yet decided
+        // Games in progress - not all 3 games have been scored yet
         status = "in-progress";
       }
 
