@@ -264,44 +264,72 @@ export class DatabaseStorage implements IStorage {
           const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
           const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
           
-          // Calculate points based on individual game results
+          // Calculate points and game statistics based on individual game results
           // Each game awards: 2 points for win, 1 point for draw, 0 points for loss
           let team1Points = 0;
           let team2Points = 0;
+          let gamesPlayed = 0;
+          let team1GamesWonCount = 0;
+          let team2GamesWonCount = 0;
+          let team1GamesLostCount = 0;
+          let team2GamesLostCount = 0;
+          let team1GamesDrawnCount = 0;
+          let team2GamesDrawnCount = 0;
           
           // Game 1
           if (team1Game1Score !== null && team2Game1Score !== null) {
+            gamesPlayed++;
             if (team1Game1Score > team2Game1Score) {
               team1Points += 2;
+              team1GamesWonCount++;
+              team2GamesLostCount++;
             } else if (team2Game1Score > team1Game1Score) {
               team2Points += 2;
+              team2GamesWonCount++;
+              team1GamesLostCount++;
             } else {
               team1Points += 1;
               team2Points += 1;
+              team1GamesDrawnCount++;
+              team2GamesDrawnCount++;
             }
           }
           
           // Game 2
           if (team1Game2Score !== null && team2Game2Score !== null) {
+            gamesPlayed++;
             if (team1Game2Score > team2Game2Score) {
               team1Points += 2;
+              team1GamesWonCount++;
+              team2GamesLostCount++;
             } else if (team2Game2Score > team1Game2Score) {
               team2Points += 2;
+              team2GamesWonCount++;
+              team1GamesLostCount++;
             } else {
               team1Points += 1;
               team2Points += 1;
+              team1GamesDrawnCount++;
+              team2GamesDrawnCount++;
             }
           }
           
           // Game 3
           if (team1Game3Score !== null && team2Game3Score !== null) {
+            gamesPlayed++;
             if (team1Game3Score > team2Game3Score) {
               team1Points += 2;
+              team1GamesWonCount++;
+              team2GamesLostCount++;
             } else if (team2Game3Score > team1Game3Score) {
               team2Points += 2;
+              team2GamesWonCount++;
+              team1GamesLostCount++;
             } else {
               team1Points += 1;
               team2Points += 1;
+              team1GamesDrawnCount++;
+              team2GamesDrawnCount++;
             }
           }
           
@@ -312,6 +340,10 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team1.name,
+            gamesPlayed,
+            gamesWon: team1GamesWonCount,
+            gamesLost: team1GamesLostCount,
+            gamesDrawn: team1GamesDrawnCount,
             points: team1Points,
             scoreFor: team1TotalScore,
             scoreAgainst: team2TotalScore,
@@ -324,6 +356,10 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team2.name,
+            gamesPlayed,
+            gamesWon: team2GamesWonCount,
+            gamesLost: team2GamesLostCount,
+            gamesDrawn: team2GamesDrawnCount,
             points: team2Points,
             scoreFor: team2TotalScore,
             scoreAgainst: team1TotalScore,
