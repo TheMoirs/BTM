@@ -330,15 +330,23 @@ export default function Teams() {
     if (!teams) return [];
     
     const sorted = [...teams].sort((a, b) => {
-      let aValue = a[sortColumn] || "";
-      let bValue = b[sortColumn] || "";
+      // Primary sort: Division (null/empty values go to end)
+      const aDivision = (a.division || "").toLowerCase();
+      const bDivision = (b.division || "").toLowerCase();
       
-      // Convert to lowercase for case-insensitive sorting
-      if (typeof aValue === "string") aValue = aValue.toLowerCase();
-      if (typeof bValue === "string") bValue = bValue.toLowerCase();
+      // Handle empty divisions - push them to the end
+      if (!aDivision && bDivision) return 1;
+      if (aDivision && !bDivision) return -1;
       
-      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      if (aDivision < bDivision) return -1;
+      if (aDivision > bDivision) return 1;
+      
+      // Secondary sort: Team Name
+      const aName = (a.name || "").toLowerCase();
+      const bName = (b.name || "").toLowerCase();
+      
+      if (aName < bName) return -1;
+      if (aName > bName) return 1;
       return 0;
     });
     

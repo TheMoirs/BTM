@@ -64,10 +64,9 @@ Preferred communication style: Simple, everyday language.
   - Home Piste (optional, playing location)
   - Other Players (optional, array of player names)
   - Captain contact details (name, phone, email - all required)
-- **Sample Data**: Download button generates Excel file with 12 pre-populated French boules teams including all fields
 - **Excel Import**: Upload Excel file to create/update teams in bulk. Column headers must match: `name`, `division`, `homePiste`, `otherPlayers` (comma-separated), `captainName`, `captainPhone`, `captainEmail`
 - **Inline Editing**: Click edit icon to modify team details directly in the table
-- **Sorting**: Click column headers to sort teams by any field
+- **Sorting**: Teams are automatically sorted by division (A-Z), then alphabetically by team name within each division. Teams without divisions appear at the end.
 - **Mobile Responsive Design**: Full mobile responsiveness using Tailwind's `sm` breakpoint (640px)
   - **Mobile View (< 640px)**: Card-based layout with vertical stacking, icon-only action buttons, labeled form fields for editing
   - **Desktop View (≥ 640px)**: Table layout with sortable columns, icon + text action buttons, inline row editing
