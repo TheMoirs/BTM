@@ -818,9 +818,9 @@ export default function Matches() {
         <Alert className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800" data-testid="alert-match-completion-guide">
           <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
-            <strong>How to complete matches and create results:</strong> Each match consists of 3 games. 
-            To complete a match and generate results, you must enter scores for <strong>all 3 games</strong> 
-            (e.g., Game 1: 13-2, Game 2: 13-5, Game 3: 8-13). The winner is determined by who wins the most games. 
+            <strong>How to complete matches and create results:</strong> Each match uses best-of-3 scoring. 
+            A match completes when one team wins <strong>2 games</strong> or when all 3 games are played. 
+            Enter game scores (e.g., Game 1: 13-2, Game 2: 13-5), and results will be generated with total scores from all played games. 
             Results appear only when match status becomes <strong>"Completed"</strong>.
           </AlertDescription>
         </Alert>
