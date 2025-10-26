@@ -23,7 +23,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **ORM & Database**: Drizzle ORM for type-safe queries, PostgreSQL via Neon serverless driver.
 - **Data Model**:
-    - **Teams**: Stores team name (unique), captain details, and an optional division (A-Z).
+    - **Teams**: Stores team name (unique), captain details (name, phone, email), optional division (A-Z), optional home piste (playing location), and optional other players (array of player names).
     - **Matches**: Stores team references, up to 3 game scores (6 fields: team1Game1Score through team3Game3Score), stage, status, winner, and an optional scheduled date. Features a unique constraint on team pairs to prevent duplicate matches.
     - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, game statistics (games played, games won, games lost, games drawn), points (sum of individual game points: 2 per game win, 1 per draw, 0 per loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage. Game statistics track individual games (1-3 games per match) rather than overall match outcomes.
 - **Match System**:
@@ -54,11 +54,26 @@ Preferred communication style: Simple, everyday language.
     - Generate Matches button intelligently determines next stage based on current state
     - Provides clear error messages when requirements aren't met
 
+## Features
+
+### Teams Management
+- **Registration**: Add teams individually via form or bulk import via Excel
+- **Team Information**: 
+  - Team name (required, unique)
+  - Division (optional, A-Z)
+  - Home Piste (optional, playing location)
+  - Other Players (optional, array of player names)
+  - Captain contact details (name, phone, email - all required)
+- **Sample Data**: Download button generates Excel file with 12 pre-populated French boules teams including all fields
+- **Excel Import**: Upload Excel file to create/update teams in bulk. Column headers must match: `name`, `division`, `homePiste`, `otherPlayers` (comma-separated), `captainName`, `captainPhone`, `captainEmail`
+- **Inline Editing**: Click edit icon to modify team details directly in the table
+- **Sorting**: Click column headers to sort teams by any field
+
 ## External Dependencies
 
 - **UI Libraries**: Radix UI (headless components), Lucide React (icons), class-variance-authority, tailwind-merge, clsx.
 - **Form & Validation**: React Hook Form, @hookform/resolvers, Zod, drizzle-zod.
-- **Data Import**: xlsx for Excel spreadsheet parsing.
+- **Data Import/Export**: xlsx for Excel spreadsheet parsing and generation. Includes sample Excel file download feature with 12 pre-populated teams.
 - **Database & ORM**: @neondatabase/serverless (PostgreSQL client), drizzle-orm, drizzle-kit.
 - **Development Tools**: esbuild, tsx, PostCSS, Autoprefixer.
 - **Fonts**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono).

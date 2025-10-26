@@ -193,6 +193,8 @@ export default function Teams() {
           captainPhone?: string;
           captainEmail?: string;
           division?: string;
+          homePiste?: string;
+          otherPlayers?: string;
         }>;
 
         let successCount = 0;
@@ -211,6 +213,10 @@ export default function Teams() {
               captainPhone: String(row.captainPhone).trim(),
               captainEmail: String(row.captainEmail).trim(),
               division: row.division ? String(row.division).trim().toUpperCase() : null,
+              homePiste: row.homePiste ? String(row.homePiste).trim() : null,
+              otherPlayers: row.otherPlayers 
+                ? String(row.otherPlayers).split(/[,\n]/).map(p => capitalizeWords(p.trim())).filter(p => p)
+                : null,
             };
 
             const existingTeam = teams?.find(t => t.name.toLowerCase() === teamData.name.toLowerCase());
@@ -259,112 +265,112 @@ export default function Teams() {
   const handleDownloadSample = () => {
     const sampleTeams = [
       {
-        "Team Name": "Les Pétanqueurs",
-        "Division": "A",
-        "Home Piste": "Terrain Municipal",
-        "Other Players": "Marie Dubois, Pierre Martin, Sophie Laurent",
-        "Captain Name": "Jean Dupont",
-        "Captain Phone": "+33 6 12 34 56 78",
-        "Captain Email": "jean.dupont@example.com"
+        "name": "Les Pétanqueurs",
+        "division": "A",
+        "homePiste": "Terrain Municipal",
+        "otherPlayers": "Marie Dubois, Pierre Martin, Sophie Laurent",
+        "captainName": "Jean Dupont",
+        "captainPhone": "+33 6 12 34 56 78",
+        "captainEmail": "jean.dupont@example.com"
       },
       {
-        "Team Name": "Les Boules d'Or",
-        "Division": "A",
-        "Home Piste": "Parc Central",
-        "Other Players": "André Moreau, Claire Petit, Julien Bernard",
-        "Captain Name": "Michel Rousseau",
-        "Captain Phone": "+33 6 23 45 67 89",
-        "Captain Email": "michel.rousseau@example.com"
+        "name": "Les Boules d'Or",
+        "division": "A",
+        "homePiste": "Parc Central",
+        "otherPlayers": "André Moreau, Claire Petit, Julien Bernard",
+        "captainName": "Michel Rousseau",
+        "captainPhone": "+33 6 23 45 67 89",
+        "captainEmail": "michel.rousseau@example.com"
       },
       {
-        "Team Name": "Les Champions",
-        "Division": "B",
-        "Home Piste": "Stade Municipal",
-        "Other Players": "Isabelle Leroy, François Girard, Nicole Blanc",
-        "Captain Name": "Paul Lambert",
-        "Captain Phone": "+33 6 34 56 78 90",
-        "Captain Email": "paul.lambert@example.com"
+        "name": "Les Champions",
+        "division": "B",
+        "homePiste": "Stade Municipal",
+        "otherPlayers": "Isabelle Leroy, François Girard, Nicole Blanc",
+        "captainName": "Paul Lambert",
+        "captainPhone": "+33 6 34 56 78 90",
+        "captainEmail": "paul.lambert@example.com"
       },
       {
-        "Team Name": "Les Imbattables",
-        "Division": "B",
-        "Home Piste": "Place du Village",
-        "Other Players": "Henri Fournier, Monique Simon, Robert Mercier",
-        "Captain Name": "Louis Garnier",
-        "Captain Phone": "+33 6 45 67 89 01",
-        "Captain Email": "louis.garnier@example.com"
+        "name": "Les Imbattables",
+        "division": "B",
+        "homePiste": "Place du Village",
+        "otherPlayers": "Henri Fournier, Monique Simon, Robert Mercier",
+        "captainName": "Louis Garnier",
+        "captainPhone": "+33 6 45 67 89 01",
+        "captainEmail": "louis.garnier@example.com"
       },
       {
-        "Team Name": "Les Maîtres",
-        "Division": "C",
-        "Home Piste": "Jardin Public",
-        "Other Players": "Catherine Durand, Georges Fabre, Sylvie Morel",
-        "Captain Name": "Jacques Bonnet",
-        "Captain Phone": "+33 6 56 78 90 12",
-        "Captain Email": "jacques.bonnet@example.com"
+        "name": "Les Maîtres",
+        "division": "C",
+        "homePiste": "Jardin Public",
+        "otherPlayers": "Catherine Durand, Georges Fabre, Sylvie Morel",
+        "captainName": "Jacques Bonnet",
+        "captainPhone": "+33 6 56 78 90 12",
+        "captainEmail": "jacques.bonnet@example.com"
       },
       {
-        "Team Name": "Les Experts",
-        "Division": "C",
-        "Home Piste": "Esplanade des Platanes",
-        "Other Players": "Yves Fontaine, Martine Chevalier, Daniel Gauthier",
-        "Captain Name": "Bernard Lefebvre",
-        "Captain Phone": "+33 6 67 89 01 23",
-        "Captain Email": "bernard.lefebvre@example.com"
+        "name": "Les Experts",
+        "division": "C",
+        "homePiste": "Esplanade des Platanes",
+        "otherPlayers": "Yves Fontaine, Martine Chevalier, Daniel Gauthier",
+        "captainName": "Bernard Lefebvre",
+        "captainPhone": "+33 6 67 89 01 23",
+        "captainEmail": "bernard.lefebvre@example.com"
       },
       {
-        "Team Name": "Les Boulistes",
-        "Division": "D",
-        "Home Piste": "Terrain des Sports",
-        "Other Players": "Françoise Marchand, Philippe Renard, Nathalie Vincent",
-        "Captain Name": "René Muller",
-        "Captain Phone": "+33 6 78 90 12 34",
-        "Captain Email": "rene.muller@example.com"
+        "name": "Les Boulistes",
+        "division": "D",
+        "homePiste": "Terrain des Sports",
+        "otherPlayers": "Françoise Marchand, Philippe Renard, Nathalie Vincent",
+        "captainName": "René Muller",
+        "captainPhone": "+33 6 78 90 12 34",
+        "captainEmail": "rene.muller@example.com"
       },
       {
-        "Team Name": "Les Joueurs",
-        "Division": "D",
-        "Home Piste": "Boulodrome Municipal",
-        "Other Players": "Thierry Lemoine, Corinne Roussel, Alain Perrin",
-        "Captain Name": "Claude Bertrand",
-        "Captain Phone": "+33 6 89 01 23 45",
-        "Captain Email": "claude.bertrand@example.com"
+        "name": "Les Joueurs",
+        "division": "D",
+        "homePiste": "Boulodrome Municipal",
+        "otherPlayers": "Thierry Lemoine, Corinne Roussel, Alain Perrin",
+        "captainName": "Claude Bertrand",
+        "captainPhone": "+33 6 89 01 23 45",
+        "captainEmail": "claude.bertrand@example.com"
       },
       {
-        "Team Name": "Les Marseillais",
-        "Division": "E",
-        "Home Piste": "Port Vieux",
-        "Other Players": "Marc Dufour, Brigitte Roy, Gérard Clement",
-        "Captain Name": "Antoine Mathieu",
-        "Captain Phone": "+33 6 90 12 34 56",
-        "Captain Email": "antoine.mathieu@example.com"
+        "name": "Les Marseillais",
+        "division": "E",
+        "homePiste": "Port Vieux",
+        "otherPlayers": "Marc Dufour, Brigitte Roy, Gérard Clement",
+        "captainName": "Antoine Mathieu",
+        "captainPhone": "+33 6 90 12 34 56",
+        "captainEmail": "antoine.mathieu@example.com"
       },
       {
-        "Team Name": "Les Provençaux",
-        "Division": "E",
-        "Home Piste": "Place de la Mairie",
-        "Other Players": "Dominique Garcia, Chantal Lopez, Patrick Sanchez",
-        "Captain Name": "Olivier Roux",
-        "Captain Phone": "+33 6 01 23 45 67",
-        "Captain Email": "olivier.roux@example.com"
+        "name": "Les Provençaux",
+        "division": "E",
+        "homePiste": "Place de la Mairie",
+        "otherPlayers": "Dominique Garcia, Chantal Lopez, Patrick Sanchez",
+        "captainName": "Olivier Roux",
+        "captainPhone": "+33 6 01 23 45 67",
+        "captainEmail": "olivier.roux@example.com"
       },
       {
-        "Team Name": "Les Gagnants",
-        "Division": "F",
-        "Home Piste": "Terrain de Pétanque",
-        "Other Players": "Yvette Giraud, Maurice Dupuis, Denise Guerin",
-        "Captain Name": "Marcel Lefevre",
-        "Captain Phone": "+33 6 12 34 56 78",
-        "Captain Email": "marcel.lefevre@example.com"
+        "name": "Les Gagnants",
+        "division": "F",
+        "homePiste": "Terrain de Pétanque",
+        "otherPlayers": "Yvette Giraud, Maurice Dupuis, Denise Guerin",
+        "captainName": "Marcel Lefevre",
+        "captainPhone": "+33 6 12 34 56 78",
+        "captainEmail": "marcel.lefevre@example.com"
       },
       {
-        "Team Name": "Les Amis du Cochonnet",
-        "Division": "F",
-        "Home Piste": "Boulodrome des Pins",
-        "Other Players": "Simone Barbier, Albert Noel, Odette Legrand",
-        "Captain Name": "Raymond Boyer",
-        "Captain Phone": "+33 6 23 45 67 89",
-        "Captain Email": "raymond.boyer@example.com"
+        "name": "Les Amis du Cochonnet",
+        "division": "F",
+        "homePiste": "Boulodrome des Pins",
+        "otherPlayers": "Simone Barbier, Albert Noel, Odette Legrand",
+        "captainName": "Raymond Boyer",
+        "captainPhone": "+33 6 23 45 67 89",
+        "captainEmail": "raymond.boyer@example.com"
       }
     ];
 
