@@ -598,7 +598,14 @@ export default function Teams() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Teams</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Teams</h1>
+              {teams && teams.length > 0 && (
+                <Badge variant="secondary" className="font-mono" data-testid="badge-team-count">
+                  {teams.length}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Manage registered teams and captain contact details
             </p>

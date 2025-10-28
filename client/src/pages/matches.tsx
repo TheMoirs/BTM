@@ -201,6 +201,7 @@ export default function Matches() {
         created: number;
         skipped: number;
         teamsWithoutDivision: number;
+        warnings?: string[];
         stage: string;
         matches: Match[];
       } = await res.json();
@@ -208,10 +209,7 @@ export default function Matches() {
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
 
       let message = "";
-      const stageName = response.stage === "initial" ? "initial round" :
-                       response.stage === "quarter-finals" ? "quarter finals" :
-                       response.stage === "semi-finals" ? "semi finals" :
-                       "finals";
+      const stageName = "initial round";
       
       if (response.created > 0 && response.skipped > 0) {
         message = `Created ${response.created} ${stageName} match(es). Skipped ${response.skipped} existing match(es).`;
@@ -225,6 +223,10 @@ export default function Matches() {
 
       if (response.teamsWithoutDivision > 0) {
         message += ` Note: ${response.teamsWithoutDivision} team(s) without divisions were skipped.`;
+      }
+
+      if (response.warnings && response.warnings.length > 0) {
+        message += ` Warnings: ${response.warnings.join("; ")}`;
       }
 
       toast({

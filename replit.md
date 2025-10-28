@@ -46,22 +46,19 @@ Preferred communication style: Simple, everyday language.
     - Deleting all teams removes all matches and all results
     - Deleting a match removes all results for that match
     - Deleting all matches removes all results (teams remain)
-- **Tournament Progression**: Automated match generation follows tournament stages:
-    - **Initial Stage**: Generates round-robin matches within divisions when no matches exist
-    - **Next Stage Determination**: When all matches in the latest stage are complete (with dates & results), generates next stage based on winner count:
-        - **Division Winners**: Selected by highest points; score difference used as tiebreaker if points are equal
-        - **Stage Selection**:
-            - 2 divisions/winners → Finals
-            - 4 divisions/winners → Semi-Finals
-            - >4 divisions/winners → Quarter-Finals
-    - **Knockout Stage Progression**: Winners advance from quarter-finals → semi-finals → finals
-    - Generate Matches button intelligently determines next stage based on current state
-    - Provides clear error messages when requirements aren't met
+- **Tournament Progression**: Simplified match generation system:
+    - **Initial Stage Only**: Generate Matches button creates round-robin matches within divisions
+    - **Incremental Generation**: If new teams are added to existing divisions, generates missing matches for those teams
+    - **Division Requirements**: Teams must have divisions assigned to participate in match generation
+    - **Odd Team Warning**: System warns users when divisions have odd number of teams (one team will have bye)
+    - **Duplicate Prevention**: Skips matches that already exist between team pairs
+    - Provides clear feedback on matches created, skipped, and any warnings
 
 ## Features
 
 ### Teams Management
 - **Registration**: Add teams individually via form or bulk import via Excel
+- **Team Count Display**: Badge showing total number of registered teams appears next to page title
 - **Team Information**: 
   - Team name (required, unique)
   - Division (optional, A-Z)
@@ -78,13 +75,9 @@ Preferred communication style: Simple, everyday language.
 ### Matches Management & Reporting
 - **PDF Reports**: Generate comprehensive match reports with preview-first workflow
   - **Preview-First Design**: View PDF on screen before deciding what to do
-  - **In-Viewer Actions**: Save, Print, Email, or Close directly from viewer
+  - **In-Viewer Actions**: Save, Print, or Close directly from viewer (landscape orientation)
   - **Mobile-Friendly**: Responsive dialog with iframe display works on all devices
   - **Resource Management**: Automatic blob URL cleanup prevents memory leaks
-- **Email Integration**: Send PDF reports via Resend integration
-  - Uses Replit's Resend connector for secure API key management
-  - Validates email addresses before sending
-  - Proper error handling with user-friendly messages
 - **Report Contents**: Generated PDF includes:
   - All matches grouped by tournament stage
   - Team names, game scores, match status
@@ -94,7 +87,8 @@ Preferred communication style: Simple, everyday language.
   - jsPDF library for PDF generation with auto-table plugin
   - Single PDF generation function prevents duplication
   - Centralized cleanup ensures no memory leaks
-  - Blob URLs revoked on all exit paths (Close, Email, or re-opening)
+  - Blob URLs revoked on all exit paths (Close or re-opening)
+  - All PDFs use landscape orientation for better table display
 
 ## External Dependencies
 
