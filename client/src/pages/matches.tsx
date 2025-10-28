@@ -615,84 +615,97 @@ export default function Matches() {
   };
 
   const generatePDFDocument = () => {
-    const doc = new jsPDF();
+    // Use landscape orientation for better fit, with compression to reduce size
+    const doc = new jsPDF({ 
+      orientation: 'landscape',
+      compress: true
+    });
     
     // Add title
-    doc.setFontSize(18);
-    doc.text("Boules League - Matches Report", 14, 20);
+    doc.setFontSize(16);
+    doc.text("Boules League - Matches Report", 14, 15);
     
     // Add generation date
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
     
-    // Prepare table data
+    // Prepare table data to match on-screen form columns
     const tableData = getFilteredAndSortedMatches.map(match => {
       const team1 = getTeamName(match.team1Id);
       const team2 = getTeamName(match.team2Id);
       const division = match.division || "-";
       const stage = stageLabels[match.stage as keyof typeof stageLabels];
       const status = statusLabels[match.status as keyof typeof statusLabels];
-      const matchDate = match.matchDate || "-";
-      
-      // Game scores
-      const game1 = match.team1Game1Score !== null && match.team2Game1Score !== null
-        ? `${match.team1Game1Score}-${match.team2Game1Score}`
-        : "-";
-      const game2 = match.team1Game2Score !== null && match.team2Game2Score !== null
-        ? `${match.team1Game2Score}-${match.team2Game2Score}`
-        : "-";
-      const game3 = match.team1Game3Score !== null && match.team2Game3Score !== null
-        ? `${match.team1Game3Score}-${match.team2Game3Score}`
+      const matchDate = match.matchDate 
+        ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : "-";
       
-      const winner = match.winnerId 
-        ? (match.winnerId === match.team1Id ? team1 : team2)
-        : "-";
+      // Individual game scores (matching form layout)
+      const t1g1 = match.team1Game1Score !== null ? match.team1Game1Score.toString() : "-";
+      const t1g2 = match.team1Game2Score !== null ? match.team1Game2Score.toString() : "-";
+      const t1g3 = match.team1Game3Score !== null ? match.team1Game3Score.toString() : "-";
+      const t2g1 = match.team2Game1Score !== null ? match.team2Game1Score.toString() : "-";
+      const t2g2 = match.team2Game2Score !== null ? match.team2Game2Score.toString() : "-";
+      const t2g3 = match.team2Game3Score !== null ? match.team2Game3Score.toString() : "-";
       
       return [
         division,
         stage,
-        team1,
-        team2,
-        game1,
-        game2,
-        game3,
         status,
         matchDate,
-        winner
+        team1,
+        t1g1,
+        t1g2,
+        t1g3,
+        team2,
+        t2g1,
+        t2g2,
+        t2g3
       ];
     });
     
-    // Add table
+    // Add table with columns matching on-screen form
     autoTable(doc, {
       head: [[
         'Div',
         'Stage',
-        'Team 1',
-        'Team 2',
-        'Game 1',
-        'Game 2',
-        'Game 3',
         'Status',
         'Date',
-        'Winner'
+        'Team 1',
+        'G1',
+        'G2',
+        'G3',
+        'Team 2',
+        'G1',
+        'G2',
+        'G3'
       ]],
       body: tableData,
-      startY: 35,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      startY: 28,
+      styles: { 
+        fontSize: 8, 
+        cellPadding: 1.5,
+        overflow: 'linebreak'
+      },
+      headStyles: { 
+        fillColor: [59, 130, 246], 
+        textColor: 255,
+        fontStyle: 'bold'
+      },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 15 },
-        5: { cellWidth: 15 },
-        6: { cellWidth: 15 },
-        7: { cellWidth: 20 },
-        8: { cellWidth: 20 },
-        9: { cellWidth: 25 }
+        0: { cellWidth: 12, halign: 'center' },  // Div
+        1: { cellWidth: 22 },                     // Stage
+        2: { cellWidth: 20 },                     // Status
+        3: { cellWidth: 24 },                     // Date
+        4: { cellWidth: 40 },                     // Team 1
+        5: { cellWidth: 12, halign: 'center' },  // Team 1 Game 1
+        6: { cellWidth: 12, halign: 'center' },  // Team 1 Game 2
+        7: { cellWidth: 12, halign: 'center' },  // Team 1 Game 3
+        8: { cellWidth: 40 },                     // Team 2
+        9: { cellWidth: 12, halign: 'center' },  // Team 2 Game 1
+        10: { cellWidth: 12, halign: 'center' }, // Team 2 Game 2
+        11: { cellWidth: 12, halign: 'center' }  // Team 2 Game 3
       },
     });
     
@@ -728,7 +741,10 @@ export default function Matches() {
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
-    // Create download link that prompts user for save location
+    // Create download link - browser handles save location based on user's browser settings
+    // Note: Whether the browser shows a save dialog is controlled by browser settings
+    // (e.g., Chrome: "Ask where to save each file before downloading")
+    // By default, most browsers save to Downloads folder without prompting
     const link = document.createElement('a');
     link.href = url;
     link.download = `matches-report-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -741,7 +757,7 @@ export default function Matches() {
     
     toast({
       title: "PDF saved",
-      description: "Choose where to save the matches report.",
+      description: "The PDF has been downloaded to your default downloads folder.",
     });
   };
 
