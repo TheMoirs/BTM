@@ -43,8 +43,16 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Mail, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -601,6 +609,115 @@ export default function Matches() {
     );
   };
 
+  const generatePDF = (action: "print" | "save" | "email") => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text("Boules League - Matches Report", 14, 20);
+    
+    // Add generation date
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
+    
+    // Prepare table data
+    const tableData = getFilteredAndSortedMatches.map(match => {
+      const team1 = getTeamName(match.team1Id);
+      const team2 = getTeamName(match.team2Id);
+      const division = match.division || "-";
+      const stage = stageLabels[match.stage as keyof typeof stageLabels];
+      const status = statusLabels[match.status as keyof typeof statusLabels];
+      const matchDate = match.matchDate || "-";
+      
+      // Game scores
+      const game1 = match.team1Game1Score !== null && match.team2Game1Score !== null
+        ? `${match.team1Game1Score}-${match.team2Game1Score}`
+        : "-";
+      const game2 = match.team1Game2Score !== null && match.team2Game2Score !== null
+        ? `${match.team1Game2Score}-${match.team2Game2Score}`
+        : "-";
+      const game3 = match.team1Game3Score !== null && match.team2Game3Score !== null
+        ? `${match.team1Game3Score}-${match.team2Game3Score}`
+        : "-";
+      
+      const winner = match.winnerId 
+        ? (match.winnerId === match.team1Id ? team1 : team2)
+        : "-";
+      
+      return [
+        division,
+        stage,
+        team1,
+        team2,
+        game1,
+        game2,
+        game3,
+        status,
+        matchDate,
+        winner
+      ];
+    });
+    
+    // Add table
+    autoTable(doc, {
+      head: [[
+        'Div',
+        'Stage',
+        'Team 1',
+        'Team 2',
+        'Game 1',
+        'Game 2',
+        'Game 3',
+        'Status',
+        'Date',
+        'Winner'
+      ]],
+      body: tableData,
+      startY: 35,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 15 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 15 },
+        7: { cellWidth: 20 },
+        8: { cellWidth: 20 },
+        9: { cellWidth: 25 }
+      },
+    });
+    
+    // Handle the action
+    if (action === "print") {
+      doc.autoPrint();
+      window.open(doc.output('bloburl'), '_blank');
+    } else if (action === "save") {
+      doc.save(`matches-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      toast({
+        title: "PDF saved",
+        description: "The matches report has been downloaded.",
+      });
+    } else if (action === "email") {
+      // Generate blob for email
+      const pdfBlob = doc.output('blob');
+      const formData = new FormData();
+      formData.append('pdf', pdfBlob, 'matches-report.pdf');
+      
+      // For now, show a message that email functionality requires setup
+      toast({
+        title: "Email functionality",
+        description: "Email integration setup required. Please use Save or Print for now.",
+        variant: "default",
+      });
+      
+      // TODO: Implement email sending when integration is set up
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -648,6 +765,28 @@ export default function Matches() {
               <Shuffle className="h-4 w-4 mr-2" />
               Generate Matches
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" data-testid="button-pdf-report">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  PDF Report
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => generatePDF("save")} data-testid="menu-save-pdf">
+                  <Download className="h-4 w-4 mr-2" />
+                  Save PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generatePDF("print")} data-testid="menu-print-pdf">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => generatePDF("email")} data-testid="menu-email-pdf">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="outline"
               onClick={() => setShowClearConfirm(true)}
