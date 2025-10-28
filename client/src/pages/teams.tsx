@@ -186,36 +186,130 @@ export default function Teams() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // Convert to JSON
-        const teamsData = XLSX.utils.sheet_to_json(worksheet) as Array<{
-          name?: string;
-          captainName?: string;
-          captainPhone?: string;
-          captainEmail?: string;
-          division?: string;
-          homePiste?: string;
-          otherPlayers?: string;
-        }>;
+        // Convert to JSON with defval to handle empty cells
+        const teamsData = XLSX.utils.sheet_to_json(worksheet, { 
+          defval: "",
+          raw: false 
+        }) as Array<Record<string, any>>;
+
+        if (teamsData.length === 0) {
+          toast({
+            title: "No data found",
+            description: "The spreadsheet appears to be empty or has no valid rows.",
+            variant: "destructive",
+          });
+          resetFileInput();
+          return;
+        }
 
         let successCount = 0;
         let errorCount = 0;
+        const errors: string[] = [];
 
-        for (const row of teamsData) {
-          if (!row.name || !row.captainName || !row.captainPhone || !row.captainEmail) {
+        for (let i = 0; i < teamsData.length; i++) {
+          const row = teamsData[i];
+          const rowNum = i + 2; // +2 because Excel is 1-indexed and has header row
+          
+          // Try to find column values with case-insensitive matching
+          const getName = () => {
+            const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name');
+            return nameKey ? row[nameKey] : null;
+          };
+          
+          const getCaptainName = () => {
+            const key = Object.keys(row).find(k => 
+              k.toLowerCase() === 'captainname' || 
+              k.toLowerCase() === 'captain name' ||
+              k.toLowerCase() === 'captain_name'
+            );
+            return key ? row[key] : null;
+          };
+          
+          const getCaptainPhone = () => {
+            const key = Object.keys(row).find(k => 
+              k.toLowerCase() === 'captainphone' || 
+              k.toLowerCase() === 'captain phone' ||
+              k.toLowerCase() === 'captain_phone'
+            );
+            return key ? row[key] : null;
+          };
+          
+          const getCaptainEmail = () => {
+            const key = Object.keys(row).find(k => 
+              k.toLowerCase() === 'captainemail' || 
+              k.toLowerCase() === 'captain email' ||
+              k.toLowerCase() === 'captain_email'
+            );
+            return key ? row[key] : null;
+          };
+          
+          const getDivision = () => {
+            const key = Object.keys(row).find(k => k.toLowerCase() === 'division');
+            return key ? row[key] : null;
+          };
+          
+          const getHomePiste = () => {
+            const key = Object.keys(row).find(k => 
+              k.toLowerCase() === 'homepiste' || 
+              k.toLowerCase() === 'home piste' ||
+              k.toLowerCase() === 'home_piste'
+            );
+            return key ? row[key] : null;
+          };
+          
+          const getOtherPlayers = () => {
+            const key = Object.keys(row).find(k => 
+              k.toLowerCase() === 'otherplayers' || 
+              k.toLowerCase() === 'other players' ||
+              k.toLowerCase() === 'other_players'
+            );
+            return key ? row[key] : null;
+          };
+
+          const name = getName();
+          const captainName = getCaptainName();
+          const captainPhone = getCaptainPhone();
+          const captainEmail = getCaptainEmail();
+          const division = getDivision();
+          const homePiste = getHomePiste();
+          const otherPlayers = getOtherPlayers();
+
+          // Check if row is completely empty (skip empty rows)
+          const hasAnyData = Object.values(row).some(val => 
+            val !== null && val !== undefined && String(val).trim() !== ""
+          );
+          
+          if (!hasAnyData) {
+            continue; // Skip completely empty rows without counting as error
+          }
+
+          // Validate required fields
+          const missingFields: string[] = [];
+          if (!name || String(name).trim() === "") missingFields.push("name");
+          if (!captainName || String(captainName).trim() === "") missingFields.push("captainName");
+          if (!captainPhone || String(captainPhone).trim() === "") missingFields.push("captainPhone");
+          if (!captainEmail || String(captainEmail).trim() === "") missingFields.push("captainEmail");
+          
+          if (missingFields.length > 0) {
             errorCount++;
+            errors.push(`Row ${rowNum}: Missing ${missingFields.join(", ")}`);
             continue;
           }
 
           try {
             const teamData: InsertTeam = {
-              name: capitalizeWords(String(row.name).trim()),
-              captainName: capitalizeWords(String(row.captainName).trim()),
-              captainPhone: String(row.captainPhone).trim(),
-              captainEmail: String(row.captainEmail).trim(),
-              division: row.division ? String(row.division).trim().toUpperCase() : null,
-              homePiste: row.homePiste ? String(row.homePiste).trim() : null,
-              otherPlayers: row.otherPlayers 
-                ? String(row.otherPlayers).split(/[,\n]/).map(p => capitalizeWords(p.trim())).filter(p => p)
+              name: capitalizeWords(String(name).trim()),
+              captainName: capitalizeWords(String(captainName).trim()),
+              captainPhone: String(captainPhone).trim(),
+              captainEmail: String(captainEmail).trim(),
+              division: division && String(division).trim() !== "" 
+                ? String(division).trim().toUpperCase() 
+                : null,
+              homePiste: homePiste && String(homePiste).trim() !== "" 
+                ? String(homePiste).trim() 
+                : null,
+              otherPlayers: otherPlayers && String(otherPlayers).trim() !== ""
+                ? String(otherPlayers).split(/[,\n]/).map(p => capitalizeWords(p.trim())).filter(p => p)
                 : null,
             };
 
@@ -229,20 +323,34 @@ export default function Teams() {
             successCount++;
           } catch (error) {
             errorCount++;
+            const errorMsg = error instanceof Error ? error.message : "Unknown error";
+            errors.push(`Row ${rowNum}: ${errorMsg}`);
           }
         }
 
         queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
 
+        // Show detailed results
+        let description = `Successfully imported ${successCount} team(s).`;
+        if (errorCount > 0) {
+          description += ` ${errorCount} row(s) failed.`;
+          if (errors.length <= 5) {
+            description += ` Errors: ${errors.join("; ")}`;
+          } else {
+            description += ` First 5 errors: ${errors.slice(0, 5).join("; ")}`;
+          }
+        }
+
         toast({
           title: "Import complete",
-          description: `Successfully imported ${successCount} team(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
+          description,
           variant: errorCount > 0 ? "destructive" : "default",
         });
       } catch (error) {
+        console.error("Import error:", error);
         toast({
           title: "Import failed",
-          description: "Failed to parse Excel file.",
+          description: error instanceof Error ? error.message : "Failed to parse Excel file.",
           variant: "destructive",
         });
       }
