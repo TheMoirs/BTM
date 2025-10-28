@@ -75,11 +75,34 @@ Preferred communication style: Simple, everyday language.
   - **Mobile View (< 640px)**: Card-based layout with vertical stacking, icon-only action buttons, labeled form fields for editing
   - **Desktop View (≥ 640px)**: Table layout with sortable columns, icon + text action buttons, inline row editing
 
+### Matches Management & Reporting
+- **PDF Reports**: Generate comprehensive match reports with preview-first workflow
+  - **Preview-First Design**: View PDF on screen before deciding what to do
+  - **In-Viewer Actions**: Save, Print, Email, or Close directly from viewer
+  - **Mobile-Friendly**: Responsive dialog with iframe display works on all devices
+  - **Resource Management**: Automatic blob URL cleanup prevents memory leaks
+- **Email Integration**: Send PDF reports via Resend integration
+  - Uses Replit's Resend connector for secure API key management
+  - Validates email addresses before sending
+  - Proper error handling with user-friendly messages
+- **Report Contents**: Generated PDF includes:
+  - All matches grouped by tournament stage
+  - Team names, game scores, match status
+  - Scheduled dates for upcoming matches
+  - Complete tournament overview
+- **Technical Implementation**:
+  - jsPDF library for PDF generation with auto-table plugin
+  - Single PDF generation function prevents duplication
+  - Centralized cleanup ensures no memory leaks
+  - Blob URLs revoked on all exit paths (Close, Email, or re-opening)
+
 ## External Dependencies
 
 - **UI Libraries**: Radix UI (headless components), Lucide React (icons), class-variance-authority, tailwind-merge, clsx.
 - **Form & Validation**: React Hook Form, @hookform/resolvers, Zod, drizzle-zod.
 - **Data Import/Export**: xlsx for Excel spreadsheet parsing and generation. Includes sample Excel file download feature with 12 pre-populated teams.
+- **PDF Generation**: jsPDF with jspdf-autotable for generating PDF reports with tables.
+- **Email Service**: Resend for sending PDF reports via email, integrated via Replit connector.
 - **Database & ORM**: @neondatabase/serverless (PostgreSQL client), drizzle-orm, drizzle-kit.
 - **Development Tools**: esbuild, tsx, PostCSS, Autoprefixer.
 - **Fonts**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono).
