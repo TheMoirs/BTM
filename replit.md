@@ -68,10 +68,12 @@ Boules League Manager is a web application designed to manage boules league comp
   - Captain contact details (name, phone, email - all required)
 - **Excel Import**: Upload Excel file to create/update teams in bulk. Column headers must match: `name`, `division`, `homePiste`, `otherPlayers` (comma-separated), `captainName`, `captainPhone`, `captainEmail`
 - **Inline Editing**: Click edit icon to modify team details directly in the table
-- **Sorting**: Teams are automatically sorted by division (A-Z), then alphabetically by team name within each division. Teams without divisions appear at the end.
-- **Mobile Responsive Design**: Full mobile responsiveness using Tailwind's `sm` breakpoint (640px)
-  - **Mobile View (< 640px)**: Card-based layout with vertical stacking, icon-only action buttons, labeled form fields for editing
-  - **Desktop View (≥ 640px)**: Table layout with sortable columns, icon + text action buttons, inline row editing
+- **Table Layout**: 
+  - Unified table layout for all screen sizes
+  - Horizontal scrolling on mobile devices to view all columns
+  - All columns are sortable: Division, Team Name, Home Piste, Captain Name, Phone, Email, Other Players
+  - Empty values (division, home piste, other players) are pushed to the end of sorted results
+  - Inline row editing within the table
 
 ### Matches Management & Reporting
 - **PDF Reports**: Generate comprehensive match reports with preview-first workflow
