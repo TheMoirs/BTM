@@ -43,7 +43,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Mail, Download } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -104,9 +104,6 @@ export default function Matches() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
-  const [showEmailDialog, setShowEmailDialog] = useState(false);
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const { toast } = useToast();
@@ -772,11 +769,6 @@ export default function Matches() {
     }
   };
 
-  const handlePdfEmail = () => {
-    closePdfViewer();
-    setShowEmailDialog(true);
-  };
-
   const closePdfViewer = () => {
     setShowPdfViewer(false);
     if (pdfBlobUrl) {
@@ -785,48 +777,6 @@ export default function Matches() {
         URL.revokeObjectURL(pdfBlobUrl);
       }
       setPdfBlobUrl(null);
-    }
-  };
-
-  const handleSendEmail = async () => {
-    if (!recipientEmail) {
-      toast({
-        title: "Email required",
-        description: "Please enter a recipient email address.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSendingEmail(true);
-
-    try {
-      // Generate PDF
-      const doc = generatePDFDocument();
-      const pdfBase64 = doc.output('dataurlstring').split(',')[1];
-      
-      // Send email
-      await apiRequest("POST", "/api/email-pdf", {
-        recipientEmail,
-        pdfBase64,
-        filename: `matches-report-${new Date().toISOString().split('T')[0]}.pdf`,
-      });
-
-      toast({
-        title: "Email sent",
-        description: `The matches report has been sent to ${recipientEmail}.`,
-      });
-
-      setShowEmailDialog(false);
-      setRecipientEmail("");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send email.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSendingEmail(false);
     }
   };
 
@@ -1435,59 +1385,12 @@ export default function Matches() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-          <DialogContent aria-describedby="email-dialog-description">
-            <DialogHeader>
-              <DialogTitle>Email PDF Report</DialogTitle>
-              <p id="email-dialog-description" className="sr-only">
-                Enter the recipient email address to send the matches report
-              </p>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="recipient-email" className="text-sm font-medium">
-                  Recipient Email
-                </label>
-                <Input
-                  id="recipient-email"
-                  type="email"
-                  placeholder="Enter email address"
-                  value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
-                  className="mt-2"
-                  data-testid="input-recipient-email"
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowEmailDialog(false);
-                    setRecipientEmail("");
-                  }}
-                  disabled={isSendingEmail}
-                  data-testid="button-cancel-email"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={isSendingEmail}
-                  data-testid="button-send-email"
-                >
-                  {isSendingEmail ? "Sending..." : "Send Email"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
         <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
           <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
             <DialogHeader>
               <DialogTitle>Matches Report Preview</DialogTitle>
               <p id="pdf-viewer-description" className="sr-only">
-                Preview the PDF report before saving, printing, or emailing
+                Preview the PDF report before saving or printing
               </p>
             </DialogHeader>
             <div className="flex-1 overflow-hidden flex flex-col gap-4">
@@ -1517,14 +1420,6 @@ export default function Matches() {
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Print
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handlePdfEmail}
-                  data-testid="button-email-pdf"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email
                 </Button>
                 <Button
                   variant="outline"

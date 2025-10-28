@@ -27,8 +27,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Result } from "@shared/schema";
-import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +70,10 @@ export default function Results() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [showSummaryPdfViewer, setShowSummaryPdfViewer] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [summaryPdfBlobUrl, setSummaryPdfBlobUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: results, isLoading } = useQuery<Result[]>({
@@ -227,6 +233,194 @@ export default function Results() {
     return Array.from(stages).sort();
   }, [results]);
 
+  const generateResultsPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    
+    doc.setFontSize(18);
+    doc.text('Match Results Report', 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    if (stageFilter !== "all") {
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 27);
+    }
+    
+    const tableData = getSortedResults.map((result) => [
+      result.matchInfo,
+      result.matchDate || '—',
+      stageLabels[result.stage as keyof typeof stageLabels] || result.stage,
+      result.teamName,
+      result.gamesPlayed.toString(),
+      result.gamesWon.toString(),
+      result.gamesDrawn.toString(),
+      result.gamesLost.toString(),
+      result.points.toString(),
+      result.scoreFor.toString(),
+      result.scoreAgainst.toString(),
+      result.scoreDifference.toString(),
+    ]);
+    
+    autoTable(doc, {
+      head: [['Match', 'Date', 'Stage', 'Team', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
+      body: tableData,
+      startY: stageFilter !== "all" ? 32 : 28,
+      styles: {
+        fontSize: 8,
+        cellPadding: 1.5,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 40 },
+        4: { cellWidth: 10, halign: 'center' },
+        5: { cellWidth: 10, halign: 'center' },
+        6: { cellWidth: 10, halign: 'center' },
+        7: { cellWidth: 10, halign: 'center' },
+        8: { cellWidth: 12, halign: 'center' },
+        9: { cellWidth: 10, halign: 'center' },
+        10: { cellWidth: 10, halign: 'center' },
+        11: { cellWidth: 12, halign: 'center' },
+      },
+    });
+    
+    return doc;
+  };
+
+  const generateSummaryPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    
+    doc.setFontSize(18);
+    doc.text('Team Summary Statistics', 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    if (stageFilter !== "all") {
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 27);
+    }
+    
+    const tableData = teamSummaries.map((summary) => [
+      summary.teamName,
+      summary.gamesPlayed.toString(),
+      summary.gamesWon.toString(),
+      summary.gamesDrawn.toString(),
+      summary.gamesLost.toString(),
+      summary.points.toString(),
+      summary.scoreFor.toString(),
+      summary.scoreAgainst.toString(),
+      summary.scoreDifference.toString(),
+    ]);
+    
+    autoTable(doc, {
+      head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
+      body: tableData,
+      startY: stageFilter !== "all" ? 32 : 28,
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 70 },
+        1: { cellWidth: 22, halign: 'center' },
+        2: { cellWidth: 22, halign: 'center' },
+        3: { cellWidth: 22, halign: 'center' },
+        4: { cellWidth: 22, halign: 'center' },
+        5: { cellWidth: 22, halign: 'center' },
+        6: { cellWidth: 22, halign: 'center' },
+        7: { cellWidth: 22, halign: 'center' },
+        8: { cellWidth: 22, halign: 'center' },
+      },
+    });
+    
+    return doc;
+  };
+
+  const openPdfViewer = () => {
+    const doc = generateResultsPDF();
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      setPdfBlobUrl(doc.output('dataurlstring'));
+    } else {
+      const pdfBlob = doc.output('blob');
+      setPdfBlobUrl(URL.createObjectURL(pdfBlob));
+    }
+    
+    setShowPdfViewer(true);
+  };
+
+  const openSummaryPdfViewer = () => {
+    const doc = generateSummaryPDF();
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      setSummaryPdfBlobUrl(doc.output('dataurlstring'));
+    } else {
+      const pdfBlob = doc.output('blob');
+      setSummaryPdfBlobUrl(URL.createObjectURL(pdfBlob));
+    }
+    
+    setShowSummaryPdfViewer(true);
+  };
+
+  const handlePdfSave = (isSummary: boolean) => {
+    const doc = isSummary ? generateSummaryPDF() : generateResultsPDF();
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${isSummary ? 'summary' : 'results'}-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    toast({
+      title: "PDF saved",
+      description: "The PDF has been downloaded to your default downloads folder.",
+    });
+  };
+
+  const handlePdfPrint = (isSummary: boolean) => {
+    const blobUrl = isSummary ? summaryPdfBlobUrl : pdfBlobUrl;
+    if (blobUrl) {
+      const printWindow = window.open(blobUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    }
+  };
+
+  const closePdfViewer = () => {
+    setShowPdfViewer(false);
+    if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(pdfBlobUrl);
+    }
+    setPdfBlobUrl(null);
+  };
+
+  const closeSummaryPdfViewer = () => {
+    setShowSummaryPdfViewer(false);
+    if (summaryPdfBlobUrl && summaryPdfBlobUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(summaryPdfBlobUrl);
+    }
+    setSummaryPdfBlobUrl(null);
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -248,10 +442,21 @@ export default function Results() {
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>
-                      Team Summary Statistics
-                      {stageFilter !== "all" && ` - ${stageLabels[stageFilter as keyof typeof stageLabels]}`}
-                    </DialogTitle>
+                    <div className="flex items-center justify-between">
+                      <DialogTitle>
+                        Team Summary Statistics
+                        {stageFilter !== "all" && ` - ${stageLabels[stageFilter as keyof typeof stageLabels]}`}
+                      </DialogTitle>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={openSummaryPdfViewer}
+                        data-testid="button-summary-view-pdf"
+                      >
+                        <FileDown className="mr-2 h-4 w-4" />
+                        View PDF
+                      </Button>
+                    </div>
                   </DialogHeader>
                   <div className="rounded-md border">
                     <Table>
@@ -312,6 +517,14 @@ export default function Results() {
                   </div>
                 </DialogContent>
               </Dialog>
+              <Button
+                variant="outline"
+                onClick={openPdfViewer}
+                data-testid="button-view-pdf"
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                View PDF
+              </Button>
               <Button
                 variant="destructive"
                 onClick={() => setShowClearConfirm(true)}
@@ -605,6 +818,102 @@ export default function Results() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
+        <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
+          <DialogHeader>
+            <DialogTitle>Results Report Preview</DialogTitle>
+            <p id="pdf-viewer-description" className="sr-only">
+              Preview the PDF report before saving or printing
+            </p>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col gap-4">
+            <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
+              {pdfBlobUrl && (
+                <iframe
+                  src={pdfBlobUrl}
+                  className="w-full h-full"
+                  title="PDF Preview"
+                  data-testid="pdf-preview-iframe"
+                />
+              )}
+            </div>
+            <div className="flex gap-2 justify-end flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => handlePdfSave(false)}
+                data-testid="button-save-pdf"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handlePdfPrint(false)}
+                data-testid="button-print-pdf"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={closePdfViewer}
+                data-testid="button-close-pdf"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSummaryPdfViewer} onOpenChange={(open) => !open && closeSummaryPdfViewer()}>
+        <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="summary-pdf-viewer-description">
+          <DialogHeader>
+            <DialogTitle>Summary Report Preview</DialogTitle>
+            <p id="summary-pdf-viewer-description" className="sr-only">
+              Preview the PDF summary report before saving or printing
+            </p>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden flex flex-col gap-4">
+            <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
+              {summaryPdfBlobUrl && (
+                <iframe
+                  src={summaryPdfBlobUrl}
+                  className="w-full h-full"
+                  title="PDF Preview"
+                  data-testid="summary-pdf-preview-iframe"
+                />
+              )}
+            </div>
+            <div className="flex gap-2 justify-end flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => handlePdfSave(true)}
+                data-testid="button-save-summary-pdf"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handlePdfPrint(true)}
+                data-testid="button-print-summary-pdf"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={closeSummaryPdfViewer}
+                data-testid="button-close-summary-pdf"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

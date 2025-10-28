@@ -32,9 +32,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +59,8 @@ export default function Teams() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -472,6 +476,112 @@ export default function Teams() {
     );
   };
 
+  const generatePDFDocument = () => {
+    const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    
+    doc.setFontSize(18);
+    doc.text('Teams Report', 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    
+    const sortedTeams = getSortedTeams();
+    
+    const tableData = sortedTeams.map((team) => [
+      team.division || '—',
+      team.name,
+      team.homePiste || '—',
+      team.captainName,
+      team.captainPhone,
+      team.captainEmail,
+      team.otherPlayers && team.otherPlayers.length > 0 ? team.otherPlayers.join(', ') : '—',
+    ]);
+    
+    autoTable(doc, {
+      head: [['Div', 'Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
+      body: tableData,
+      startY: 28,
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 45 },
+        6: { cellWidth: 50 },
+      },
+    });
+    
+    return doc;
+  };
+
+  const openPdfViewer = () => {
+    const doc = generatePDFDocument();
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      const pdfDataUrl = doc.output('dataurlstring');
+      setPdfBlobUrl(pdfDataUrl);
+    } else {
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      setPdfBlobUrl(url);
+    }
+    
+    setShowPdfViewer(true);
+  };
+
+  const handlePdfSave = () => {
+    const doc = generatePDFDocument();
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `teams-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    toast({
+      title: "PDF saved",
+      description: "The PDF has been downloaded to your default downloads folder.",
+    });
+  };
+
+  const handlePdfPrint = () => {
+    if (pdfBlobUrl) {
+      const printWindow = window.open(pdfBlobUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    }
+  };
+
+  const closePdfViewer = () => {
+    setShowPdfViewer(false);
+    if (pdfBlobUrl) {
+      if (pdfBlobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+      setPdfBlobUrl(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -510,6 +620,15 @@ export default function Teams() {
             >
               <Upload className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Import Excel</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openPdfViewer}
+              data-testid="button-view-pdf"
+            >
+              <FileDown className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">View PDF</span>
             </Button>
             <Button
               variant="outline"
@@ -905,6 +1024,16 @@ export default function Teams() {
                 <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[80px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("division")}
+                        data-testid="sort-division"
+                      >
+                        Division
+                        <SortIcon column="division" />
+                      </button>
+                    </TableHead>
                     <TableHead className="w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -915,14 +1044,14 @@ export default function Teams() {
                         <SortIcon column="name" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[80px]">
+                    <TableHead className="w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("division")}
-                        data-testid="sort-division"
+                        onClick={() => handleSort("homePiste")}
+                        data-testid="sort-home-piste"
                       >
-                        Division
-                        <SortIcon column="division" />
+                        Home Piste
+                        <SortIcon column="homePiste" />
                       </button>
                     </TableHead>
                     <TableHead className="w-[180px]">
@@ -955,16 +1084,6 @@ export default function Teams() {
                         <SortIcon column="captainEmail" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("homePiste")}
-                        data-testid="sort-home-piste"
-                      >
-                        Home Piste
-                        <SortIcon column="homePiste" />
-                      </button>
-                    </TableHead>
                     <TableHead className="w-[200px]">Other Players</TableHead>
                     <TableHead className="w-[120px] text-right">Actions</TableHead>
                   </TableRow>
@@ -975,6 +1094,25 @@ export default function Teams() {
                     
                     return (
                       <TableRow key={team.id} data-testid={`row-team-${team.id}`}>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              value={editingValues.division || ""}
+                              onChange={(e) => updateEditingValue("division", e.target.value)}
+                              maxLength={1}
+                              className="h-8 w-16 uppercase"
+                              data-testid={`input-edit-division-${team.id}`}
+                            />
+                          ) : (
+                            team.division ? (
+                              <Badge variant="outline" data-testid={`badge-division-${team.id}`}>
+                                {team.division}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )
+                          )}
+                        </TableCell>
                         <TableCell>
                           {isEditing ? (
                             <Input
@@ -990,17 +1128,14 @@ export default function Teams() {
                         <TableCell>
                           {isEditing ? (
                             <Input
-                              value={editingValues.division || ""}
-                              onChange={(e) => updateEditingValue("division", e.target.value)}
-                              maxLength={1}
-                              className="h-8 w-16 uppercase"
-                              data-testid={`input-edit-division-${team.id}`}
+                              value={editingValues.homePiste || ""}
+                              onChange={(e) => updateEditingValue("homePiste", e.target.value)}
+                              className="h-8"
+                              data-testid={`input-edit-home-piste-${team.id}`}
                             />
                           ) : (
-                            team.division ? (
-                              <Badge variant="outline" data-testid={`badge-division-${team.id}`}>
-                                {team.division}
-                              </Badge>
+                            team.homePiste ? (
+                              <span data-testid={`text-home-piste-${team.id}`}>{team.homePiste}</span>
                             ) : (
                               <span className="text-muted-foreground text-sm">—</span>
                             )
@@ -1041,22 +1176,6 @@ export default function Teams() {
                             />
                           ) : (
                             <span data-testid={`text-captain-email-${team.id}`}>{team.captainEmail}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {isEditing ? (
-                            <Input
-                              value={editingValues.homePiste || ""}
-                              onChange={(e) => updateEditingValue("homePiste", e.target.value)}
-                              className="h-8"
-                              data-testid={`input-edit-home-piste-${team.id}`}
-                            />
-                          ) : (
-                            team.homePiste ? (
-                              <span data-testid={`text-home-piste-${team.id}`}>{team.homePiste}</span>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )
                           )}
                         </TableCell>
                         <TableCell>
@@ -1179,6 +1298,54 @@ export default function Teams() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
+          <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
+            <DialogHeader>
+              <DialogTitle>Teams Report Preview</DialogTitle>
+              <p id="pdf-viewer-description" className="sr-only">
+                Preview the PDF report before saving or printing
+              </p>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden flex flex-col gap-4">
+              <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
+                {pdfBlobUrl && (
+                  <iframe
+                    src={pdfBlobUrl}
+                    className="w-full h-full"
+                    title="PDF Preview"
+                    data-testid="pdf-preview-iframe"
+                  />
+                )}
+              </div>
+              <div className="flex gap-2 justify-end flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={handlePdfSave}
+                  data-testid="button-save-pdf"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handlePdfPrint}
+                  data-testid="button-print-pdf"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={closePdfViewer}
+                  data-testid="button-close-pdf"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
