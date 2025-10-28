@@ -104,6 +104,9 @@ export default function Matches() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const { toast } = useToast();
 
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
@@ -702,19 +705,131 @@ export default function Matches() {
         description: "The matches report has been downloaded.",
       });
     } else if (action === "email") {
-      // Generate blob for email
-      const pdfBlob = doc.output('blob');
-      const formData = new FormData();
-      formData.append('pdf', pdfBlob, 'matches-report.pdf');
-      
-      // For now, show a message that email functionality requires setup
+      // Show email dialog
+      setShowEmailDialog(true);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!recipientEmail) {
       toast({
-        title: "Email functionality",
-        description: "Email integration setup required. Please use Save or Print for now.",
-        variant: "default",
+        title: "Email required",
+        description: "Please enter a recipient email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+
+    try {
+      // Generate PDF
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.text("Boules League - Matches Report", 14, 20);
+      
+      // Add generation date
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
+      
+      // Prepare table data
+      const tableData = getFilteredAndSortedMatches.map(match => {
+        const team1 = getTeamName(match.team1Id);
+        const team2 = getTeamName(match.team2Id);
+        const division = match.division || "-";
+        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const status = statusLabels[match.status as keyof typeof statusLabels];
+        const matchDate = match.matchDate || "-";
+        
+        // Game scores
+        const game1 = match.team1Game1Score !== null && match.team2Game1Score !== null
+          ? `${match.team1Game1Score}-${match.team2Game1Score}`
+          : "-";
+        const game2 = match.team1Game2Score !== null && match.team2Game2Score !== null
+          ? `${match.team1Game2Score}-${match.team2Game2Score}`
+          : "-";
+        const game3 = match.team1Game3Score !== null && match.team2Game3Score !== null
+          ? `${match.team1Game3Score}-${match.team2Game3Score}`
+          : "-";
+        
+        const winner = match.winnerId 
+          ? (match.winnerId === match.team1Id ? team1 : team2)
+          : "-";
+        
+        return [
+          division,
+          stage,
+          team1,
+          team2,
+          game1,
+          game2,
+          game3,
+          status,
+          matchDate,
+          winner
+        ];
       });
       
-      // TODO: Implement email sending when integration is set up
+      // Add table
+      autoTable(doc, {
+        head: [[
+          'Div',
+          'Stage',
+          'Team 1',
+          'Team 2',
+          'Game 1',
+          'Game 2',
+          'Game 3',
+          'Status',
+          'Date',
+          'Winner'
+        ]],
+        body: tableData,
+        startY: 35,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 15 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 15 },
+          7: { cellWidth: 20 },
+          8: { cellWidth: 20 },
+          9: { cellWidth: 25 }
+        },
+      });
+
+      // Convert PDF to base64
+      const pdfBase64 = doc.output('dataurlstring').split(',')[1];
+      
+      // Send email
+      const response = await apiRequest("POST", "/api/email-pdf", {
+        recipientEmail,
+        pdfBase64,
+        filename: `matches-report-${new Date().toISOString().split('T')[0]}.pdf`,
+      });
+
+      toast({
+        title: "Email sent",
+        description: `The matches report has been sent to ${recipientEmail}.`,
+      });
+
+      setShowEmailDialog(false);
+      setRecipientEmail("");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send email.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -1336,6 +1451,53 @@ export default function Matches() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+          <DialogContent aria-describedby="email-dialog-description">
+            <DialogHeader>
+              <DialogTitle>Email PDF Report</DialogTitle>
+              <p id="email-dialog-description" className="sr-only">
+                Enter the recipient email address to send the matches report
+              </p>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="recipient-email" className="text-sm font-medium">
+                  Recipient Email
+                </label>
+                <Input
+                  id="recipient-email"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  className="mt-2"
+                  data-testid="input-recipient-email"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowEmailDialog(false);
+                    setRecipientEmail("");
+                  }}
+                  disabled={isSendingEmail}
+                  data-testid="button-cancel-email"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail}
+                  data-testid="button-send-email"
+                >
+                  {isSendingEmail ? "Sending..." : "Send Email"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
