@@ -97,6 +97,7 @@ export default function Teams() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+        duration: Infinity,
       });
     },
   });
@@ -118,6 +119,7 @@ export default function Teams() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+        duration: Infinity,
       });
     },
   });
@@ -137,6 +139,7 @@ export default function Teams() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+        duration: Infinity,
       });
     },
   });
@@ -158,6 +161,7 @@ export default function Teams() {
         title: "Error",
         description: "Failed to clear teams.",
         variant: "destructive",
+        duration: Infinity,
       });
     }
   };
@@ -201,6 +205,7 @@ export default function Teams() {
             title: "No data found",
             description: "The spreadsheet appears to be empty or has no valid rows.",
             variant: "destructive",
+            duration: Infinity,
           });
           resetFileInput();
           return;
@@ -349,6 +354,7 @@ export default function Teams() {
           title: "Import complete",
           description,
           variant: errorCount > 0 ? "destructive" : "default",
+          duration: errorCount > 0 ? Infinity : undefined,
         });
       } catch (error) {
         console.error("Import error:", error);
@@ -356,6 +362,7 @@ export default function Teams() {
           title: "Import failed",
           description: error instanceof Error ? error.message : "Failed to parse Excel file.",
           variant: "destructive",
+          duration: Infinity,
         });
       }
 
@@ -367,6 +374,7 @@ export default function Teams() {
         title: "Import failed",
         description: "Failed to read Excel file.",
         variant: "destructive",
+        duration: Infinity,
       });
       resetFileInput();
     };

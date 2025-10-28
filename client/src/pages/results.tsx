@@ -223,6 +223,7 @@ export default function Results() {
         title: "Error",
         description: "Failed to clear results.",
         variant: "destructive",
+        duration: Infinity,
       });
     }
   };

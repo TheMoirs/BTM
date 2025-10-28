@@ -149,6 +149,7 @@ export default function Matches() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+        duration: Infinity,
       });
     },
   });
@@ -171,6 +172,7 @@ export default function Matches() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+        duration: Infinity,
       });
     },
   });
@@ -190,6 +192,7 @@ export default function Matches() {
         title: "Error",
         description: error.message,
         variant: "destructive",
+        duration: Infinity,
       });
     },
   });
@@ -232,6 +235,7 @@ export default function Matches() {
       toast({
         title: "Matches generated",
         description: message,
+        duration: (response.warnings && response.warnings.length > 0) || response.teamsWithoutDivision > 0 ? Infinity : undefined,
       });
     } catch (error) {
       console.error("Error generating matches:", error);
@@ -240,6 +244,7 @@ export default function Matches() {
         title: "Error",
         description: errorMessage,
         variant: "destructive",
+        duration: Infinity,
       });
     }
   };
@@ -260,6 +265,7 @@ export default function Matches() {
         title: "Error",
         description: "Failed to clear matches.",
         variant: "destructive",
+        duration: Infinity,
       });
     }
   };
@@ -270,6 +276,7 @@ export default function Matches() {
         title: "Invalid selection",
         description: "Please select two different teams",
         variant: "destructive",
+        duration: Infinity,
       });
       return;
     }
@@ -324,6 +331,7 @@ export default function Matches() {
         title: "Invalid scores",
         description: "Please provide both scores for Game 1 or leave both empty.",
         variant: "destructive",
+        duration: Infinity,
       });
       return;
     }
@@ -334,6 +342,7 @@ export default function Matches() {
         title: "Invalid scores",
         description: "Please provide both scores for Game 2 or leave both empty.",
         variant: "destructive",
+        duration: Infinity,
       });
       return;
     }
@@ -344,6 +353,7 @@ export default function Matches() {
         title: "Invalid scores",
         description: "Please provide both scores for Game 3 or leave both empty.",
         variant: "destructive",
+        duration: Infinity,
       });
       return;
     }
@@ -364,6 +374,7 @@ export default function Matches() {
           title: "Invalid score",
           description: `${score.name} score must be a non-negative number.`,
           variant: "destructive",
+          duration: Infinity,
         });
         return;
       }
@@ -523,6 +534,7 @@ export default function Matches() {
         title: "Partially updated",
         description: `Updated ${successCount} match${successCount > 1 ? 'es' : ''}. ${errors.length} failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`,
         variant: "destructive",
+        duration: Infinity,
       });
       // Stay in edit mode so user can fix errors
     } else if (errors.length > 0) {
@@ -531,6 +543,7 @@ export default function Matches() {
         title: "Update failed",
         description: errors.length === 1 ? errors[0] : `${errors.length} errors: ${errors[0]} (+${errors.length - 1} more)`,
         variant: "destructive",
+        duration: Infinity,
       });
       // Stay in edit mode so user can fix errors
     }
