@@ -107,6 +107,8 @@ export default function Matches() {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
@@ -612,7 +614,7 @@ export default function Matches() {
     );
   };
 
-  const generatePDF = (action: "print" | "save" | "email") => {
+  const generatePDFDocument = () => {
     const doc = new jsPDF();
     
     // Add title
@@ -694,19 +696,51 @@ export default function Matches() {
       },
     });
     
-    // Handle the action
-    if (action === "print") {
-      doc.autoPrint();
-      window.open(doc.output('bloburl'), '_blank');
-    } else if (action === "save") {
-      doc.save(`matches-report-${new Date().toISOString().split('T')[0]}.pdf`);
-      toast({
-        title: "PDF saved",
-        description: "The matches report has been downloaded.",
-      });
-    } else if (action === "email") {
-      // Show email dialog
-      setShowEmailDialog(true);
+    return doc;
+  };
+
+  const openPdfViewer = () => {
+    // Clean up any existing blob URL first
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+    }
+    
+    const doc = generatePDFDocument();
+    const blobUrl = doc.output('bloburl') as unknown as string;
+    setPdfBlobUrl(blobUrl);
+    setShowPdfViewer(true);
+  };
+
+  const handlePdfSave = () => {
+    const doc = generatePDFDocument();
+    doc.save(`matches-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast({
+      title: "PDF saved",
+      description: "The matches report has been downloaded.",
+    });
+  };
+
+  const handlePdfPrint = () => {
+    if (pdfBlobUrl) {
+      const printWindow = window.open(pdfBlobUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    }
+  };
+
+  const handlePdfEmail = () => {
+    closePdfViewer();
+    setShowEmailDialog(true);
+  };
+
+  const closePdfViewer = () => {
+    setShowPdfViewer(false);
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
     }
   };
 
@@ -724,92 +758,11 @@ export default function Matches() {
 
     try {
       // Generate PDF
-      const doc = new jsPDF();
-      
-      // Add title
-      doc.setFontSize(18);
-      doc.text("Boules League - Matches Report", 14, 20);
-      
-      // Add generation date
-      doc.setFontSize(10);
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
-      
-      // Prepare table data
-      const tableData = getFilteredAndSortedMatches.map(match => {
-        const team1 = getTeamName(match.team1Id);
-        const team2 = getTeamName(match.team2Id);
-        const division = match.division || "-";
-        const stage = stageLabels[match.stage as keyof typeof stageLabels];
-        const status = statusLabels[match.status as keyof typeof statusLabels];
-        const matchDate = match.matchDate || "-";
-        
-        // Game scores
-        const game1 = match.team1Game1Score !== null && match.team2Game1Score !== null
-          ? `${match.team1Game1Score}-${match.team2Game1Score}`
-          : "-";
-        const game2 = match.team1Game2Score !== null && match.team2Game2Score !== null
-          ? `${match.team1Game2Score}-${match.team2Game2Score}`
-          : "-";
-        const game3 = match.team1Game3Score !== null && match.team2Game3Score !== null
-          ? `${match.team1Game3Score}-${match.team2Game3Score}`
-          : "-";
-        
-        const winner = match.winnerId 
-          ? (match.winnerId === match.team1Id ? team1 : team2)
-          : "-";
-        
-        return [
-          division,
-          stage,
-          team1,
-          team2,
-          game1,
-          game2,
-          game3,
-          status,
-          matchDate,
-          winner
-        ];
-      });
-      
-      // Add table
-      autoTable(doc, {
-        head: [[
-          'Div',
-          'Stage',
-          'Team 1',
-          'Team 2',
-          'Game 1',
-          'Game 2',
-          'Game 3',
-          'Status',
-          'Date',
-          'Winner'
-        ]],
-        body: tableData,
-        startY: 35,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: 20 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 25 },
-          4: { cellWidth: 15 },
-          5: { cellWidth: 15 },
-          6: { cellWidth: 15 },
-          7: { cellWidth: 20 },
-          8: { cellWidth: 20 },
-          9: { cellWidth: 25 }
-        },
-      });
-
-      // Convert PDF to base64
+      const doc = generatePDFDocument();
       const pdfBase64 = doc.output('dataurlstring').split(',')[1];
       
       // Send email
-      const response = await apiRequest("POST", "/api/email-pdf", {
+      await apiRequest("POST", "/api/email-pdf", {
         recipientEmail,
         pdfBase64,
         filename: `matches-report-${new Date().toISOString().split('T')[0]}.pdf`,
@@ -880,28 +833,14 @@ export default function Matches() {
               <Shuffle className="h-4 w-4 mr-2" />
               Generate Matches
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" data-testid="button-pdf-report">
-                  <FileDown className="h-4 w-4 mr-2" />
-                  PDF Report
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => generatePDF("save")} data-testid="menu-save-pdf">
-                  <Download className="h-4 w-4 mr-2" />
-                  Save PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => generatePDF("print")} data-testid="menu-print-pdf">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => generatePDF("email")} data-testid="menu-email-pdf">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              onClick={openPdfViewer}
+              data-testid="button-view-pdf"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              View PDF Report
+            </Button>
             <Button
               variant="outline"
               onClick={() => setShowClearConfirm(true)}
@@ -1493,6 +1432,62 @@ export default function Matches() {
                   data-testid="button-send-email"
                 >
                   {isSendingEmail ? "Sending..." : "Send Email"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
+          <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
+            <DialogHeader>
+              <DialogTitle>Matches Report Preview</DialogTitle>
+              <p id="pdf-viewer-description" className="sr-only">
+                Preview the PDF report before saving, printing, or emailing
+              </p>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden flex flex-col gap-4">
+              <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
+                {pdfBlobUrl && (
+                  <iframe
+                    src={pdfBlobUrl}
+                    className="w-full h-full"
+                    title="PDF Preview"
+                    data-testid="pdf-preview-iframe"
+                  />
+                )}
+              </div>
+              <div className="flex gap-2 justify-end flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={handlePdfSave}
+                  data-testid="button-save-pdf"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Save
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handlePdfPrint}
+                  data-testid="button-print-pdf"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handlePdfEmail}
+                  data-testid="button-email-pdf"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={closePdfViewer}
+                  data-testid="button-close-pdf"
+                >
+                  Close
                 </Button>
               </div>
             </div>
