@@ -700,23 +700,48 @@ export default function Matches() {
   };
 
   const openPdfViewer = () => {
-    // Clean up any existing blob URL first
-    if (pdfBlobUrl) {
+    // Clean up any existing blob URL first (not data URLs)
+    if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
       URL.revokeObjectURL(pdfBlobUrl);
     }
     
     const doc = generatePDFDocument();
-    const blobUrl = doc.output('bloburl') as unknown as string;
-    setPdfBlobUrl(blobUrl);
+    
+    // Detect mobile devices - use data URL instead of blob URL for better mobile compatibility
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    let pdfUrl: string;
+    if (isMobile) {
+      // Data URL works better on mobile browsers (especially Android)
+      pdfUrl = doc.output('dataurlstring');
+    } else {
+      // Blob URL for desktop (more efficient)
+      pdfUrl = doc.output('bloburl') as unknown as string;
+    }
+    
+    setPdfBlobUrl(pdfUrl);
     setShowPdfViewer(true);
   };
 
   const handlePdfSave = () => {
     const doc = generatePDFDocument();
-    doc.save(`matches-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    
+    // Create download link that prompts user for save location
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `matches-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up the URL after a short delay
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
     toast({
       title: "PDF saved",
-      description: "The matches report has been downloaded.",
+      description: "Choose where to save the matches report.",
     });
   };
 
@@ -739,7 +764,10 @@ export default function Matches() {
   const closePdfViewer = () => {
     setShowPdfViewer(false);
     if (pdfBlobUrl) {
-      URL.revokeObjectURL(pdfBlobUrl);
+      // Only revoke blob URLs, not data URLs
+      if (pdfBlobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
       setPdfBlobUrl(null);
     }
   };
