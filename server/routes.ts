@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema } from "@shared/schema";
+import { getUncachableResendClient } from "./resend";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/teams", async (_req, res) => {
@@ -476,6 +478,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete all matches" });
+    }
+  });
+
+  const emailPdfSchema = z.object({
+    recipientEmail: z.string().email(),
+    pdfBase64: z.string(),
+    filename: z.string().optional().default("matches-report.pdf"),
+  });
+
+  app.post("/api/email-pdf", async (req, res) => {
+    try {
+      const validatedData = emailPdfSchema.parse(req.body);
+      
+      const { client, fromEmail } = await getUncachableResendClient();
+      
+      // Convert base64 to buffer
+      const pdfBuffer = Buffer.from(validatedData.pdfBase64, 'base64');
+      
+      // Send email with PDF attachment
+      const result = await client.emails.send({
+        from: fromEmail,
+        to: validatedData.recipientEmail,
+        subject: "Boules League - Matches Report",
+        html: `
+          <h2>Boules League Matches Report</h2>
+          <p>Please find attached the matches report generated on ${new Date().toLocaleDateString()}.</p>
+          <p>This report contains all match information including schedules, scores, and results.</p>
+          <br/>
+          <p>Best regards,<br/>Boules League Management</p>
+        `,
+        attachments: [
+          {
+            filename: validatedData.filename,
+            content: pdfBuffer,
+          },
+        ],
+      });
+      
+      res.json({ success: true, emailId: result.data?.id });
+    } catch (error) {
+      console.error("Error sending email:", error);
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to send email" });
+      }
     }
   });
 
