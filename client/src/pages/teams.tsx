@@ -86,7 +86,7 @@ export default function Teams() {
   const form = useForm<InsertTeam>({
     resolver: zodResolver(insertTeamSchema),
     defaultValues: {
-      tournamentId: currentTournament?.id || "",
+      tournamentId: "",
       name: "",
       captainName: "",
       captainPhone: "",
@@ -97,10 +97,17 @@ export default function Teams() {
     },
   });
 
+  // Update tournamentId whenever currentTournament changes
+  useEffect(() => {
+    if (currentTournament) {
+      form.setValue("tournamentId", currentTournament.id);
+    }
+  }, [currentTournament, form]);
+
   const createMutation = useMutation({
-    mutationFn: (data: InsertTeam) => {
-      if (!currentTournament) throw new Error("No tournament selected");
-      return apiRequest("POST", "/api/teams", { ...data, tournamentId: currentTournament.id });
+    mutationFn: async (data: InsertTeam) => {
+      const response = await apiRequest("POST", "/api/teams", data);
+      return (await response.json()) as Team;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", currentTournament?.id] });
@@ -842,12 +849,13 @@ export default function Teams() {
                             <FormLabel>Other Players (Optional)</FormLabel>
                             <FormControl>
                               <Textarea
-                                {...field}
                                 value={field.value ? field.value.join("\n") : ""}
                                 onChange={(e) => {
                                   const lines = e.target.value.split("\n").filter(line => line.trim());
                                   field.onChange(lines);
                                 }}
+                                onBlur={field.onBlur}
+                                name={field.name}
                                 placeholder="Enter player names (one per line)&#10;Marie Dubois&#10;Pierre Martin"
                                 rows={4}
                                 data-testid="input-other-players"
