@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema } from "@shared/schema";
+import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result } from "@shared/schema";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 
@@ -195,6 +195,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to calculate team rankings from results
+  function calculateTeamRankings(results: Result[], teams: Team[]): Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }> {
+    const teamMap = new Map(teams.map(t => [t.id, t]));
+    const rankings = new Map<string, { points: number; scoreDifference: number; gamesPlayed: number }>();
+    
+    results.forEach(result => {
+      const teamId = teams.find(t => t.name === result.teamName)?.id;
+      if (!teamId) return;
+      
+      if (!rankings.has(teamId)) {
+        rankings.set(teamId, { points: 0, scoreDifference: 0, gamesPlayed: 0 });
+      }
+      
+      const ranking = rankings.get(teamId)!;
+      ranking.points += result.points;
+      ranking.scoreDifference += result.scoreDifference;
+      ranking.gamesPlayed += result.gamesPlayed;
+    });
+    
+    return Array.from(rankings.entries())
+      .map(([teamId, stats]) => ({
+        team: teamMap.get(teamId)!,
+        ...stats
+      }))
+      .filter(r => r.team) // Filter out any teams not found
+      .sort((a, b) => {
+        // Sort by points first, then by score difference
+        if (b.points !== a.points) return b.points - a.points;
+        return b.scoreDifference - a.scoreDifference;
+      });
+  }
+
+  // Helper function to select top teams based on division count
+  function selectTopTeams(
+    rankings: Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }>,
+    numberOfDivisions: number,
+    targetCount: 8 | 4 | 2
+  ): Team[] {
+    // Group rankings by division
+    const divisionRankings = new Map<string, typeof rankings>();
+    rankings.forEach(rank => {
+      const div = rank.team.division || '';
+      if (!divisionRankings.has(div)) {
+        divisionRankings.set(div, []);
+      }
+      divisionRankings.get(div)!.push(rank);
+    });
+
+    // Sort divisions by size (descending), then alphabetically
+    const sortedDivisions = Array.from(divisionRankings.keys()).sort((a, b) => {
+      const sizeA = divisionRankings.get(a)!.length;
+      const sizeB = divisionRankings.get(b)!.length;
+      if (sizeB !== sizeA) return sizeB - sizeA;
+      return a.localeCompare(b);
+    });
+
+    const selectedTeams: Team[] = [];
+
+    if (targetCount === 8) {
+      // Quarter-finals: Select 8 teams
+      if (numberOfDivisions === 1) {
+        // Top 8 from single division
+        selectedTeams.push(...rankings.slice(0, 8).map(r => r.team));
+      } else if (numberOfDivisions === 2) {
+        // Top 4 from each division
+        sortedDivisions.slice(0, 2).forEach(div => {
+          const divRankings = divisionRankings.get(div)!;
+          selectedTeams.push(...divRankings.slice(0, 4).map(r => r.team));
+        });
+      } else if (numberOfDivisions === 3) {
+        // Top 4 from largest/first division, top 2 from other two
+        const primaryDiv = sortedDivisions[0];
+        selectedTeams.push(...divisionRankings.get(primaryDiv)!.slice(0, 4).map(r => r.team));
+        
+        sortedDivisions.slice(1, 3).forEach(div => {
+          const divRankings = divisionRankings.get(div)!;
+          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
+        });
+      } else if (numberOfDivisions >= 4) {
+        // Top 2 from each of first 4 divisions
+        sortedDivisions.slice(0, 4).forEach(div => {
+          const divRankings = divisionRankings.get(div)!;
+          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
+        });
+      }
+    } else if (targetCount === 4) {
+      // Semi-finals: Top 4 overall
+      selectedTeams.push(...rankings.slice(0, 4).map(r => r.team));
+    } else if (targetCount === 2) {
+      // Finals: Top 2 overall
+      selectedTeams.push(...rankings.slice(0, 2).map(r => r.team));
+    }
+
+    return selectedTeams.slice(0, targetCount); // Ensure we don't exceed target
+  }
+
+  // Helper function to create traditional seeded pairings
+  function createTraditionalPairings(teams: Team[]): Array<[Team, Team]> {
+    const pairings: Array<[Team, Team]> = [];
+    const count = teams.length;
+    
+    if (count === 8) {
+      // Quarter-finals: 1v8, 2v7, 3v6, 4v5
+      pairings.push([teams[0], teams[7]]);
+      pairings.push([teams[1], teams[6]]);
+      pairings.push([teams[2], teams[5]]);
+      pairings.push([teams[3], teams[4]]);
+    } else if (count === 4) {
+      // Semi-finals: 1v4, 2v3
+      pairings.push([teams[0], teams[3]]);
+      pairings.push([teams[1], teams[2]]);
+    } else if (count === 2) {
+      // Finals: 1v2
+      pairings.push([teams[0], teams[1]]);
+    }
+    
+    return pairings;
+  }
+
   app.post("/api/matches/generate", async (req, res) => {
     try {
       const tournamentId = req.body.tournamentId as string;
@@ -203,11 +322,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tournament ID is required" });
       }
 
-      // Get all teams and existing matches for this tournament
-      const [teams, existingMatches] = await Promise.all([
+      // Get tournament configuration, teams, matches, and results
+      const [tournament, teams, existingMatches, allResults] = await Promise.all([
+        storage.getTournament(tournamentId),
         storage.getAllTeams(tournamentId),
-        storage.getAllMatches(tournamentId)
+        storage.getAllMatches(tournamentId),
+        storage.getAllResults(tournamentId)
       ]);
+
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
 
       if (teams.length < 2) {
         return res.status(400).json({ 
@@ -215,98 +340,264 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Build set of existing match pairs (normalized)
-      const existingPairs = new Set<string>();
-      existingMatches.forEach(match => {
-        const pair1 = [match.team1Id, match.team2Id].sort().join('-');
-        existingPairs.add(pair1);
-      });
-
-      const createdMatches = [];
-      let skippedCount = 0;
-      let teamsWithoutDivision = 0;
       const warnings: string[] = [];
+      let stageToGenerate: "initial" | "quarter-finals" | "semi-finals" | "finals" = "initial";
+      let createdMatches: Match[] = [];
+      let updatedMatches: Match[] = [];
+      let skippedCount = 0;
 
-      // Group teams by division
-      const teamsByDivision: Record<string, typeof teams> = {};
-      
-      teams.forEach(team => {
-        if (!team.division) {
-          teamsWithoutDivision++;
-          return;
-        }
-        const div = team.division;
-        if (!teamsByDivision[div]) {
-          teamsByDivision[div] = [];
-        }
-        teamsByDivision[div].push(team);
-      });
+      // Determine which stage to generate based on completed stages
+      const initialMatches = existingMatches.filter(m => m.stage === "initial");
+      const quarterMatches = existingMatches.filter(m => m.stage === "quarter-finals");
+      const semiMatches = existingMatches.filter(m => m.stage === "semi-finals");
+      const finalMatches = existingMatches.filter(m => m.stage === "finals");
 
-      // Generate round-robin matches within each division
-      for (const division in teamsByDivision) {
-        const divTeams = teamsByDivision[division];
+      const initialComplete = initialMatches.length > 0 && initialMatches.every(m => m.status === "completed");
+      const quarterComplete = quarterMatches.length > 0 && quarterMatches.every(m => m.status === "completed");
+      const semiComplete = semiMatches.length > 0 && semiMatches.every(m => m.status === "completed");
+
+      // Determine what to generate
+      if (initialMatches.length === 0) {
+        // Generate initial stage
+        stageToGenerate = "initial";
         
-        if (divTeams.length < 2) {
-          warnings.push(`Division ${division} has only ${divTeams.length} team. Need at least 2 teams per division.`);
-          continue;
+        let teamsWithoutDivision = 0;
+        const teamsByDivision: Record<string, typeof teams> = {};
+        
+        teams.forEach(team => {
+          if (!team.division) {
+            teamsWithoutDivision++;
+            return;
+          }
+          const div = team.division;
+          if (!teamsByDivision[div]) {
+            teamsByDivision[div] = [];
+          }
+          teamsByDivision[div].push(team);
+        });
+
+        if (teamsWithoutDivision > 0) {
+          warnings.push(`${teamsWithoutDivision} team(s) without division assignment will be excluded from match generation.`);
         }
 
-        // Warn if odd number of teams in division
-        if (divTeams.length % 2 !== 0) {
-          warnings.push(`Division ${division} has ${divTeams.length} teams (odd number). One team will have a bye in each round.`);
-        }
+        // Generate round-robin matches within each division
+        for (const division in teamsByDivision) {
+          const divTeams = teamsByDivision[division];
+          
+          if (divTeams.length < 2) {
+            warnings.push(`Division ${division} has only ${divTeams.length} team. Need at least 2 teams per division.`);
+            continue;
+          }
 
-        // Generate round-robin matches for this division
-        for (let i = 0; i < divTeams.length; i++) {
-          for (let j = i + 1; j < divTeams.length; j++) {
-            const team1Id = divTeams[i].id;
-            const team2Id = divTeams[j].id;
-            
-            const pairKey = [team1Id, team2Id].sort().join('-');
-            if (existingPairs.has(pairKey)) {
-              skippedCount++;
-              continue;
-            }
+          if (divTeams.length % 2 !== 0) {
+            warnings.push(`Division ${division} has ${divTeams.length} teams (odd number). One team will have a bye in each round.`);
+          }
 
-            const matchData = {
-              tournamentId,
-              team1Id,
-              team2Id,
-              stage: "initial" as const,
-              status: "scheduled" as const,
-              matchDate: null,
-              team1Game1Score: null,
-              team2Game1Score: null,
-              team1Game2Score: null,
-              team2Game2Score: null,
-              team1Game3Score: null,
-              team2Game3Score: null,
-              winnerId: null,
-            };
+          for (let i = 0; i < divTeams.length; i++) {
+            for (let j = i + 1; j < divTeams.length; j++) {
+              const matchData = {
+                tournamentId,
+                team1Id: divTeams[i].id,
+                team2Id: divTeams[j].id,
+                stage: "initial" as const,
+                status: "scheduled" as const,
+                matchDate: null,
+                team1Game1Score: null,
+                team2Game1Score: null,
+                team1Game2Score: null,
+                team2Game2Score: null,
+                team1Game3Score: null,
+                team2Game3Score: null,
+                winnerId: null,
+              };
 
-            try {
               const match = await storage.createMatch(matchData);
               createdMatches.push(match);
-              existingPairs.add(pairKey);
-            } catch (error) {
-              if (error instanceof Error && error.message.includes("already exists")) {
-                skippedCount++;
-                existingPairs.add(pairKey);
-              } else {
-                throw error;
-              }
             }
           }
         }
+      } else if (initialComplete && tournament.hasQuarterFinals && quarterMatches.length === 0) {
+        // Generate quarter-finals
+        stageToGenerate = "quarter-finals";
+        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
+        const rankings = calculateTeamRankings(initialResults, teams);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 8);
+
+        if (topTeams.length < 8) {
+          return res.status(400).json({ 
+            error: `Not enough teams qualified. Need 8 teams for quarter-finals, but only ${topTeams.length} teams have results.` 
+          });
+        }
+
+        const pairings = createTraditionalPairings(topTeams);
+        for (const [team1, team2] of pairings) {
+          const matchData = {
+            tournamentId,
+            team1Id: team1.id,
+            team2Id: team2.id,
+            stage: "quarter-finals" as const,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          const match = await storage.createMatch(matchData);
+          createdMatches.push(match);
+        }
+      } else if (quarterComplete && tournament.hasSemiFinals && semiMatches.length === 0) {
+        // Generate semi-finals
+        stageToGenerate = "semi-finals";
+        const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
+        const rankings = calculateTeamRankings(quarterResults, teams);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4);
+
+        if (topTeams.length < 4) {
+          return res.status(400).json({ 
+            error: `Not enough teams qualified. Need 4 teams for semi-finals, but only ${topTeams.length} teams have results.` 
+          });
+        }
+
+        const pairings = createTraditionalPairings(topTeams);
+        for (const [team1, team2] of pairings) {
+          const matchData = {
+            tournamentId,
+            team1Id: team1.id,
+            team2Id: team2.id,
+            stage: "semi-finals" as const,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          const match = await storage.createMatch(matchData);
+          createdMatches.push(match);
+        }
+      } else if (semiComplete && tournament.hasFinals && finalMatches.length === 0) {
+        // Generate finals
+        stageToGenerate = "finals";
+        const semiResults = await storage.getResultsByStage(tournamentId, "semi-finals");
+        const rankings = calculateTeamRankings(semiResults, teams);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
+
+        if (topTeams.length < 2) {
+          return res.status(400).json({ 
+            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
+          });
+        }
+
+        const pairings = createTraditionalPairings(topTeams);
+        for (const [team1, team2] of pairings) {
+          const matchData = {
+            tournamentId,
+            team1Id: team1.id,
+            team2Id: team2.id,
+            stage: "finals" as const,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          const match = await storage.createMatch(matchData);
+          createdMatches.push(match);
+        }
+      } else if (initialComplete && !tournament.hasQuarterFinals && !tournament.hasSemiFinals && tournament.hasFinals && finalMatches.length === 0) {
+        // Generate finals directly from initial stage
+        stageToGenerate = "finals";
+        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
+        const rankings = calculateTeamRankings(initialResults, teams);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
+
+        if (topTeams.length < 2) {
+          return res.status(400).json({ 
+            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
+          });
+        }
+
+        const pairings = createTraditionalPairings(topTeams);
+        for (const [team1, team2] of pairings) {
+          const matchData = {
+            tournamentId,
+            team1Id: team1.id,
+            team2Id: team2.id,
+            stage: "finals" as const,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          const match = await storage.createMatch(matchData);
+          createdMatches.push(match);
+        }
+      } else if (quarterComplete && !tournament.hasSemiFinals && tournament.hasFinals && finalMatches.length === 0) {
+        // Generate finals from quarter-finals (skip semi-finals)
+        stageToGenerate = "finals";
+        const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
+        const rankings = calculateTeamRankings(quarterResults, teams);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
+
+        if (topTeams.length < 2) {
+          return res.status(400).json({ 
+            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
+          });
+        }
+
+        const pairings = createTraditionalPairings(topTeams);
+        for (const [team1, team2] of pairings) {
+          const matchData = {
+            tournamentId,
+            team1Id: team1.id,
+            team2Id: team2.id,
+            stage: "finals" as const,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          const match = await storage.createMatch(matchData);
+          createdMatches.push(match);
+        }
+      } else {
+        // No new stage to generate, check if we should update existing matches
+        warnings.push("No new matches to generate. All enabled tournament stages already have matches.");
       }
 
       res.json({
         created: createdMatches.length,
+        updated: updatedMatches.length,
         skipped: skippedCount,
-        teamsWithoutDivision,
         warnings,
-        stage: "initial",
-        matches: createdMatches
+        stage: stageToGenerate,
+        matches: [...createdMatches, ...updatedMatches]
       });
     } catch (error) {
       console.error("Error generating matches:", error);

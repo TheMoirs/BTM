@@ -35,6 +35,7 @@ export interface IStorage {
   deleteAllMatches(tournamentId?: string): Promise<boolean>;
   
   getAllResults(tournamentId?: string): Promise<Result[]>;
+  getResultsByStage(tournamentId: string, stage: string): Promise<Result[]>;
   createResult(result: InsertResult): Promise<Result>;
   deleteAllResults(tournamentId?: string): Promise<boolean>;
   deleteResultsByMatchId(matchId: string): Promise<boolean>;
@@ -512,6 +513,15 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(results).where(eq(results.tournamentId, tournamentId));
     }
     return await db.select().from(results);
+  }
+
+  async getResultsByStage(tournamentId: string, stage: string): Promise<Result[]> {
+    return await db.select().from(results).where(
+      and(
+        eq(results.tournamentId, tournamentId),
+        eq(results.stage, stage)
+      )
+    );
   }
 
   async createResult(insertResult: InsertResult): Promise<Result> {
