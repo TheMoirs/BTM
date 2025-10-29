@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTournament } from "@/contexts/TournamentContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +94,7 @@ type EditingMatch = {
 };
 
 export default function Matches() {
+  const { currentTournament } = useTournament();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<EditingMatch>>({});
@@ -109,11 +111,25 @@ export default function Matches() {
   const { toast } = useToast();
 
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
+    queryKey: ["/api/teams", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await fetch(`/api/teams?tournamentId=${currentTournament.id}`);
+      if (!response.ok) throw new Error("Failed to fetch teams");
+      return response.json();
+    },
+    enabled: !!currentTournament,
   });
 
   const { data: matches, isLoading } = useQuery<Match[]>({
-    queryKey: ["/api/matches"],
+    queryKey: ["/api/matches", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await fetch(`/api/matches?tournamentId=${currentTournament.id}`);
+      if (!response.ok) throw new Error("Failed to fetch matches");
+      return response.json();
+    },
+    enabled: !!currentTournament,
   });
 
   const form = useForm<InsertMatch>({
@@ -134,9 +150,13 @@ export default function Matches() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertMatch) => apiRequest("POST", "/api/matches", data),
+    mutationFn: (data: InsertMatch) => {
+      if (!currentTournament) throw new Error("No tournament selected");
+      return apiRequest("POST", "/api/matches", { ...data, tournamentId: currentTournament.id });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results", currentTournament?.id] });
       setIsCreateOpen(false);
       form.reset();
       toast({
@@ -158,8 +178,8 @@ export default function Matches() {
     mutationFn: ({ id, data }: { id: string; data: any }) =>
       apiRequest("PATCH", `/api/matches/${id}/score`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results", currentTournament?.id] });
       setEditingRowId(null);
       setEditingValues({});
       toast({
@@ -180,7 +200,7 @@ export default function Matches() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/matches/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
       setDeletingMatch(null);
       toast({
         title: "Match deleted",
@@ -209,7 +229,7 @@ export default function Matches() {
         matches: Match[];
       } = await res.json();
 
-      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
 
       let message = "";
       const stageName = "initial round";
@@ -252,8 +272,8 @@ export default function Matches() {
   const handleClearAllMatches = async () => {
     try {
       await apiRequest("DELETE", "/api/matches");
-      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results", currentTournament?.id] });
       setShowClearConfirm(false);
       toast({
         title: "All matches cleared",

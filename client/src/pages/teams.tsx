@@ -408,7 +408,18 @@ export default function Teams() {
 
 
   const onSubmit = (data: InsertTeam) => {
+    if (!currentTournament) {
+      toast({
+        title: "Error",
+        description: "No tournament selected. Please select a tournament first.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+    
     const capitalizedData: InsertTeam = {
+      tournamentId: currentTournament.id,
       name: capitalizeWords(data.name.trim()),
       captainName: capitalizeWords(data.captainName.trim()),
       captainPhone: data.captainPhone.trim(),
@@ -442,7 +453,18 @@ export default function Teams() {
   };
 
   const saveEditing = (teamId: string) => {
+    if (!currentTournament) {
+      toast({
+        title: "Error",
+        description: "No tournament selected. Please select a tournament first.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+    
     const capitalizedData: InsertTeam = {
+      tournamentId: currentTournament.id,
       name: capitalizeWords(editingValues.name?.trim() || ""),
       captainName: capitalizeWords(editingValues.captainName?.trim() || ""),
       captainPhone: editingValues.captainPhone?.trim() || "",

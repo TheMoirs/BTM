@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTournament } from "@/contexts/TournamentContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,7 @@ type TeamSummary = {
 };
 
 export default function Results() {
+  const { currentTournament } = useTournament();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
@@ -77,7 +79,14 @@ export default function Results() {
   const { toast } = useToast();
 
   const { data: results, isLoading } = useQuery<Result[]>({
-    queryKey: ["/api/results"],
+    queryKey: ["/api/results", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await fetch(`/api/results?tournamentId=${currentTournament.id}`);
+      if (!response.ok) throw new Error("Failed to fetch results");
+      return response.json();
+    },
+    enabled: !!currentTournament,
   });
 
   const handleSort = (column: SortColumn) => {

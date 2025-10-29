@@ -36,25 +36,28 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       await apiRequest("DELETE", `/api/tournaments/${id}`);
     },
     onSuccess: async () => {
+      // Clear current tournament - the useEffect will select a new one after refetch
+      setCurrentTournament(null);
+      
       await queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/results"] });
-      
-      // After deletion, select the next available tournament
-      const updatedTournaments = queryClient.getQueryData<Tournament[]>(["/api/tournaments"]);
-      if (updatedTournaments && updatedTournaments.length > 0) {
-        setCurrentTournament(updatedTournaments[0]);
-      } else {
-        setCurrentTournament(null);
-      }
     },
   });
 
-  // Set the latest tournament as the current one on initial load
+  // Set the latest tournament as the current one on initial load or after deletion
   useEffect(() => {
-    if (tournaments && tournaments.length > 0 && !currentTournament) {
-      setCurrentTournament(tournaments[0]);
+    if (tournaments && tournaments.length > 0) {
+      // If no current tournament or current tournament no longer exists, select the first one
+      if (!currentTournament || !tournaments.find(t => t.id === currentTournament.id)) {
+        setCurrentTournament(tournaments[0]);
+      }
+    } else {
+      // No tournaments available, clear current tournament
+      if (currentTournament) {
+        setCurrentTournament(null);
+      }
     }
   }, [tournaments, currentTournament]);
 
