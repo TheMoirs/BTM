@@ -54,6 +54,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/tournaments/:id", async (req, res) => {
+    try {
+      const validatedData = insertTournamentSchema.parse(req.body);
+      const tournament = await storage.updateTournament(req.params.id, validatedData);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      res.json(tournament);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to update tournament" });
+      }
+    }
+  });
+
   app.delete("/api/tournaments/:id", async (req, res) => {
     try {
       const deleted = await storage.deleteTournament(req.params.id);
