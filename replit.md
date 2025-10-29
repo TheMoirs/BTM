@@ -58,13 +58,34 @@ Boules League Manager is a web application designed to manage multiple boules le
     - Deleting all teams removes all matches and all results
     - Deleting a match removes all results for that match
     - Deleting all matches removes all results (teams remain)
-- **Tournament Progression**: Simplified match generation system:
-    - **Initial Stage Only**: Generate Matches button creates round-robin matches within divisions
-    - **Incremental Generation**: If new teams are added to existing divisions, generates missing matches for those teams
-    - **Division Requirements**: Teams must have divisions assigned to participate in match generation
-    - **Odd Team Warning**: System warns users when divisions have odd number of teams (one team will have bye)
-    - **Duplicate Prevention**: Skips matches that already exist between team pairs
-    - Provides clear feedback on matches created, skipped, and any warnings
+- **Tournament Progression**: Comprehensive multi-stage progression system:
+    - **Initial Stage**: Generate Matches creates round-robin matches within divisions
+      - Incremental generation: If new teams added, generates missing matches only
+      - Division requirements: Teams must have divisions assigned to participate
+      - Odd team warning: Alerts when divisions have odd number of teams (one team will have bye)
+      - Duplicate prevention: Skips matches that already exist between team pairs
+    - **Automatic Stage Advancement**: System detects completed stages and generates next stage
+      - Quarter-finals: Generated when initial stage is complete (all matches have results)
+      - Semi-finals: Generated when quarter-finals are complete
+      - Finals: Generated when semi-finals (or quarter-finals if SF disabled) are complete
+    - **Traditional Seeding**: Playoff pairings follow standard seeding (1v8, 2v7, 3v6, 4v5 for QF; 1v4, 2v3 for SF; 1v2 for Finals)
+    - **Team Selection Logic**: Teams advance based on division count and rankings:
+      - 1 division: Top 8 teams overall advance to quarter-finals
+      - 2 divisions: Top 4 from each division advance to quarter-finals
+      - 3 divisions: Top 4 from largest + top 2 from others advance to quarter-finals
+      - 4+ divisions: Top 2 from first 4 divisions advance to quarter-finals
+      - Division priority: Largest first, then alphabetical order (A, B, C)
+    - **Ranking Calculation**: Team rankings based on latest completed stage results
+      - Finals use semi-final results (or quarter-final if SF disabled, or initial if both disabled)
+      - Semi-finals use quarter-final results (or initial if QF disabled)
+      - Quarter-finals use initial stage results
+      - Rankings ordered by: Points (desc) → Score Difference (desc) → Score For (desc)
+    - **Safe Re-generation**: If initial stage results change before playoffs start:
+      - Regenerate updates playoff team pairings based on new rankings
+      - Only updates matches still in "scheduled" status (no results)
+      - Protects completed playoff matches from deletion
+      - Warns user if matches cannot be updated due to existing results
+    - **User Feedback**: Clear messages show matches created, updated, skipped, and warnings
 
 ## Features
 
@@ -105,6 +126,14 @@ Boules League Manager is a web application designed to manage multiple boules le
   - All PDFs use landscape orientation for better table display
 
 ## Recent Changes
+- **Tournament Progression System (October 2025)**: Implemented comprehensive multi-stage tournament progression with:
+  - Automatic playoff generation when stages complete (Quarter-finals, Semi-finals, Finals)
+  - Traditional seeding for playoff pairings (1v8, 2v7, 3v6, 4v5 for QF; 1v4, 2v3 for SF; 1v2 for Finals)
+  - Intelligent team selection based on division count (1 div: top 8; 2 divs: top 4 each; 3+ divs: top teams from largest divisions)
+  - Rankings calculated from latest completed stage results for accurate playoff seeding
+  - Safe re-generation that preserves completed playoff matches and only updates scheduled fixtures
+  - Clear user feedback showing matches created, updated, skipped, and warnings
+
 - **Multi-Tournament Support (December 2024)**: Implemented comprehensive tournament management system with:
   - Tournament selection dropdown in navigation bar
   - Automatic data scoping across all pages (Teams, Matches, Results)
