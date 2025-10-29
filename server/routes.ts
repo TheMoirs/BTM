@@ -630,65 +630,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (checkForUpdates && sourceStage && targetMatches.length > 0) {
           stageToGenerate = targetStage;
           
-          // Get rankings from source stage
-          const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
-          const rankings = calculateTeamRankings(sourceResults, teams);
-          const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, targetCount);
-
-          if (topTeams.length >= targetCount) {
-            // Create expected pairings based on current rankings
-            const expectedPairings = createTraditionalPairings(topTeams);
-            
-            // Check if existing matches match expected pairings
-            let matchesNeedUpdate = false;
-            const existingTeamPairs = targetMatches.map(m => 
-              [m.team1Id, m.team2Id].sort().join('-')
-            );
-
-            for (let i = 0; i < expectedPairings.length; i++) {
-              const [team1, team2] = expectedPairings[i];
-              const expectedPair = [team1.id, team2.id].sort().join('-');
-              
-              if (!existingTeamPairs.includes(expectedPair)) {
-                matchesNeedUpdate = true;
-                break;
-              }
-            }
-
-            if (matchesNeedUpdate) {
-              // Delete old matches and create new ones with updated teams
-              for (const match of targetMatches) {
-                await storage.deleteMatch(match.id);
-              }
-
-              // Create new matches with current top teams
-              for (const [team1, team2] of expectedPairings) {
-                const matchData = {
-                  tournamentId,
-                  team1Id: team1.id,
-                  team2Id: team2.id,
-                  stage: targetStage,
-                  status: "scheduled" as const,
-                  matchDate: null,
-                  team1Game1Score: null,
-                  team2Game1Score: null,
-                  team1Game2Score: null,
-                  team2Game2Score: null,
-                  team1Game3Score: null,
-                  team2Game3Score: null,
-                  winnerId: null,
-                };
-
-                const match = await storage.createMatch(matchData);
-                updatedMatches.push(match);
-              }
-
-              warnings.push(`Updated ${targetStage} matches based on current rankings from ${sourceStage}.`);
-            } else {
-              warnings.push(`No changes needed. ${targetStage} matches already reflect current rankings.`);
-            }
+          // Check if any matches have been played (have results or are not scheduled)
+          const matchesWithResults = targetMatches.filter(m => m.status !== "scheduled");
+          
+          if (matchesWithResults.length > 0) {
+            warnings.push(`Cannot update ${targetStage} matches. ${matchesWithResults.length} match(es) already have results.`);
           } else {
-            warnings.push(`Cannot update ${targetStage}. Need ${targetCount} teams but only ${topTeams.length} teams have results in ${sourceStage}.`);
+            // Get rankings from source stage
+            const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
+            const rankings = calculateTeamRankings(sourceResults, teams);
+            const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, targetCount);
+
+            if (topTeams.length >= targetCount) {
+              // Create expected pairings based on current rankings
+              const expectedPairings = createTraditionalPairings(topTeams);
+              
+              // Check if existing matches match expected pairings
+              let matchesNeedUpdate = false;
+              const existingTeamPairs = targetMatches.map(m => 
+                [m.team1Id, m.team2Id].sort().join('-')
+              );
+
+              for (let i = 0; i < expectedPairings.length; i++) {
+                const [team1, team2] = expectedPairings[i];
+                const expectedPair = [team1.id, team2.id].sort().join('-');
+                
+                if (!existingTeamPairs.includes(expectedPair)) {
+                  matchesNeedUpdate = true;
+                  break;
+                }
+              }
+
+              if (matchesNeedUpdate) {
+                // Delete old scheduled matches and create new ones with updated teams
+                for (const match of targetMatches) {
+                  await storage.deleteMatch(match.id);
+                }
+
+                // Create new matches with current top teams
+                for (const [team1, team2] of expectedPairings) {
+                  const matchData = {
+                    tournamentId,
+                    team1Id: team1.id,
+                    team2Id: team2.id,
+                    stage: targetStage,
+                    status: "scheduled" as const,
+                    matchDate: null,
+                    team1Game1Score: null,
+                    team2Game1Score: null,
+                    team1Game2Score: null,
+                    team2Game2Score: null,
+                    team1Game3Score: null,
+                    team2Game3Score: null,
+                    winnerId: null,
+                  };
+
+                  const match = await storage.createMatch(matchData);
+                  updatedMatches.push(match);
+                }
+
+                warnings.push(`Updated ${targetStage} matches based on current rankings from ${sourceStage}.`);
+              } else {
+                warnings.push(`No changes needed. ${targetStage} matches already reflect current rankings.`);
+              }
+            } else {
+              warnings.push(`Cannot update ${targetStage}. Need ${targetCount} teams but only ${topTeams.length} teams have results in ${sourceStage}.`);
+            }
           }
         } else {
           warnings.push("No new matches to generate. All enabled tournament stages already have matches.");

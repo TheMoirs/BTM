@@ -234,41 +234,55 @@ export default function Matches() {
       });
       const response: {
         created: number;
+        updated: number;
         skipped: number;
-        teamsWithoutDivision: number;
         warnings?: string[];
         stage: string;
-        matches: Match[];
+        matches: any[];
       } = await res.json();
 
       queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
 
-      let message = "";
-      const stageName = "initial round";
+      // Map stage names for display
+      const stageDisplayNames: Record<string, string> = {
+        "initial": "initial round",
+        "quarter-finals": "quarter-final",
+        "semi-finals": "semi-final",
+        "finals": "final",
+      };
+      const stageName = stageDisplayNames[response.stage] || response.stage;
       
-      if (response.created > 0 && response.skipped > 0) {
-        message = `Created ${response.created} ${stageName} match(es). Skipped ${response.skipped} existing match(es).`;
+      let message = "";
+      
+      if (response.created > 0 && response.updated > 0) {
+        message = `Created ${response.created} and updated ${response.updated} ${stageName} match(es).`;
       } else if (response.created > 0) {
         message = `Successfully created ${response.created} ${stageName} match(es).`;
+      } else if (response.updated > 0) {
+        message = `Successfully updated ${response.updated} ${stageName} match(es) based on current rankings.`;
       } else if (response.skipped > 0) {
         message = `No new matches created. ${response.skipped} match(es) already exist.`;
       } else {
-        message = "No matches were created.";
+        message = "No matches were created or updated.";
       }
 
-      if (response.teamsWithoutDivision > 0) {
-        message += ` Note: ${response.teamsWithoutDivision} team(s) without divisions were skipped.`;
-      }
-
-      if (response.warnings && response.warnings.length > 0) {
-        message += ` Warnings: ${response.warnings.join("; ")}`;
-      }
-
+      // Show main toast with success message
       toast({
-        title: "Matches generated",
+        title: response.created > 0 || response.updated > 0 ? "Success" : "No changes",
         description: message,
-        duration: (response.warnings && response.warnings.length > 0) || response.teamsWithoutDivision > 0 ? Infinity : undefined,
+        variant: response.created > 0 || response.updated > 0 ? "default" : "default",
       });
+
+      // Show warnings as separate sticky toasts
+      if (response.warnings && response.warnings.length > 0) {
+        response.warnings.forEach(warning => {
+          toast({
+            title: "Notice",
+            description: warning,
+            duration: Infinity,
+          });
+        });
+      }
     } catch (error) {
       console.error("Error generating matches:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to generate matches.";
