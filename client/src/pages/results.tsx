@@ -28,7 +28,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Result } from "@shared/schema";
-import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -457,15 +457,26 @@ export default function Results() {
                         Team Summary Statistics
                         {stageFilter !== "all" && ` - ${stageLabels[stageFilter as keyof typeof stageLabels]}`}
                       </DialogTitle>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={openSummaryPdfViewer}
-                        data-testid="button-summary-view-pdf"
-                      >
-                        <FileDown className="mr-2 h-4 w-4" />
-                        View PDF
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowSummary(false)}
+                          data-testid="button-close-summary"
+                          aria-label="Close summary"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={openSummaryPdfViewer}
+                          data-testid="button-summary-view-pdf"
+                        >
+                          <FileDown className="mr-2 h-4 w-4" />
+                          View PDF
+                        </Button>
+                      </div>
                     </div>
                   </DialogHeader>
                   <div className="overflow-x-auto">
