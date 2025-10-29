@@ -1,20 +1,46 @@
-import { pgTable, text, varchar, integer, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, unique, index, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
+
+export const tournaments = pgTable("tournaments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  numberOfDivisions: integer("number_of_divisions").notNull().default(2),
+  hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
+  hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
+  hasFinals: boolean("has_finals").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true }).extend({
+  name: z.string().min(1, "Tournament name is required"),
+  numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),
+  hasQuarterFinals: z.boolean().default(false),
+  hasSemiFinals: z.boolean().default(false),
+  hasFinals: z.boolean().default(true),
+});
+
+export type InsertTournament = z.infer<typeof insertTournamentSchema>;
+export type Tournament = typeof tournaments.$inferSelect;
 
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull().unique(),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
   captainName: text("captain_name").notNull(),
   captainPhone: text("captain_phone").notNull(),
   captainEmail: text("captain_email").notNull(),
   division: text("division"),
   homePiste: text("home_piste"),
   otherPlayers: text("other_players").array(),
-});
+}, (table) => ({
+  uniqueTeamPerTournament: unique().on(table.tournamentId, table.name),
+}));
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
+  tournamentId: z.string().min(1, "Tournament is required"),
   name: z.string().min(1, "Team name is required"),
   captainName: z.string().min(1, "Captain name is required"),
   captainPhone: z.string().min(1, "Phone number is required"),
@@ -34,6 +60,7 @@ export type Team = typeof teams.$inferSelect;
 
 export const matches = pgTable("matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
   team1Id: varchar("team1_id").notNull(),
   team2Id: varchar("team2_id").notNull(),
   team1Game1Score: integer("team1_game1_score"),
@@ -54,6 +81,7 @@ export const matches = pgTable("matches", {
 // This prevents duplicate matches regardless of team order
 
 export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).extend({
+  tournamentId: z.string().min(1, "Tournament is required"),
   team1Id: z.string().min(1, "Team 1 is required"),
   team2Id: z.string().min(1, "Team 2 is required"),
   stage: z.enum(["initial", "quarter-finals", "semi-finals", "finals"]),
@@ -91,6 +119,7 @@ export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;
 
 export const results = pgTable("results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
   matchId: varchar("match_id").notNull(),
   matchInfo: text("match_info").notNull(),
   matchDate: text("match_date"),
@@ -106,7 +135,9 @@ export const results = pgTable("results", {
   scoreDifference: integer("score_difference").notNull(),
 });
 
-export const insertResultSchema = createInsertSchema(results).omit({ id: true });
+export const insertResultSchema = createInsertSchema(results).omit({ id: true }).extend({
+  tournamentId: z.string().min(1, "Tournament is required"),
+});
 
 export type InsertResult = z.infer<typeof insertResultSchema>;
 export type Result = typeof results.$inferSelect;

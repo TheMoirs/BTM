@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTournament } from "@/contexts/TournamentContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captai
 type SortDirection = "asc" | "desc";
 
 export default function Teams() {
+  const { currentTournament } = useTournament();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
@@ -65,12 +67,20 @@ export default function Teams() {
   const { toast } = useToast();
 
   const { data: teams, isLoading } = useQuery<Team[]>({
-    queryKey: ["/api/teams"],
+    queryKey: ["/api/teams", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await fetch(`/api/teams?tournamentId=${currentTournament.id}`);
+      if (!response.ok) throw new Error("Failed to fetch teams");
+      return response.json();
+    },
+    enabled: !!currentTournament,
   });
 
   const form = useForm<InsertTeam>({
     resolver: zodResolver(insertTeamSchema),
     defaultValues: {
+      tournamentId: currentTournament?.id || "",
       name: "",
       captainName: "",
       captainPhone: "",
@@ -82,11 +92,23 @@ export default function Teams() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertTeam) => apiRequest("POST", "/api/teams", data),
+    mutationFn: (data: InsertTeam) => {
+      if (!currentTournament) throw new Error("No tournament selected");
+      return apiRequest("POST", "/api/teams", { ...data, tournamentId: currentTournament.id });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", currentTournament?.id] });
       setIsCreateOpen(false);
-      form.reset();
+      form.reset({
+        tournamentId: currentTournament?.id || "",
+        name: "",
+        captainName: "",
+        captainPhone: "",
+        captainEmail: "",
+        division: "",
+        homePiste: "",
+        otherPlayers: [],
+      });
       toast({
         title: "Team registered",
         description: "The team has been successfully registered.",
@@ -103,10 +125,12 @@ export default function Teams() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: InsertTeam }) =>
-      apiRequest("PATCH", `/api/teams/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: InsertTeam }) => {
+      if (!currentTournament) throw new Error("No tournament selected");
+      return apiRequest("PATCH", `/api/teams/${id}`, { ...data, tournamentId: currentTournament.id });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", currentTournament?.id] });
       setEditingRowId(null);
       setEditingValues({});
       toast({

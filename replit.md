@@ -1,7 +1,18 @@
 # Boules League Manager
 
 ## Overview
-Boules League Manager is a web application designed to manage boules league competitions. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application aims for a modern SaaS design, emphasizing clarity and efficient workflows.
+Boules League Manager is a web application designed to manage multiple boules league tournaments. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application features a tournament selection system where users can create and manage multiple tournaments, each with isolated data (teams, matches, results). The application aims for a modern SaaS design, emphasizing clarity and efficient workflows.
+
+## Tournament System
+- **Multi-Tournament Support**: Application supports multiple independent tournaments with isolated data
+- **Tournament Selection**: Users select active tournament via dropdown in navigation bar
+- **Auto-Select Latest**: On initial load, automatically selects the most recently created tournament
+- **Cascade Deletion**: Deleting a tournament removes all associated teams, matches, and results
+- **Tournament Configuration**:
+  - Name (required)
+  - Number of divisions (default: 2)
+  - Tournament stages: Quarter-finals, Semi-finals, Finals (default: Finals only)
+- **Data Isolation**: All teams, matches, and results are scoped to the selected tournament
 
 ## User Preferences
 - Preferred communication style: Simple, everyday language.

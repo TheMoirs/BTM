@@ -1,0 +1,426 @@
+import { useState } from "react";
+import { useTournament } from "@/contexts/TournamentContext";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
+import { Trophy, Plus, ChevronDown, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+
+export function TournamentSelector() {
+  const { currentTournament, selectTournament, createTournament, deleteTournament } = useTournament();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
+  const { toast } = useToast();
+
+  const { data: tournaments } = useQuery<Tournament[]>({
+    queryKey: ["/api/tournaments"],
+  });
+
+  const form = useForm<InsertTournament>({
+    resolver: zodResolver(insertTournamentSchema),
+    defaultValues: {
+      name: "",
+      numberOfDivisions: 2,
+      hasQuarterFinals: false,
+      hasSemiFinals: false,
+      hasFinals: true,
+    },
+  });
+
+  const handleCreateTournament = async (data: InsertTournament) => {
+    try {
+      await createTournament(data);
+      setIsCreateOpen(false);
+      form.reset();
+      toast({
+        title: "Tournament created",
+        description: `${data.name} has been created successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create tournament",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+  };
+
+  const handleDeleteTournament = async (tournament: Tournament) => {
+    try {
+      await deleteTournament(tournament.id);
+      setDeletingTournament(null);
+      toast({
+        title: "Tournament deleted",
+        description: `${tournament.name} and all associated data have been deleted.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete tournament",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+  };
+
+  if (!currentTournament) {
+    return (
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" data-testid="button-create-first-tournament">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Tournament
+          </Button>
+        </DialogTrigger>
+        <DialogContent data-testid="dialog-create-tournament">
+          <DialogHeader>
+            <DialogTitle>Create Tournament</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tournament Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Summer League 2024" data-testid="input-tournament-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="numberOfDivisions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Divisions</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-number-of-divisions"
+                      />
+                    </FormControl>
+                    <FormDescription>Teams will be organized into divisions (A, B, C, etc.)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-3">
+                <FormLabel>Tournament Stages</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="hasFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasSemiFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-semi-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Semi-Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasQuarterFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-quarter-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Quarter-Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="flex-1"
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" data-testid="button-submit-tournament">
+                  Create Tournament
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" className="gap-2" data-testid="button-tournament-selector">
+            <Trophy className="h-4 w-4" />
+            <span>{currentTournament.name}</span>
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64">
+          <DropdownMenuLabel>Select Tournament</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {tournaments?.map((tournament) => (
+            <DropdownMenuItem
+              key={tournament.id}
+              onClick={() => selectTournament(tournament)}
+              className="flex items-center justify-between"
+              data-testid={`tournament-option-${tournament.id}`}
+            >
+              <span className="flex items-center gap-2">
+                {tournament.id === currentTournament.id && <Trophy className="h-4 w-4 text-primary" />}
+                {tournament.name}
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeletingTournament(tournament);
+                }}
+                data-testid={`button-delete-tournament-${tournament.id}`}
+              >
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </Button>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setIsCreateOpen(true)} data-testid="button-create-new-tournament">
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Tournament
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent data-testid="dialog-create-tournament">
+          <DialogHeader>
+            <DialogTitle>Create Tournament</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tournament Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Summer League 2024" data-testid="input-tournament-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="numberOfDivisions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Divisions</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-number-of-divisions"
+                      />
+                    </FormControl>
+                    <FormDescription>Teams will be organized into divisions (A, B, C, etc.)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-3">
+                <FormLabel>Tournament Stages</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="hasFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasSemiFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-semi-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Semi-Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasQuarterFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-quarter-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Quarter-Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="flex-1"
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" data-testid="button-submit-tournament">
+                  Create Tournament
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deletingTournament} onOpenChange={(open) => !open && setDeletingTournament(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tournament</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deletingTournament?.name}"? This will permanently delete all teams,
+              matches, and results associated with this tournament. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingTournament && handleDeleteTournament(deletingTournament)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete Tournament
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}

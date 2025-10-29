@@ -1,16 +1,23 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, teams, matches, results } from "@shared/schema";
+import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, teams, matches, results, tournaments } from "@shared/schema";
 import { db } from "./db";
-import { eq, or } from "drizzle-orm";
+import { eq, or, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getAllTeams(): Promise<Team[]>;
+  // Tournament methods
+  getAllTournaments(): Promise<Tournament[]>;
+  getTournament(id: string): Promise<Tournament | undefined>;
+  getLatestTournament(): Promise<Tournament | undefined>;
+  createTournament(tournament: InsertTournament): Promise<Tournament>;
+  deleteTournament(id: string): Promise<boolean>;
+  
+  getAllTeams(tournamentId?: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: string, team: InsertTeam): Promise<Team | undefined>;
   deleteTeam(id: string): Promise<boolean>;
-  deleteAllTeams(): Promise<boolean>;
+  deleteAllTeams(tournamentId?: string): Promise<boolean>;
   
-  getAllMatches(): Promise<Match[]>;
+  getAllMatches(tournamentId?: string): Promise<Match[]>;
   getMatch(id: string): Promise<Match | undefined>;
   createMatch(match: InsertMatch): Promise<Match>;
   updateMatchScore(
@@ -24,16 +31,49 @@ export interface IStorage {
     matchDate: string | null
   ): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
-  deleteAllMatches(): Promise<boolean>;
+  deleteAllMatches(tournamentId?: string): Promise<boolean>;
   
-  getAllResults(): Promise<Result[]>;
+  getAllResults(tournamentId?: string): Promise<Result[]>;
   createResult(result: InsertResult): Promise<Result>;
-  deleteAllResults(): Promise<boolean>;
+  deleteAllResults(tournamentId?: string): Promise<boolean>;
   deleteResultsByMatchId(matchId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async getAllTeams(): Promise<Team[]> {
+  // Tournament methods
+  async getAllTournaments(): Promise<Tournament[]> {
+    return await db.select().from(tournaments).orderBy(desc(tournaments.createdAt));
+  }
+
+  async getTournament(id: string): Promise<Tournament | undefined> {
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.id, id));
+    return tournament || undefined;
+  }
+
+  async getLatestTournament(): Promise<Tournament | undefined> {
+    const [tournament] = await db.select().from(tournaments).orderBy(desc(tournaments.createdAt)).limit(1);
+    return tournament || undefined;
+  }
+
+  async createTournament(insertTournament: InsertTournament): Promise<Tournament> {
+    const [tournament] = await db
+      .insert(tournaments)
+      .values(insertTournament)
+      .returning();
+    return tournament;
+  }
+
+  async deleteTournament(id: string): Promise<boolean> {
+    // Cascade delete will handle teams, matches, and results
+    const result = await db.delete(tournaments).where(eq(tournaments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Team methods
+  async getAllTeams(tournamentId?: string): Promise<Team[]> {
+    if (tournamentId) {
+      return await db.select().from(teams).where(eq(teams.tournamentId, tournamentId));
+    }
     return await db.select().from(teams);
   }
 
@@ -43,13 +83,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTeam(insertTeam: InsertTeam): Promise<Team> {
+    // Check for duplicate team name within the same tournament
     const existing = await db
       .select()
       .from(teams)
-      .where(eq(teams.name, insertTeam.name));
+      .where(and(
+        eq(teams.tournamentId, insertTeam.tournamentId),
+        eq(teams.name, insertTeam.name)
+      ));
     
     if (existing.length > 0) {
-      throw new Error("A team with this name already exists");
+      throw new Error("A team with this name already exists in this tournament");
     }
 
     const [team] = await db
@@ -65,13 +109,17 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
+    // Check for duplicate team name within the same tournament
     const duplicate = await db
       .select()
       .from(teams)
-      .where(eq(teams.name, insertTeam.name));
+      .where(and(
+        eq(teams.tournamentId, insertTeam.tournamentId),
+        eq(teams.name, insertTeam.name)
+      ));
     
     if (duplicate.length > 0 && duplicate[0].id !== id) {
-      throw new Error("A team with this name already exists");
+      throw new Error("A team with this name already exists in this tournament");
     }
 
     const [updatedTeam] = await db
@@ -110,17 +158,30 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async deleteAllTeams(): Promise<boolean> {
-    // Delete all results first
-    await this.deleteAllResults();
-    // Delete all matches
-    await db.delete(matches);
-    // Delete all teams
-    await db.delete(teams);
+  async deleteAllTeams(tournamentId?: string): Promise<boolean> {
+    if (tournamentId) {
+      // Delete all results for this tournament first
+      await this.deleteAllResults(tournamentId);
+      // Delete all matches for this tournament
+      await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
+      // Delete all teams for this tournament
+      await db.delete(teams).where(eq(teams.tournamentId, tournamentId));
+    } else {
+      // Delete all results first
+      await this.deleteAllResults();
+      // Delete all matches
+      await db.delete(matches);
+      // Delete all teams
+      await db.delete(teams);
+    }
     return true;
   }
 
-  async getAllMatches(): Promise<Match[]> {
+  // Match methods
+  async getAllMatches(tournamentId?: string): Promise<Match[]> {
+    if (tournamentId) {
+      return await db.select().from(matches).where(eq(matches.tournamentId, tournamentId));
+    }
     return await db.select().from(matches);
   }
 
@@ -162,6 +223,7 @@ export class DatabaseStorage implements IStorage {
       const [match] = await db
         .insert(matches)
         .values({
+          tournamentId: insertMatch.tournamentId,
           team1Id: insertMatch.team1Id,
           team2Id: insertMatch.team2Id,
           team1Game1Score: insertMatch.team1Game1Score ?? null,
@@ -345,6 +407,7 @@ export class DatabaseStorage implements IStorage {
           
           // Create result records for both teams
           await this.createResult({
+            tournamentId: match.tournamentId,
             matchId: id,
             matchInfo,
             matchDate: matchDate || match.matchDate || null,
@@ -361,6 +424,7 @@ export class DatabaseStorage implements IStorage {
           });
           
           await this.createResult({
+            tournamentId: match.tournamentId,
             matchId: id,
             matchInfo,
             matchDate: matchDate || match.matchDate || null,
@@ -412,15 +476,26 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async deleteAllMatches(): Promise<boolean> {
-    // Delete all results first
-    await this.deleteAllResults();
-    // Delete all matches
-    await db.delete(matches);
+  async deleteAllMatches(tournamentId?: string): Promise<boolean> {
+    if (tournamentId) {
+      // Delete all results for this tournament first
+      await this.deleteAllResults(tournamentId);
+      // Delete all matches for this tournament
+      await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
+    } else {
+      // Delete all results first
+      await this.deleteAllResults();
+      // Delete all matches
+      await db.delete(matches);
+    }
     return true;
   }
 
-  async getAllResults(): Promise<Result[]> {
+  // Result methods
+  async getAllResults(tournamentId?: string): Promise<Result[]> {
+    if (tournamentId) {
+      return await db.select().from(results).where(eq(results.tournamentId, tournamentId));
+    }
     return await db.select().from(results);
   }
 
@@ -432,8 +507,12 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async deleteAllResults(): Promise<boolean> {
-    await db.delete(results);
+  async deleteAllResults(tournamentId?: string): Promise<boolean> {
+    if (tournamentId) {
+      await db.delete(results).where(eq(results.tournamentId, tournamentId));
+    } else {
+      await db.delete(results);
+    }
     return true;
   }
 

@@ -1,14 +1,76 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema } from "@shared/schema";
+import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema } from "@shared/schema";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get("/api/teams", async (_req, res) => {
+  // Tournament routes
+  app.get("/api/tournaments", async (_req, res) => {
     try {
-      const teams = await storage.getAllTeams();
+      const tournaments = await storage.getAllTournaments();
+      res.json(tournaments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tournaments" });
+    }
+  });
+
+  app.get("/api/tournaments/latest", async (_req, res) => {
+    try {
+      const tournament = await storage.getLatestTournament();
+      if (!tournament) {
+        return res.status(404).json({ error: "No tournament found" });
+      }
+      res.json(tournament);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch latest tournament" });
+    }
+  });
+
+  app.get("/api/tournaments/:id", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      res.json(tournament);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tournament" });
+    }
+  });
+
+  app.post("/api/tournaments", async (req, res) => {
+    try {
+      const validatedData = insertTournamentSchema.parse(req.body);
+      const tournament = await storage.createTournament(validatedData);
+      res.status(201).json(tournament);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to create tournament" });
+      }
+    }
+  });
+
+  app.delete("/api/tournaments/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteTournament(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete tournament" });
+    }
+  });
+
+  // Team routes
+  app.get("/api/teams", async (req, res) => {
+    try {
+      const tournamentId = req.query.tournamentId as string | undefined;
+      const teams = await storage.getAllTeams(tournamentId);
       res.json(teams);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch teams" });
@@ -70,18 +132,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/teams", async (_req, res) => {
+  app.delete("/api/teams", async (req, res) => {
     try {
-      await storage.deleteAllTeams();
+      const tournamentId = req.query.tournamentId as string | undefined;
+      await storage.deleteAllTeams(tournamentId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete all teams" });
     }
   });
 
-  app.get("/api/matches", async (_req, res) => {
+  app.get("/api/matches", async (req, res) => {
     try {
-      const matches = await storage.getAllMatches();
+      const tournamentId = req.query.tournamentId as string | undefined;
+      const matches = await storage.getAllMatches(tournamentId);
       res.json(matches);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch matches" });
@@ -114,12 +178,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/matches/generate", async (_req, res) => {
+  app.post("/api/matches/generate", async (req, res) => {
     try {
-      // Get all teams and existing matches
+      const tournamentId = req.body.tournamentId as string;
+      
+      if (!tournamentId) {
+        return res.status(400).json({ error: "Tournament ID is required" });
+      }
+
+      // Get all teams and existing matches for this tournament
       const [teams, existingMatches] = await Promise.all([
-        storage.getAllTeams(),
-        storage.getAllMatches()
+        storage.getAllTeams(tournamentId),
+        storage.getAllMatches(tournamentId)
       ]);
 
       if (teams.length < 2) {
@@ -182,6 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             const matchData = {
+              tournamentId,
               team1Id,
               team2Id,
               stage: "initial" as const,
@@ -256,18 +327,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/results", async (_req, res) => {
+  app.get("/api/results", async (req, res) => {
     try {
-      const results = await storage.getAllResults();
+      const tournamentId = req.query.tournamentId as string | undefined;
+      const results = await storage.getAllResults(tournamentId);
       res.json(results);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch results" });
     }
   });
 
-  app.delete("/api/results", async (_req, res) => {
+  app.delete("/api/results", async (req, res) => {
     try {
-      await storage.deleteAllResults();
+      const tournamentId = req.query.tournamentId as string | undefined;
+      await storage.deleteAllResults(tournamentId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete results" });
@@ -286,9 +359,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/matches", async (_req, res) => {
+  app.delete("/api/matches", async (req, res) => {
     try {
-      await storage.deleteAllMatches();
+      const tournamentId = req.query.tournamentId as string | undefined;
+      await storage.deleteAllMatches(tournamentId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete all matches" });

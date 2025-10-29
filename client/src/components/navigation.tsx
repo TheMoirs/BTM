@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Users, Trophy, ListChecks, Grid3x3 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TournamentSelector } from "@/components/tournament-selector";
 
 export function Navigation() {
   const [location] = useLocation();
@@ -20,6 +21,7 @@ export function Navigation() {
             <h1 className="text-xl font-semibold text-foreground">
               Boules League Manager
             </h1>
+            <TournamentSelector />
             <div className="flex gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
