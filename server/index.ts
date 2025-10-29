@@ -51,12 +51,16 @@ app.use((req, res, next) => {
 
 async function initializeDatabase() {
   try {
-    // Create unique index on matches table to prevent duplicate team pairings
+    // Drop old index if it exists (without tournament_id or stage)
+    await db.execute(sql`DROP INDEX IF EXISTS unique_team_pair`);
+    
+    // Create unique index on matches table to prevent duplicate team pairings within a tournament stage
     // This index ensures that matches like (Team A vs Team B) and (Team B vs Team A)
-    // are treated as duplicates regardless of team order
+    // are treated as duplicates within the same tournament stage, regardless of team order
+    // Teams can play again in different stages (e.g., initial round, then semi-finals)
     await db.execute(sql`
       CREATE UNIQUE INDEX IF NOT EXISTS unique_team_pair 
-      ON matches (LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id))
+      ON matches (tournament_id, stage, LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id))
     `);
     log("Database initialized: unique_team_pair index ensured");
   } catch (error) {
