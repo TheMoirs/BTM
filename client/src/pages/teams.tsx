@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
@@ -64,7 +64,13 @@ export default function Teams() {
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentTournamentRef = useRef<string | null>(null);
   const { toast } = useToast();
+  
+  // Keep ref in sync with currentTournament to avoid stale closures
+  useEffect(() => {
+    currentTournamentRef.current = currentTournament?.id || null;
+  }, [currentTournament]);
 
   const { data: teams, isLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams", currentTournament?.id],
@@ -207,6 +213,17 @@ export default function Teams() {
       }
     };
 
+    if (!currentTournamentRef.current) {
+      toast({
+        title: "Error",
+        description: "No tournament selected. Please select a tournament first.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      resetFileInput();
+      return;
+    }
+
     const reader = new FileReader();
     
     reader.onload = async (e) => {
@@ -330,7 +347,14 @@ export default function Teams() {
           }
 
           try {
+            if (!currentTournamentRef.current) {
+              errorCount++;
+              errors.push(`Row ${rowNum}: No tournament selected`);
+              continue;
+            }
+            
             const teamData: InsertTeam = {
+              tournamentId: currentTournamentRef.current,
               name: capitalizeWords(String(name).trim()),
               captainName: capitalizeWords(String(captainName).trim()),
               captainPhone: String(captainPhone).trim(),
