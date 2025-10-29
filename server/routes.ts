@@ -451,10 +451,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdMatches.push(match);
         }
       } else if (quarterComplete && tournament.hasSemiFinals && semiMatches.length === 0) {
-        // Generate semi-finals
+        // Generate semi-finals from quarter-finals
         stageToGenerate = "semi-finals";
         const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
         const rankings = calculateTeamRankings(quarterResults, teams);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4);
+
+        if (topTeams.length < 4) {
+          return res.status(400).json({ 
+            error: `Not enough teams qualified. Need 4 teams for semi-finals, but only ${topTeams.length} teams have results.` 
+          });
+        }
+
+        const pairings = createTraditionalPairings(topTeams);
+        for (const [team1, team2] of pairings) {
+          const matchData = {
+            tournamentId,
+            team1Id: team1.id,
+            team2Id: team2.id,
+            stage: "semi-finals" as const,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+          };
+
+          const match = await storage.createMatch(matchData);
+          createdMatches.push(match);
+        }
+      } else if (initialComplete && !tournament.hasQuarterFinals && tournament.hasSemiFinals && semiMatches.length === 0) {
+        // Generate semi-finals directly from initial stage (skip quarter-finals)
+        stageToGenerate = "semi-finals";
+        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
+        const rankings = calculateTeamRankings(initialResults, teams);
         const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4);
 
         if (topTeams.length < 4) {
@@ -604,6 +638,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (semiMatches.length > 0 && !semiComplete && quarterComplete) {
           checkForUpdates = true;
           sourceStage = "quarter-finals";
+          targetStage = "semi-finals";
+          targetMatches = semiMatches;
+          targetCount = 4;
+        } else if (semiMatches.length > 0 && !semiComplete && initialComplete && !tournament.hasQuarterFinals) {
+          checkForUpdates = true;
+          sourceStage = "initial";
           targetStage = "semi-finals";
           targetMatches = semiMatches;
           targetCount = 4;
