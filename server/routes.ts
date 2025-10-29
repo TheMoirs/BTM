@@ -356,9 +356,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quarterComplete = quarterMatches.length > 0 && quarterMatches.every(m => m.status === "completed");
       const semiComplete = semiMatches.length > 0 && semiMatches.every(m => m.status === "completed");
 
+      // Helper function to check if match exists between two teams
+      const matchExists = (team1Id: string, team2Id: string, stage: string) => {
+        return existingMatches.some(m => 
+          m.stage === stage && 
+          ((m.team1Id === team1Id && m.team2Id === team2Id) ||
+           (m.team1Id === team2Id && m.team2Id === team1Id))
+        );
+      };
+
+      // Check if there are teams with divisions that have no initial stage matches
+      const teamsWithInitialMatches = new Set<string>();
+      initialMatches.forEach(m => {
+        teamsWithInitialMatches.add(m.team1Id);
+        teamsWithInitialMatches.add(m.team2Id);
+      });
+      const teamsWithDivisions = teams.filter(t => t.division);
+      const teamsWithoutMatches = teamsWithDivisions.filter(t => !teamsWithInitialMatches.has(t.id));
+      const needsInitialGeneration = !initialComplete || teamsWithoutMatches.length > 0;
+
       // Determine what to generate
-      if (initialMatches.length === 0) {
-        // Generate initial stage
+      if (needsInitialGeneration) {
+        // Generate initial stage (or add missing matches if teams were added)
         stageToGenerate = "initial";
         
         let teamsWithoutDivision = 0;
@@ -395,6 +414,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           for (let i = 0; i < divTeams.length; i++) {
             for (let j = i + 1; j < divTeams.length; j++) {
+              // Check if match already exists
+              if (matchExists(divTeams[i].id, divTeams[j].id, "initial")) {
+                skippedCount++;
+                continue;
+              }
+
               const matchData = {
                 tournamentId,
                 team1Id: divTeams[i].id,

@@ -256,8 +256,14 @@ export default function Matches() {
       
       if (response.created > 0 && response.updated > 0) {
         message = `Created ${response.created} and updated ${response.updated} ${stageName} match(es).`;
+        if (response.skipped > 0) {
+          message += ` ${response.skipped} match(es) already exist.`;
+        }
       } else if (response.created > 0) {
         message = `Successfully created ${response.created} ${stageName} match(es).`;
+        if (response.skipped > 0) {
+          message += ` ${response.skipped} match(es) already exist.`;
+        }
       } else if (response.updated > 0) {
         message = `Successfully updated ${response.updated} ${stageName} match(es) based on current rankings.`;
       } else if (response.skipped > 0) {
