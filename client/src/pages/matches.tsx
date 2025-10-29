@@ -218,8 +218,20 @@ export default function Matches() {
   });
 
   const handleGenerateMatches = async () => {
+    if (!currentTournament) {
+      toast({
+        title: "Error",
+        description: "No tournament selected. Please select a tournament first.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+    
     try {
-      const res = await apiRequest("POST", "/api/matches/generate", {});
+      const res = await apiRequest("POST", "/api/matches/generate", { 
+        tournamentId: currentTournament.id 
+      });
       const response: {
         created: number;
         skipped: number;
