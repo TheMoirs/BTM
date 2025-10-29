@@ -440,11 +440,75 @@ export default function Matches() {
     });
   };
 
+  const validateScore = (field: keyof EditingMatch, value: string, currentValues: Partial<EditingMatch>): { valid: boolean; message?: string } => {
+    // Allow empty values
+    if (value === "") return { valid: true };
+    
+    const numValue = parseInt(value, 10);
+    
+    // Check if it's a score field
+    if (!field.includes("Score")) return { valid: true };
+    
+    // Validate range (0-13)
+    if (isNaN(numValue) || numValue < 0) {
+      return { valid: false, message: "Score must be 0 or greater" };
+    }
+    if (numValue > 13) {
+      return { valid: false, message: "Maximum score is 13" };
+    }
+    
+    // Check if score is 13, opponent must have less than 13
+    if (numValue === 13) {
+      // Determine which game and team this is
+      const gameNum = field.includes("Game1") ? "1" : field.includes("Game2") ? "2" : "3";
+      const isTeam1 = field.includes("team1");
+      const opponentField = (isTeam1 ? `team2Game${gameNum}Score` : `team1Game${gameNum}Score`) as keyof EditingMatch;
+      const opponentScore = currentValues[opponentField];
+      
+      if (opponentScore && parseInt(opponentScore, 10) >= 13) {
+        return { valid: false, message: "If one team scores 13, opponent must score less than 13" };
+      }
+    }
+    
+    // Check if opponent has 13, this score must be less than 13
+    const gameNum = field.includes("Game1") ? "1" : field.includes("Game2") ? "2" : "3";
+    const isTeam1 = field.includes("team1");
+    const opponentField = (isTeam1 ? `team2Game${gameNum}Score` : `team1Game${gameNum}Score`) as keyof EditingMatch;
+    const opponentScore = currentValues[opponentField];
+    
+    if (opponentScore && parseInt(opponentScore, 10) === 13 && numValue >= 13) {
+      return { valid: false, message: "If opponent scores 13, this team must score less than 13" };
+    }
+    
+    return { valid: true };
+  };
+
   const updateEditingValue = (field: keyof EditingMatch, value: string) => {
+    const validation = validateScore(field, value, editingValues);
+    if (!validation.valid) {
+      toast({
+        title: "Invalid Score",
+        description: validation.message,
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
   const updateAllEditingValue = (matchId: string, field: keyof EditingMatch, value: string) => {
+    const currentMatchValues = allEditingValues[matchId] || {};
+    const validation = validateScore(field, value, currentMatchValues);
+    if (!validation.valid) {
+      toast({
+        title: "Invalid Score",
+        description: validation.message,
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
     setAllEditingValues(prev => ({
       ...prev,
       [matchId]: {
@@ -1252,6 +1316,8 @@ export default function Matches() {
                           {shouldShowInputs ? (
                             <Input
                               type="number"
+                              min="0"
+                              max="13"
                               value={currentValues?.team1Game1Score || ""}
                               onChange={(e) => updateValue("team1Game1Score", e.target.value)}
                               className="h-8 w-14 text-center"
@@ -1268,6 +1334,8 @@ export default function Matches() {
                           {shouldShowInputs ? (
                             <Input
                               type="number"
+                              min="0"
+                              max="13"
                               value={currentValues?.team1Game2Score || ""}
                               onChange={(e) => updateValue("team1Game2Score", e.target.value)}
                               className="h-8 w-14 text-center"
@@ -1284,6 +1352,8 @@ export default function Matches() {
                           {shouldShowInputs ? (
                             <Input
                               type="number"
+                              min="0"
+                              max="13"
                               value={currentValues?.team1Game3Score || ""}
                               onChange={(e) => updateValue("team1Game3Score", e.target.value)}
                               className="h-8 w-14 text-center"
@@ -1303,6 +1373,8 @@ export default function Matches() {
                           {shouldShowInputs ? (
                             <Input
                               type="number"
+                              min="0"
+                              max="13"
                               value={currentValues?.team2Game1Score || ""}
                               onChange={(e) => updateValue("team2Game1Score", e.target.value)}
                               className="h-8 w-14 text-center"
@@ -1319,6 +1391,8 @@ export default function Matches() {
                           {shouldShowInputs ? (
                             <Input
                               type="number"
+                              min="0"
+                              max="13"
                               value={currentValues?.team2Game2Score || ""}
                               onChange={(e) => updateValue("team2Game2Score", e.target.value)}
                               className="h-8 w-14 text-center"
@@ -1335,6 +1409,8 @@ export default function Matches() {
                           {shouldShowInputs ? (
                             <Input
                               type="number"
+                              min="0"
+                              max="13"
                               value={currentValues?.team2Game3Score || ""}
                               onChange={(e) => updateValue("team2Game3Score", e.target.value)}
                               className="h-8 w-14 text-center"
