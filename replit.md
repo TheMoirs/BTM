@@ -104,6 +104,15 @@ Boules League Manager is a web application designed to manage multiple boules le
   - Blob URLs revoked on all exit paths (Close or re-opening)
   - All PDFs use landscape orientation for better table display
 
+## Recent Changes
+- **Multi-Tournament Support (December 2024)**: Implemented comprehensive tournament management system with:
+  - Tournament selection dropdown in navigation bar
+  - Automatic data scoping across all pages (Teams, Matches, Results)
+  - Cascade deletion of all associated data when tournament is deleted
+  - Configurable tournament settings (divisions, tournament stages)
+  - Auto-selection of latest tournament on initial load
+  - Complete data isolation between tournaments
+
 ## External Dependencies
 
 - **UI Libraries**: Radix UI (headless components), Lucide React (icons), class-variance-authority, tailwind-merge, clsx.
