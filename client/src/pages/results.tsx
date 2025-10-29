@@ -468,8 +468,9 @@ export default function Results() {
                       </Button>
                     </div>
                   </DialogHeader>
-                  <div className="rounded-md border">
-                    <Table>
+                  <div className="overflow-x-auto">
+                    <div className="rounded-md border">
+                      <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Team</TableHead>
@@ -523,7 +524,8 @@ export default function Results() {
                           </TableRow>
                         ))}
                       </TableBody>
-                    </Table>
+                      </Table>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -612,8 +614,9 @@ export default function Results() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
+            <div className="overflow-x-auto">
+              <div className="rounded-md border">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>
@@ -804,6 +807,7 @@ export default function Results() {
                 </TableBody>
               </Table>
             </div>
+          </div>
           </CardContent>
         </Card>
       )}
