@@ -8,6 +8,7 @@ interface TournamentContextType {
   isLoading: boolean;
   selectTournament: (tournament: Tournament) => void;
   createTournament: (data: InsertTournament) => Promise<Tournament>;
+  updateTournament: (id: string, data: InsertTournament) => Promise<Tournament>;
   deleteTournament: (id: string) => Promise<void>;
 }
 
@@ -28,6 +29,20 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     onSuccess: (newTournament) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       setCurrentTournament(newTournament);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: InsertTournament }) => {
+      const response = await apiRequest("PATCH", `/api/tournaments/${id}`, data);
+      return (await response.json()) as Tournament;
+    },
+    onSuccess: (updatedTournament) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      // Update current tournament if it's the one being edited
+      if (currentTournament?.id === updatedTournament.id) {
+        setCurrentTournament(updatedTournament);
+      }
     },
   });
 
@@ -73,6 +88,10 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     return await createMutation.mutateAsync(data);
   };
 
+  const updateTournament = async (id: string, data: InsertTournament): Promise<Tournament> => {
+    return await updateMutation.mutateAsync({ id, data });
+  };
+
   const deleteTournament = async (id: string): Promise<void> => {
     await deleteMutation.mutateAsync(id);
   };
@@ -84,6 +103,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
         isLoading,
         selectTournament,
         createTournament,
+        updateTournament,
         deleteTournament,
       }}
     >

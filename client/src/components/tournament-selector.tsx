@@ -40,13 +40,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2 } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 
 export function TournamentSelector() {
-  const { currentTournament, selectTournament, createTournament, deleteTournament } = useTournament();
+  const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament } = useTournament();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
   const { toast } = useToast();
 
@@ -84,6 +85,26 @@ export function TournamentSelector() {
     }
   };
 
+  const handleEditTournament = async (data: InsertTournament) => {
+    if (!editingTournament) return;
+    try {
+      await updateTournament(editingTournament.id, data);
+      setEditingTournament(null);
+      form.reset();
+      toast({
+        title: "Tournament updated",
+        description: `${data.name} has been updated successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update tournament",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+  };
+
   const handleDeleteTournament = async (tournament: Tournament) => {
     try {
       await deleteTournament(tournament.id);
@@ -100,6 +121,14 @@ export function TournamentSelector() {
         duration: Infinity,
       });
     }
+  };
+
+  const getTournamentDetails = (tournament: Tournament) => {
+    const stages = [];
+    if (tournament.hasQuarterFinals) stages.push("QF");
+    if (tournament.hasSemiFinals) stages.push("SF");
+    if (tournament.hasFinals) stages.push("F");
+    return `${tournament.numberOfDivisions} div${tournament.numberOfDivisions !== 1 ? 's' : ''} • ${stages.join(', ') || 'No stages'}`;
   };
 
   if (!currentTournament) {
@@ -239,36 +268,63 @@ export function TournamentSelector() {
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="gap-2" data-testid="button-tournament-selector">
             <Trophy className="h-4 w-4" />
-            <span>{currentTournament.name}</span>
+            <div className="flex flex-col items-start">
+              <span className="font-medium">{currentTournament.name}</span>
+              <span className="text-xs text-muted-foreground">{getTournamentDetails(currentTournament)}</span>
+            </div>
             <ChevronDown className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuContent align="start" className="w-80">
           <DropdownMenuLabel>Select Tournament</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {tournaments?.map((tournament) => (
             <DropdownMenuItem
               key={tournament.id}
               onClick={() => selectTournament(tournament)}
-              className="flex items-center justify-between"
+              className="flex items-start justify-between gap-2 py-3"
               data-testid={`tournament-option-${tournament.id}`}
             >
-              <span className="flex items-center gap-2">
-                {tournament.id === currentTournament.id && <Trophy className="h-4 w-4 text-primary" />}
-                {tournament.name}
-              </span>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-6 w-6"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeletingTournament(tournament);
-                }}
-                data-testid={`button-delete-tournament-${tournament.id}`}
-              >
-                <Trash2 className="h-3 w-3 text-destructive" />
-              </Button>
+              <div className="flex items-start gap-2 flex-1 min-w-0">
+                {tournament.id === currentTournament.id && <Trophy className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />}
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="font-medium truncate">{tournament.name}</span>
+                  <span className="text-xs text-muted-foreground">{getTournamentDetails(tournament)}</span>
+                </div>
+              </div>
+              <div className="flex gap-1 flex-shrink-0">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingTournament(tournament);
+                    form.reset({
+                      name: tournament.name,
+                      numberOfDivisions: tournament.numberOfDivisions,
+                      hasQuarterFinals: tournament.hasQuarterFinals,
+                      hasSemiFinals: tournament.hasSemiFinals,
+                      hasFinals: tournament.hasFinals,
+                    });
+                  }}
+                  data-testid={`button-edit-tournament-${tournament.id}`}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeletingTournament(tournament);
+                  }}
+                  data-testid={`button-delete-tournament-${tournament.id}`}
+                >
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
@@ -393,6 +449,130 @@ export function TournamentSelector() {
                 </Button>
                 <Button type="submit" className="flex-1" data-testid="button-submit-tournament">
                   Create Tournament
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingTournament} onOpenChange={(open) => !open && setEditingTournament(null)}>
+        <DialogContent data-testid="dialog-edit-tournament">
+          <DialogHeader>
+            <DialogTitle>Edit Tournament</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleEditTournament)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tournament Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Summer League 2024" data-testid="input-edit-tournament-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="numberOfDivisions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Divisions</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-edit-number-of-divisions"
+                      />
+                    </FormControl>
+                    <FormDescription>Teams will be organized into divisions (A, B, C, etc.)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-3">
+                <FormLabel>Tournament Stages</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="hasFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-edit-has-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasSemiFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-edit-has-semi-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Semi-Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasQuarterFinals"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-edit-has-quarter-finals"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Quarter-Finals</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingTournament(null);
+                    form.reset();
+                  }}
+                  className="flex-1"
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" data-testid="button-submit-edit-tournament">
+                  Update Tournament
                 </Button>
               </div>
             </form>

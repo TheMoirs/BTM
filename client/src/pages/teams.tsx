@@ -385,7 +385,12 @@ export default function Teams() {
           }
         }
 
-        queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+        // Invalidate only the current tournament's teams
+        if (currentTournamentRef.current) {
+          queryClient.invalidateQueries({ 
+            queryKey: ["/api/teams", currentTournamentRef.current] 
+          });
+        }
 
         // Show detailed results
         let description = `Successfully imported ${successCount} team(s).`;
