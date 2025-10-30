@@ -62,7 +62,7 @@ Boules League Manager is a web application designed to manage multiple boules le
     - **Initial Stage**: Generate Matches creates round-robin matches within divisions
       - Incremental generation: If new teams added, generates missing matches only
       - Division requirements: Teams must have divisions assigned to participate
-      - Odd team warning: Alerts when divisions have odd number of teams (one team will have bye)
+      - Round-robin format: Each team plays every other team in their division exactly once
       - Duplicate prevention: Skips matches that already exist between team pairs
     - **Automatic Stage Advancement**: System detects completed stages and generates next stage
       - Quarter-finals: Generated when initial stage is complete (all matches have results)

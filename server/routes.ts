@@ -408,10 +408,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          if (divTeams.length % 2 !== 0) {
-            warnings.push(`Division ${division} has ${divTeams.length} teams (odd number). One team will have a bye in each round.`);
-          }
-
           for (let i = 0; i < divTeams.length; i++) {
             for (let j = i + 1; j < divTeams.length; j++) {
               // Check if match already exists
