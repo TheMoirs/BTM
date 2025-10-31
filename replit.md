@@ -125,7 +125,29 @@ Boules League Manager is a web application designed to manage multiple boules le
   - Blob URLs revoked on all exit paths (Close or re-opening)
   - All PDFs use landscape orientation for better table display
 
+### Read-Only Mode (View-Only Sharing)
+- **Shareable Links**: Generate shareable URLs with `?view=readonly` parameter for external viewing
+- **Copy Share Link**: Button on Teams page copies shareable link to clipboard
+- **View Only Badge**: Visible indicator in navigation bar when in read-only mode
+- **Hidden Controls**: All editing, creating, and deleting controls automatically hidden:
+  - Teams page: No Add Team, Import Excel, Clear All Data, Copy Share Link, or edit buttons
+  - Matches page: No Generate Matches, Clear All Matches, Edit All, Create Match buttons, or Actions column
+  - Results page: No Clear All Results button
+- **Read-Only Navigation**: Query parameter preserved when navigating between pages
+- **Auto-Open Summary**: Results Summary dialog automatically opens when viewing Results page in read-only mode (if results exist)
+- **Active Tab Highlighting**: Navigation tabs correctly highlighted in read-only mode
+
 ## Recent Changes
+- **Read-Only Mode (October 2025)**: Implemented comprehensive view-only mode with shareable links:
+  - URL parameter-based activation (`?view=readonly`)
+  - ViewModeContext manages read-only state across all pages
+  - Navigation preserves query parameters when switching pages
+  - Copy Share Link button for easy sharing from Teams page
+  - All editing controls automatically hidden in read-only mode
+  - Results Summary auto-opens for read-only viewers
+  - Proper URL construction handles existing query parameters
+  - Navigation tab highlighting works correctly in read-only mode
+
 - **Tournament Progression System (October 2025)**: Implemented comprehensive multi-stage tournament progression with:
   - Automatic playoff generation when stages complete (Quarter-finals, Semi-finals, Finals)
   - Traditional seeding for playoff pairings (1v8, 2v7, 3v6, 4v5 for QF; 1v4, 2v3 for SF; 1v2 for Finals)
