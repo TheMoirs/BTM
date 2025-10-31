@@ -125,6 +125,7 @@ export const results = pgTable("results", {
   matchDate: text("match_date"),
   stage: text("stage").notNull(),
   teamName: text("team_name").notNull(),
+  division: text("division"),
   gamesPlayed: integer("games_played").notNull(),
   gamesWon: integer("games_won").notNull(),
   gamesLost: integer("games_lost").notNull(),

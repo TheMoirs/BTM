@@ -179,15 +179,35 @@ export default function Results() {
     });
   }, [filteredResults, sortColumn, sortDirection]);
 
+  const groupedByDivision = useMemo(() => {
+    const groups = new Map<string, Result[]>();
+    
+    getSortedResults.forEach(result => {
+      const division = result.division || 'No Division';
+      if (!groups.has(division)) {
+        groups.set(division, []);
+      }
+      groups.get(division)!.push(result);
+    });
+    
+    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'No Division') return 1;
+      if (b === 'No Division') return -1;
+      return a.localeCompare(b);
+    });
+  }, [getSortedResults]);
+
   const teamSummaries = useMemo(() => {
     if (!filteredResults || filteredResults.length === 0) return [];
 
-    const summaryMap = new Map<string, TeamSummary>();
+    const summaryMap = new Map<string, TeamSummary & { division: string | null }>();
 
     filteredResults.forEach(result => {
       if (!summaryMap.has(result.teamName)) {
         summaryMap.set(result.teamName, {
           teamName: result.teamName,
+          division: result.division,
           gamesPlayed: 0,
           gamesWon: 0,
           gamesDrawn: 0,
@@ -200,6 +220,11 @@ export default function Results() {
       }
 
       const summary = summaryMap.get(result.teamName)!;
+      // Prefer non-null division values (e.g., from initial stage matches)
+      // This handles cases where playoff matches have null division
+      if (result.division && !summary.division) {
+        summary.division = result.division;
+      }
       summary.gamesPlayed += result.gamesPlayed;
       summary.gamesWon += result.gamesWon;
       summary.gamesLost += result.gamesLost;
@@ -218,6 +243,25 @@ export default function Results() {
       return b.scoreDifference - a.scoreDifference;
     });
   }, [filteredResults]);
+
+  const teamSummariesByDivision = useMemo(() => {
+    const groups = new Map<string, (TeamSummary & { division: string | null })[]>();
+    
+    teamSummaries.forEach(summary => {
+      const division = summary.division || 'No Division';
+      if (!groups.has(division)) {
+        groups.set(division, []);
+      }
+      groups.get(division)!.push(summary);
+    });
+    
+    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'No Division') return 1;
+      if (b === 'No Division') return -1;
+      return a.localeCompare(b);
+    });
+  }, [teamSummaries]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
@@ -288,48 +332,67 @@ export default function Results() {
       doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 32);
     }
     
-    const tableData = getSortedResults.map((result) => [
-      result.teamName,
-      stageLabels[result.stage as keyof typeof stageLabels] || result.stage,
-      result.matchInfo,
-      result.matchDate || '—',
-      result.gamesPlayed.toString(),
-      result.gamesWon.toString(),
-      result.gamesDrawn.toString(),
-      result.gamesLost.toString(),
-      result.points.toString(),
-      result.scoreFor.toString(),
-      result.scoreAgainst.toString(),
-      result.scoreDifference.toString(),
-    ]);
+    let startY = stageFilter !== "all" ? 37 : 32;
     
-    autoTable(doc, {
-      head: [['Team', 'Stage', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
-      body: tableData,
-      startY: stageFilter !== "all" ? 37 : 32,
-      styles: {
-        fontSize: 8,
-        cellPadding: 1.5,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 60 },
-        3: { cellWidth: 22 },
-        4: { cellWidth: 10, halign: 'center' },
-        5: { cellWidth: 10, halign: 'center' },
-        6: { cellWidth: 10, halign: 'center' },
-        7: { cellWidth: 10, halign: 'center' },
-        8: { cellWidth: 12, halign: 'center' },
-        9: { cellWidth: 10, halign: 'center' },
-        10: { cellWidth: 10, halign: 'center' },
-        11: { cellWidth: 12, halign: 'center' },
-      },
+    groupedByDivision.forEach(([division, divisionResults], index) => {
+      // Add division header
+      if (index > 0) {
+        startY += 10; // Add spacing between divisions
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+      doc.text(divisionLabel, 14, startY);
+      doc.setFont('helvetica', 'normal');
+      startY += 5;
+      
+      const tableData = divisionResults.map((result) => [
+        result.teamName,
+        stageLabels[result.stage as keyof typeof stageLabels] || result.stage,
+        result.matchInfo,
+        result.matchDate || '—',
+        result.gamesPlayed.toString(),
+        result.gamesWon.toString(),
+        result.gamesDrawn.toString(),
+        result.gamesLost.toString(),
+        result.points.toString(),
+        result.scoreFor.toString(),
+        result.scoreAgainst.toString(),
+        result.scoreDifference.toString(),
+      ]);
+      
+      autoTable(doc, {
+        head: [['Team', 'Stage', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
+        body: tableData,
+        startY: startY,
+        styles: {
+          fontSize: 8,
+          cellPadding: 1.5,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        columnStyles: {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 60 },
+          3: { cellWidth: 22 },
+          4: { cellWidth: 10, halign: 'center' },
+          5: { cellWidth: 10, halign: 'center' },
+          6: { cellWidth: 10, halign: 'center' },
+          7: { cellWidth: 10, halign: 'center' },
+          8: { cellWidth: 12, halign: 'center' },
+          9: { cellWidth: 10, halign: 'center' },
+          10: { cellWidth: 10, halign: 'center' },
+          11: { cellWidth: 12, halign: 'center' },
+        },
+      });
+      
+      // @ts-ignore - autoTable adds finalY to doc
+      startY = doc.lastAutoTable.finalY + 5;
     });
     
     return doc;
@@ -348,42 +411,61 @@ export default function Results() {
       doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 32);
     }
     
-    const tableData = teamSummaries.map((summary) => [
-      summary.teamName,
-      summary.gamesPlayed.toString(),
-      summary.gamesWon.toString(),
-      summary.gamesDrawn.toString(),
-      summary.gamesLost.toString(),
-      summary.points.toString(),
-      summary.scoreFor.toString(),
-      summary.scoreAgainst.toString(),
-      summary.scoreDifference.toString(),
-    ]);
+    let startY = stageFilter !== "all" ? 37 : 32;
     
-    autoTable(doc, {
-      head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
-      body: tableData,
-      startY: stageFilter !== "all" ? 37 : 32,
-      styles: {
-        fontSize: 10,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      columnStyles: {
-        0: { cellWidth: 70 },
-        1: { cellWidth: 22, halign: 'center' },
-        2: { cellWidth: 22, halign: 'center' },
-        3: { cellWidth: 22, halign: 'center' },
-        4: { cellWidth: 22, halign: 'center' },
-        5: { cellWidth: 22, halign: 'center' },
-        6: { cellWidth: 22, halign: 'center' },
-        7: { cellWidth: 22, halign: 'center' },
-        8: { cellWidth: 22, halign: 'center' },
-      },
+    teamSummariesByDivision.forEach(([division, divisionSummaries], index) => {
+      // Add division header
+      if (index > 0) {
+        startY += 10; // Add spacing between divisions
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+      doc.text(divisionLabel, 14, startY);
+      doc.setFont('helvetica', 'normal');
+      startY += 5;
+      
+      const tableData = divisionSummaries.map((summary) => [
+        summary.teamName,
+        summary.gamesPlayed.toString(),
+        summary.gamesWon.toString(),
+        summary.gamesDrawn.toString(),
+        summary.gamesLost.toString(),
+        summary.points.toString(),
+        summary.scoreFor.toString(),
+        summary.scoreAgainst.toString(),
+        summary.scoreDifference.toString(),
+      ]);
+      
+      autoTable(doc, {
+        head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
+        body: tableData,
+        startY: startY,
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 22, halign: 'center' },
+          2: { cellWidth: 22, halign: 'center' },
+          3: { cellWidth: 22, halign: 'center' },
+          4: { cellWidth: 22, halign: 'center' },
+          5: { cellWidth: 22, halign: 'center' },
+          6: { cellWidth: 22, halign: 'center' },
+          7: { cellWidth: 22, halign: 'center' },
+          8: { cellWidth: 22, halign: 'center' },
+        },
+      });
+      
+      // @ts-ignore - autoTable adds finalY to doc
+      startY = doc.lastAutoTable.finalY + 5;
     });
     
     return doc;
@@ -518,64 +600,85 @@ export default function Results() {
                       </div>
                     </div>
                   </DialogHeader>
-                  <div className="overflow-x-auto">
-                    <div className="rounded-md border">
-                      <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Team</TableHead>
-                          <TableHead className="text-center">Played</TableHead>
-                          <TableHead className="text-center">Won</TableHead>
-                          <TableHead className="text-center">Drawn</TableHead>
-                          <TableHead className="text-center">Lost</TableHead>
-                          <TableHead className="text-center">Points</TableHead>
-                          <TableHead className="text-center">Score For</TableHead>
-                          <TableHead className="text-center">Score Against</TableHead>
-                          <TableHead className="text-center">Score Difference</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {teamSummaries.map((summary) => (
-                          <TableRow key={summary.teamName} data-testid={`row-summary-${summary.teamName}`}>
-                            <TableCell className="font-medium" data-testid={`text-team-${summary.teamName}`}>
-                              {summary.teamName}
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-played-${summary.teamName}`}>
-                              <span className="font-mono">{summary.gamesPlayed}</span>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-won-${summary.teamName}`}>
-                              <span className="font-mono">{summary.gamesWon}</span>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-drawn-${summary.teamName}`}>
-                              <span className="font-mono">{summary.gamesDrawn}</span>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-lost-${summary.teamName}`}>
-                              <span className="font-mono">{summary.gamesLost}</span>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-points-${summary.teamName}`}>
-                              <Badge variant="default" className="font-mono">
-                                {summary.points}
+                  <div className="space-y-6">
+                    {teamSummariesByDivision.map(([division, divisionSummaries]) => (
+                      <div key={division}>
+                        <div className="mb-3">
+                          <h3 className="text-lg font-semibold flex items-center gap-2">
+                            {division !== 'No Division' && (
+                              <Badge variant="default" className="text-base px-2 py-1">
+                                Division {division}
                               </Badge>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-score-for-${summary.teamName}`}>
-                              <span className="font-mono">{summary.scoreFor}</span>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-score-against-${summary.teamName}`}>
-                              <span className="font-mono">{summary.scoreAgainst}</span>
-                            </TableCell>
-                            <TableCell className="text-center" data-testid={`text-score-difference-${summary.teamName}`}>
-                              <Badge 
-                                variant={summary.scoreDifference > 0 ? "default" : summary.scoreDifference < 0 ? "destructive" : "secondary"}
-                                className="font-mono"
-                              >
-                                {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                      </Table>
-                    </div>
+                            )}
+                            {division === 'No Division' && (
+                              <span>No Division Assigned</span>
+                            )}
+                            <span className="text-muted-foreground text-sm font-normal">
+                              ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
+                            </span>
+                          </h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <div className="rounded-md border">
+                            <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Team</TableHead>
+                                <TableHead className="text-center">Played</TableHead>
+                                <TableHead className="text-center">Won</TableHead>
+                                <TableHead className="text-center">Drawn</TableHead>
+                                <TableHead className="text-center">Lost</TableHead>
+                                <TableHead className="text-center">Points</TableHead>
+                                <TableHead className="text-center">Score For</TableHead>
+                                <TableHead className="text-center">Score Against</TableHead>
+                                <TableHead className="text-center">Score Difference</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {divisionSummaries.map((summary) => (
+                                <TableRow key={summary.teamName} data-testid={`row-summary-${summary.teamName}`}>
+                                  <TableCell className="font-medium" data-testid={`text-team-${summary.teamName}`}>
+                                    {summary.teamName}
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-played-${summary.teamName}`}>
+                                    <span className="font-mono">{summary.gamesPlayed}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-won-${summary.teamName}`}>
+                                    <span className="font-mono">{summary.gamesWon}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-drawn-${summary.teamName}`}>
+                                    <span className="font-mono">{summary.gamesDrawn}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-lost-${summary.teamName}`}>
+                                    <span className="font-mono">{summary.gamesLost}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-points-${summary.teamName}`}>
+                                    <Badge variant="default" className="font-mono">
+                                      {summary.points}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-score-for-${summary.teamName}`}>
+                                    <span className="font-mono">{summary.scoreFor}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-score-against-${summary.teamName}`}>
+                                    <span className="font-mono">{summary.scoreAgainst}</span>
+                                  </TableCell>
+                                  <TableCell className="text-center" data-testid={`text-score-difference-${summary.teamName}`}>
+                                    <Badge 
+                                      variant={summary.scoreDifference > 0 ? "default" : summary.scoreDifference < 0 ? "destructive" : "secondary"}
+                                      className="font-mono"
+                                    >
+                                      {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -666,212 +769,223 @@ export default function Results() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">
-              {stageFilter === "all" 
-                ? `All Results (${filteredResults.length})`
-                : `${stageLabels[stageFilter as keyof typeof stageLabels]} Results (${filteredResults.length})`
-              }
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <div className="rounded-md border">
-                <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("teamName")}
-                        data-testid="sort-teamName"
-                      >
-                        Team
-                        <SortIcon column="teamName" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("stage")}
-                        data-testid="sort-stage"
-                      >
-                        Stage
-                        <SortIcon column="stage" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("matchInfo")}
-                        data-testid="sort-matchInfo"
-                      >
-                        Match
-                        <SortIcon column="matchInfo" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("matchDate")}
-                        data-testid="sort-matchDate"
-                      >
-                        Date
-                        <SortIcon column="matchDate" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("gamesPlayed")}
-                        data-testid="sort-gamesPlayed"
-                      >
-                        Played
-                        <SortIcon column="gamesPlayed" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("gamesWon")}
-                        data-testid="sort-gamesWon"
-                      >
-                        Won
-                        <SortIcon column="gamesWon" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("gamesLost")}
-                        data-testid="sort-gamesLost"
-                      >
-                        Lost
-                        <SortIcon column="gamesLost" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("gamesDrawn")}
-                        data-testid="sort-gamesDrawn"
-                      >
-                        Drawn
-                        <SortIcon column="gamesDrawn" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("points")}
-                        data-testid="sort-points"
-                      >
-                        Points
-                        <SortIcon column="points" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("scoreFor")}
-                        data-testid="sort-scoreFor"
-                      >
-                        Score For
-                        <SortIcon column="scoreFor" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("scoreAgainst")}
-                        data-testid="sort-scoreAgainst"
-                      >
-                        Score Against
-                        <SortIcon column="scoreAgainst" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <button
-                        className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                        onClick={() => handleSort("scoreDifference")}
-                        data-testid="sort-scoreDifference"
-                      >
-                        Score Diff
-                        <SortIcon column="scoreDifference" />
-                      </button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {getSortedResults.map((result) => (
-                    <TableRow key={result.id} data-testid={`row-result-${result.id}`}>
-                      <TableCell data-testid={`text-team-${result.id}`}>
-                        {result.teamName}
-                      </TableCell>
-                      <TableCell data-testid={`text-stage-${result.id}`}>
-                        <Badge variant="outline">
-                          {stageLabels[result.stage as keyof typeof stageLabels]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell data-testid={`text-match-${result.id}`}>
-                        {result.matchInfo}
-                      </TableCell>
-                      <TableCell data-testid={`text-date-${result.id}`}>
-                        {result.matchDate ? (
-                          <span className="text-sm">
-                            {new Date(result.matchDate).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-games-played-${result.id}`}>
-                        <span className="font-mono">{result.gamesPlayed}</span>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-games-won-${result.id}`}>
-                        <span className="font-mono">{result.gamesWon}</span>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-games-lost-${result.id}`}>
-                        <span className="font-mono">{result.gamesLost}</span>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-games-drawn-${result.id}`}>
-                        <span className="font-mono">{result.gamesDrawn}</span>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-points-${result.id}`}>
-                        <Badge 
-                          variant={result.points === 2 ? "default" : result.points === 1 ? "secondary" : "outline"}
-                          className="font-mono"
-                        >
-                          {result.points}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-score-for-${result.id}`}>
-                        <span className="font-mono">{result.scoreFor}</span>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-score-against-${result.id}`}>
-                        <span className="font-mono">{result.scoreAgainst}</span>
-                      </TableCell>
-                      <TableCell className="text-center" data-testid={`text-score-difference-${result.id}`}>
-                        <Badge 
-                          variant={result.scoreDifference > 0 ? "default" : result.scoreDifference < 0 ? "destructive" : "secondary"}
-                          className="font-mono"
-                        >
-                          {result.scoreDifference > 0 ? '+' : ''}{result.scoreDifference}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          {groupedByDivision.map(([division, divisionResults]) => (
+            <Card key={division}>
+              <CardHeader>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  {division !== 'No Division' && (
+                    <Badge variant="default" className="text-lg px-3 py-1">
+                      Division {division}
+                    </Badge>
+                  )}
+                  {division === 'No Division' && (
+                    <span>No Division Assigned</span>
+                  )}
+                  <span className="text-muted-foreground text-base font-normal">
+                    ({divisionResults.length} {divisionResults.length === 1 ? 'result' : 'results'})
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <div className="rounded-md border">
+                    <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <button
+                            className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                            onClick={() => handleSort("teamName")}
+                            data-testid="sort-teamName"
+                          >
+                            Team
+                            <SortIcon column="teamName" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                            onClick={() => handleSort("stage")}
+                            data-testid="sort-stage"
+                          >
+                            Stage
+                            <SortIcon column="stage" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                            onClick={() => handleSort("matchInfo")}
+                            data-testid="sort-matchInfo"
+                          >
+                            Match
+                            <SortIcon column="matchInfo" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                            onClick={() => handleSort("matchDate")}
+                            data-testid="sort-matchDate"
+                          >
+                            Date
+                            <SortIcon column="matchDate" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("gamesPlayed")}
+                            data-testid="sort-gamesPlayed"
+                          >
+                            Played
+                            <SortIcon column="gamesPlayed" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("gamesWon")}
+                            data-testid="sort-gamesWon"
+                          >
+                            Won
+                            <SortIcon column="gamesWon" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("gamesLost")}
+                            data-testid="sort-gamesLost"
+                          >
+                            Lost
+                            <SortIcon column="gamesLost" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("gamesDrawn")}
+                            data-testid="sort-gamesDrawn"
+                          >
+                            Drawn
+                            <SortIcon column="gamesDrawn" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("points")}
+                            data-testid="sort-points"
+                          >
+                            Points
+                            <SortIcon column="points" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("scoreFor")}
+                            data-testid="sort-scoreFor"
+                          >
+                            Score For
+                            <SortIcon column="scoreFor" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("scoreAgainst")}
+                            data-testid="sort-scoreAgainst"
+                          >
+                            Score Against
+                            <SortIcon column="scoreAgainst" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <button
+                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
+                            onClick={() => handleSort("scoreDifference")}
+                            data-testid="sort-scoreDifference"
+                          >
+                            Score Diff
+                            <SortIcon column="scoreDifference" />
+                          </button>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {divisionResults.map((result) => (
+                        <TableRow key={result.id} data-testid={`row-result-${result.id}`}>
+                          <TableCell data-testid={`text-team-${result.id}`}>
+                            {result.teamName}
+                          </TableCell>
+                          <TableCell data-testid={`text-stage-${result.id}`}>
+                            <Badge variant="outline">
+                              {stageLabels[result.stage as keyof typeof stageLabels]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell data-testid={`text-match-${result.id}`}>
+                            {result.matchInfo}
+                          </TableCell>
+                          <TableCell data-testid={`text-date-${result.id}`}>
+                            {result.matchDate ? (
+                              <span className="text-sm">
+                                {new Date(result.matchDate).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-games-played-${result.id}`}>
+                            <span className="font-mono">{result.gamesPlayed}</span>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-games-won-${result.id}`}>
+                            <span className="font-mono">{result.gamesWon}</span>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-games-lost-${result.id}`}>
+                            <span className="font-mono">{result.gamesLost}</span>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-games-drawn-${result.id}`}>
+                            <span className="font-mono">{result.gamesDrawn}</span>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-points-${result.id}`}>
+                            <Badge 
+                              variant={result.points === 2 ? "default" : result.points === 1 ? "secondary" : "outline"}
+                              className="font-mono"
+                            >
+                              {result.points}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-score-for-${result.id}`}>
+                            <span className="font-mono">{result.scoreFor}</span>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-score-against-${result.id}`}>
+                            <span className="font-mono">{result.scoreAgainst}</span>
+                          </TableCell>
+                          <TableCell className="text-center" data-testid={`text-score-difference-${result.id}`}>
+                            <Badge 
+                              variant={result.scoreDifference > 0 ? "default" : result.scoreDifference < 0 ? "destructive" : "secondary"}
+                              className="font-mono"
+                            >
+                              {result.scoreDifference > 0 ? '+' : ''}{result.scoreDifference}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
