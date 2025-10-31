@@ -1,10 +1,13 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Grid3x3 } from "lucide-react";
+import { Users, Trophy, ListChecks, Grid3x3, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
+import { Badge } from "@/components/ui/badge";
+import { useViewMode } from "@/contexts/ViewModeContext";
 
 export function Navigation() {
   const [location] = useLocation();
+  const { isReadOnly } = useViewMode();
 
   const navItems = [
     { path: "/", label: "Teams", icon: Users },
@@ -22,6 +25,12 @@ export function Navigation() {
               Boules League Manager
             </h1>
             <TournamentSelector />
+            {isReadOnly && (
+              <Badge variant="secondary" className="gap-1.5" data-testid="badge-view-only">
+                <Eye className="h-3 w-3" />
+                View Only
+              </Badge>
+            )}
             <div className="flex gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
