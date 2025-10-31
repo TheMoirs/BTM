@@ -47,7 +47,21 @@ Boules League Manager is a web application designed to manage multiple boules le
 ### Features
 - **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing. Table with sortable columns and horizontal scrolling for mobile.
 - **Matches Management & Reporting**: Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
+- **Results Summary & Reports**: View team statistics and match results. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
+
+## Recent Changes
+- **Results Summary Enhancements (October 2025)**: Added tournament name and date/time to both on-screen Summary dialog and PDF reports:
+  - Summary dialog shows tournament name and timestamp below title
+  - Match Results PDF includes tournament name and full date/time
+  - Team Summary Statistics PDF includes tournament name and full date/time
+  - Helps users track which tournament and when reports were generated
+
+- **Tournament-Specific Shareable Links (October 2025)**: Enhanced shareable links to include tournament ID:
+  - Share links now include both `?view=readonly&tournament={id}` parameters
+  - Recipients automatically see the exact tournament that was shared
+  - TournamentContext reads tournament ID from URL and auto-selects it on page load
+  - Fixed match completion bug: matches now complete when team wins 2 games
 
 ## External Dependencies
 
