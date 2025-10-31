@@ -42,7 +42,9 @@ export function Navigation() {
             <div className="flex gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location === item.path;
+                // Strip query parameters from location for active state comparison
+                const currentPath = location.split('?')[0];
+                const isActive = currentPath === item.path;
                 const pathWithQuery = getPathWithQuery(item.path);
                 return (
                   <Link

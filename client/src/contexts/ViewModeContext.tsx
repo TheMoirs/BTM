@@ -20,8 +20,11 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
 
   const getShareableLink = () => {
     const baseUrl = window.location.origin;
-    const currentPath = location;
-    return `${baseUrl}${currentPath}?view=readonly`;
+    // Parse current URL to properly handle existing query parameters
+    const url = new URL(window.location.href);
+    // Set or update the view parameter to readonly
+    url.searchParams.set('view', 'readonly');
+    return url.toString();
   };
 
   return (
