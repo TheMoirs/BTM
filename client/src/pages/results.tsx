@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ type TeamSummary = {
 
 export default function Results() {
   const { currentTournament } = useTournament();
+  const { isReadOnly } = useViewMode();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
@@ -88,6 +90,13 @@ export default function Results() {
     },
     enabled: !!currentTournament,
   });
+
+  // Auto-open Summary dialog in read-only mode
+  useEffect(() => {
+    if (isReadOnly && results && results.length > 0) {
+      setShowSummary(true);
+    }
+  }, [isReadOnly, results]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -548,14 +557,16 @@ export default function Results() {
                 <FileDown className="mr-2 h-4 w-4" />
                 View PDF
               </Button>
-              <Button
-                variant="destructive"
-                onClick={() => setShowClearConfirm(true)}
-                data-testid="button-clear-all-results"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Clear All Results
-              </Button>
+              {!isReadOnly && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowClearConfirm(true)}
+                  data-testid="button-clear-all-results"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear All Results
+                </Button>
+              )}
             </>
           )}
         </div>
