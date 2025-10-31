@@ -247,7 +247,7 @@ export default function Results() {
   };
 
   const handleCopyShareLink = () => {
-    const shareLink = getShareableLink();
+    const shareLink = getShareableLink(currentTournament?.id);
     navigator.clipboard.writeText(shareLink).then(() => {
       toast({
         title: "Link copied",

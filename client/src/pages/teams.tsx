@@ -695,7 +695,7 @@ export default function Teams() {
   };
 
   const handleCopyShareLink = async () => {
-    const shareLink = getShareableLink();
+    const shareLink = getShareableLink(currentTournament?.id);
     try {
       await navigator.clipboard.writeText(shareLink);
       toast({
