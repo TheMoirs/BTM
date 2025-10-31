@@ -684,11 +684,11 @@ export default function Results() {
                     <TableHead>
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("matchInfo")}
-                        data-testid="sort-matchInfo"
+                        onClick={() => handleSort("teamName")}
+                        data-testid="sort-teamName"
                       >
-                        Match
-                        <SortIcon column="matchInfo" />
+                        Team
+                        <SortIcon column="teamName" />
                       </button>
                     </TableHead>
                     <TableHead>
@@ -704,21 +704,21 @@ export default function Results() {
                     <TableHead>
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("matchDate")}
-                        data-testid="sort-matchDate"
+                        onClick={() => handleSort("matchInfo")}
+                        data-testid="sort-matchInfo"
                       >
-                        Date
-                        <SortIcon column="matchDate" />
+                        Match
+                        <SortIcon column="matchInfo" />
                       </button>
                     </TableHead>
                     <TableHead>
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("teamName")}
-                        data-testid="sort-teamName"
+                        onClick={() => handleSort("matchDate")}
+                        data-testid="sort-matchDate"
                       >
-                        Team
-                        <SortIcon column="teamName" />
+                        Date
+                        <SortIcon column="matchDate" />
                       </button>
                     </TableHead>
                     <TableHead className="text-center">
@@ -806,13 +806,16 @@ export default function Results() {
                 <TableBody>
                   {getSortedResults.map((result) => (
                     <TableRow key={result.id} data-testid={`row-result-${result.id}`}>
-                      <TableCell data-testid={`text-match-${result.id}`}>
-                        {result.matchInfo}
+                      <TableCell data-testid={`text-team-${result.id}`}>
+                        {result.teamName}
                       </TableCell>
                       <TableCell data-testid={`text-stage-${result.id}`}>
                         <Badge variant="outline">
                           {stageLabels[result.stage as keyof typeof stageLabels]}
                         </Badge>
+                      </TableCell>
+                      <TableCell data-testid={`text-match-${result.id}`}>
+                        {result.matchInfo}
                       </TableCell>
                       <TableCell data-testid={`text-date-${result.id}`}>
                         {result.matchDate ? (
@@ -826,9 +829,6 @@ export default function Results() {
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
-                      </TableCell>
-                      <TableCell data-testid={`text-team-${result.id}`}>
-                        {result.teamName}
                       </TableCell>
                       <TableCell className="text-center" data-testid={`text-games-played-${result.id}`}>
                         <span className="font-mono">{result.gamesPlayed}</span>
