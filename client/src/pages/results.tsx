@@ -289,10 +289,10 @@ export default function Results() {
     }
     
     const tableData = getSortedResults.map((result) => [
+      result.teamName,
+      stageLabels[result.stage as keyof typeof stageLabels] || result.stage,
       result.matchInfo,
       result.matchDate || '—',
-      stageLabels[result.stage as keyof typeof stageLabels] || result.stage,
-      result.teamName,
       result.gamesPlayed.toString(),
       result.gamesWon.toString(),
       result.gamesDrawn.toString(),
@@ -304,7 +304,7 @@ export default function Results() {
     ]);
     
     autoTable(doc, {
-      head: [['Match', 'Date', 'Stage', 'Team', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
+      head: [['Team', 'Stage', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
       body: tableData,
       startY: stageFilter !== "all" ? 37 : 32,
       styles: {
@@ -317,10 +317,10 @@ export default function Results() {
         fontStyle: 'bold',
       },
       columnStyles: {
-        0: { cellWidth: 60 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 40 },
+        0: { cellWidth: 40 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 60 },
+        3: { cellWidth: 22 },
         4: { cellWidth: 10, halign: 'center' },
         5: { cellWidth: 10, halign: 'center' },
         6: { cellWidth: 10, halign: 'center' },
