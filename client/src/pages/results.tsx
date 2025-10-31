@@ -92,9 +92,13 @@ export default function Results() {
   });
 
   // Auto-open Summary dialog in read-only mode
+  // Add a small delay to ensure page is fully rendered, especially on mobile
   useEffect(() => {
     if (isReadOnly && results && results.length > 0) {
-      setShowSummary(true);
+      const timer = setTimeout(() => {
+        setShowSummary(true);
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [isReadOnly, results]);
 
