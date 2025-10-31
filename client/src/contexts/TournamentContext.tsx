@@ -62,8 +62,22 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   });
 
   // Set the latest tournament as the current one on initial load or after deletion
+  // Also check URL for tournament ID to auto-select specific tournament from shareable links
   useEffect(() => {
     if (tournaments && tournaments.length > 0) {
+      // Check if URL has a tournament ID parameter (from shareable link)
+      const params = new URLSearchParams(window.location.search);
+      const tournamentIdFromUrl = params.get('tournament');
+      
+      // If URL specifies a tournament and we haven't loaded it yet, select it
+      if (tournamentIdFromUrl) {
+        const tournamentFromUrl = tournaments.find(t => t.id === tournamentIdFromUrl);
+        if (tournamentFromUrl && tournamentFromUrl.id !== currentTournament?.id) {
+          setCurrentTournament(tournamentFromUrl);
+          return;
+        }
+      }
+      
       // If no current tournament or current tournament no longer exists, select the first one
       if (!currentTournament || !tournaments.find(t => t.id === currentTournament.id)) {
         setCurrentTournament(tournaments[0]);
