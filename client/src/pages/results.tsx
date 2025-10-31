@@ -29,7 +29,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Result } from "@shared/schema";
-import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -68,7 +68,7 @@ type TeamSummary = {
 
 export default function Results() {
   const { currentTournament } = useTournament();
-  const { isReadOnly } = useViewMode();
+  const { isReadOnly, getShareableLink } = useViewMode();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
@@ -244,6 +244,25 @@ export default function Results() {
         duration: Infinity,
       });
     }
+  };
+
+  const handleCopyShareLink = () => {
+    const shareLink = getShareableLink();
+    navigator.clipboard.writeText(shareLink).then(() => {
+      toast({
+        title: "Link copied",
+        description: "Shareable link copied to clipboard. Anyone with this link can view results in read-only mode.",
+        duration: Infinity,
+      });
+    }).catch((error) => {
+      console.error("Failed to copy link:", error);
+      toast({
+        title: "Error",
+        description: "Failed to copy link to clipboard.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    });
   };
 
   const availableStages = useMemo(() => {
@@ -558,14 +577,24 @@ export default function Results() {
                 View PDF
               </Button>
               {!isReadOnly && (
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowClearConfirm(true)}
-                  data-testid="button-clear-all-results"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear All Results
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleCopyShareLink}
+                    data-testid="button-copy-share-link"
+                  >
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Copy Share Link
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowClearConfirm(true)}
+                    data-testid="button-clear-all-results"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear All Results
+                  </Button>
+                </>
               )}
             </>
           )}
