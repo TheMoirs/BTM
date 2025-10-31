@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useLocation } from 'wouter';
 
 interface ViewModeContextType {
@@ -12,8 +12,11 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   
   // Check if URL has ?view=readonly parameter
-  const params = new URLSearchParams(window.location.search);
-  const isReadOnly = params.get('view') === 'readonly';
+  // Use useMemo to re-evaluate when location changes (for client-side navigation)
+  const isReadOnly = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view') === 'readonly';
+  }, [location]); // Re-evaluate when location changes
 
   const getShareableLink = () => {
     const baseUrl = window.location.origin;

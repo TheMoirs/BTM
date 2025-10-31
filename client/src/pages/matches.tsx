@@ -1163,18 +1163,22 @@ export default function Matches() {
                 No matches scheduled yet
               </h3>
               <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-                Create your first match or generate matches automatically from your teams
+                {isReadOnly 
+                  ? "No matches have been created for this tournament yet" 
+                  : "Create your first match or generate matches automatically from your teams"}
               </p>
-              <div className="flex gap-2">
-                <Button onClick={handleGenerateMatches} variant="outline" data-testid="button-generate-first-matches">
-                  <Shuffle className="h-4 w-4 mr-2" />
-                  Generate Matches
-                </Button>
-                <Button onClick={() => setIsCreateOpen(true)} data-testid="button-create-first-match">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Match
-                </Button>
-              </div>
+              {!isReadOnly && (
+                <div className="flex gap-2">
+                  <Button onClick={handleGenerateMatches} variant="outline" data-testid="button-generate-first-matches">
+                    <Shuffle className="h-4 w-4 mr-2" />
+                    Generate Matches
+                  </Button>
+                  <Button onClick={() => setIsCreateOpen(true)} data-testid="button-create-first-match">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Match
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : getFilteredAndSortedMatches.length === 0 ? (

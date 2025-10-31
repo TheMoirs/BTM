@@ -16,6 +16,14 @@ export function Navigation() {
     { path: "/bracket", label: "Bracket", icon: Grid3x3 },
   ];
 
+  // Helper function to add query parameters to path
+  const getPathWithQuery = (path: string) => {
+    if (isReadOnly) {
+      return `${path}?view=readonly`;
+    }
+    return path;
+  };
+
   return (
     <nav className="border-b bg-background sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -35,10 +43,11 @@ export function Navigation() {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.path;
+                const pathWithQuery = getPathWithQuery(item.path);
                 return (
                   <Link
                     key={item.path}
-                    href={item.path}
+                    href={pathWithQuery}
                     data-testid={`link-nav-${item.label.toLowerCase()}`}
                   >
                     <button
