@@ -746,7 +746,7 @@ export default function Teams() {
               )}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Manage registered teams and captain contact details
+              {isReadOnly ? "View registered teams and captain contact details" : "Manage registered teams and captain contact details"}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -999,13 +999,17 @@ export default function Teams() {
                 No teams registered yet
               </h3>
               <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-                Get started by registering your first team for the league
-                competition
+                {isReadOnly 
+                  ? "No teams have been registered for this tournament yet" 
+                  : "Get started by registering your first team for the league competition"
+                }
               </p>
-              <Button onClick={() => setIsCreateOpen(true)} data-testid="button-register-first-team">
-                <Plus className="h-4 w-4 mr-2" />
-                Register Your First Team
-              </Button>
+              {!isReadOnly && (
+                <Button onClick={() => setIsCreateOpen(true)} data-testid="button-register-first-team">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Register Your First Team
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -1084,7 +1088,9 @@ export default function Teams() {
                         <SortIcon column="otherPlayers" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[120px] text-right">Actions</TableHead>
+                    {!isReadOnly && (
+                      <TableHead className="w-[120px] text-right">Actions</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1199,51 +1205,53 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {isEditing ? (
-                            <div className="flex gap-1 justify-end">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => saveEditing(team.id)}
-                                disabled={updateMutation.isPending}
-                                data-testid={`button-save-${team.id}`}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={cancelEditing}
-                                disabled={updateMutation.isPending}
-                                data-testid={`button-cancel-edit-${team.id}`}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-1 justify-end">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => startEditing(team)}
-                                data-testid={`button-edit-${team.id}`}
-                              >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => setDeletingTeam(team)}
-                                data-testid={`button-delete-${team.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+                        {!isReadOnly && (
+                          <TableCell className="text-right">
+                            {isEditing ? (
+                              <div className="flex gap-1 justify-end">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => saveEditing(team.id)}
+                                  disabled={updateMutation.isPending}
+                                  data-testid={`button-save-${team.id}`}
+                                >
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={cancelEditing}
+                                  disabled={updateMutation.isPending}
+                                  data-testid={`button-cancel-edit-${team.id}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-1 justify-end">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => startEditing(team)}
+                                  data-testid={`button-edit-${team.id}`}
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => setDeletingTeam(team)}
+                                  data-testid={`button-delete-${team.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
