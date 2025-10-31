@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -54,6 +55,7 @@ type SortDirection = "asc" | "desc";
 
 export default function Teams() {
   const { currentTournament } = useTournament();
+  const { isReadOnly, getShareableLink } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
@@ -692,6 +694,23 @@ export default function Teams() {
     }
   };
 
+  const handleCopyShareLink = async () => {
+    const shareLink = getShareableLink();
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      toast({
+        title: "Link copied",
+        description: "Shareable view-only link has been copied to your clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the link manually from your browser's address bar.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const closePdfViewer = () => {
     setShowPdfViewer(false);
     if (pdfBlobUrl) {
@@ -731,23 +750,27 @@ export default function Teams() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleExcelImport}
-              className="hidden"
-              data-testid="input-excel-file"
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="button-import-excel"
-            >
-              <Upload className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Import Excel</span>
-            </Button>
+            {!isReadOnly && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleExcelImport}
+                  className="hidden"
+                  data-testid="input-excel-file"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  data-testid="button-import-excel"
+                >
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Import Excel</span>
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -757,22 +780,24 @@ export default function Teams() {
               <FileDown className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">View PDF</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowClearConfirm(true)}
-              data-testid="button-clear-all-teams"
-            >
-              <Trash2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Clear All Data</span>
-            </Button>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" data-testid="button-add-team">
-                  <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Add Team</span>
+            {!isReadOnly && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowClearConfirm(true)}
+                  data-testid="button-clear-all-teams"
+                >
+                  <Trash2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Clear All Data</span>
                 </Button>
-              </DialogTrigger>
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" data-testid="button-add-team">
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Add Team</span>
+                    </Button>
+                  </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
                 <DialogHeader>
                   <DialogTitle>Register New Team</DialogTitle>
@@ -949,7 +974,18 @@ export default function Teams() {
                   </form>
                 </Form>
               </DialogContent>
-            </Dialog>
+                </Dialog>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyShareLink}
+                  data-testid="button-copy-share-link"
+                >
+                  <Share2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Copy Share Link</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

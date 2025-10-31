@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TournamentProvider } from "@/contexts/TournamentContext";
+import { ViewModeProvider } from "@/contexts/ViewModeContext";
 import { Navigation } from "@/components/navigation";
 import Teams from "@/pages/teams";
 import Matches from "@/pages/matches";
@@ -28,13 +29,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <TournamentProvider>
-          <div className="min-h-screen bg-background">
-            <Navigation />
-            <Router />
-          </div>
-          <Toaster />
-        </TournamentProvider>
+        <ViewModeProvider>
+          <TournamentProvider>
+            <div className="min-h-screen bg-background">
+              <Navigation />
+              <Router />
+            </div>
+            <Toaster />
+          </TournamentProvider>
+        </ViewModeProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
