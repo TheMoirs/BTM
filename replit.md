@@ -25,7 +25,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Data Model**:
     - **Teams**: Team name (unique), captain details, optional division, home piste, other players.
     - **Matches**: Team references, up to 3 game scores, stage, status, winner, scheduled date. Unique constraint on team pairs.
-    - **Results**: Generated from match outcomes, records match info, date, stage, team name, game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
+    - **Results**: Generated from match outcomes, records match info, date, stage, team name, division (populated from team data), game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
 - **Match System**: Up to 3 games per match. Winner based on 2+ game wins. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 win, 1 draw, 0 loss). Results created on "completed" status. Clearing scores reverts match to "scheduled" and deletes results.
 - **Validation**: Shared Zod schemas for client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints.
@@ -47,10 +47,19 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 ### Features
 - **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing. Table with sortable columns and horizontal scrolling for mobile.
 - **Matches Management & Reporting**: Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
-- **Results Summary & Reports**: View team statistics and match results. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity.
+- **Results Summary & Reports**: View team statistics and match results grouped by division. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity. Results are displayed in separate sections for each division with collapsible cards.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Division-Based Grouping for Results (October 2025)**: Enhanced Results page and Summary to group by division:
+  - Results page displays separate collapsible cards for each division (A, B, C, etc.)
+  - Teams without assigned divisions appear in "No Division Assigned" section at bottom
+  - Summary dialog groups team statistics by division with separate headers
+  - PDF reports (both Match Results and Team Summary) group content by division
+  - Added division field to results table schema, populated from team data
+  - Fixed bug where teams could be misassigned to "No Division" when playoff matches were processed first
+  - Division grouping preserves all existing sorting, filtering, and export functionality
+
 - **Results Page Column Reordering (October 2025)**: Improved readability by reordering columns on Results page:
   - Team name moved to leftmost position
   - Followed by Stage, then Match, then Date
