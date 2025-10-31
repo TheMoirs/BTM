@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 
 interface ViewModeContextType {
   isReadOnly: boolean;
-  getShareableLink: () => string;
+  getShareableLink: (tournamentId?: string) => string;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
@@ -18,12 +18,16 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     return params.get('view') === 'readonly';
   }, [location]); // Re-evaluate when location changes
 
-  const getShareableLink = () => {
+  const getShareableLink = (tournamentId?: string) => {
     const baseUrl = window.location.origin;
     // Parse current URL to properly handle existing query parameters
     const url = new URL(window.location.href);
     // Set or update the view parameter to readonly
     url.searchParams.set('view', 'readonly');
+    // Include tournament ID if provided
+    if (tournamentId) {
+      url.searchParams.set('tournament', tournamentId);
+    }
     return url.toString();
   };
 
