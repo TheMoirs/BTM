@@ -278,9 +278,10 @@ export default function Results() {
     doc.text('Match Results Report', 14, 15);
     
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
     if (stageFilter !== "all") {
-      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 27);
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 32);
     }
     
     const tableData = getSortedResults.map((result) => [
@@ -301,7 +302,7 @@ export default function Results() {
     autoTable(doc, {
       head: [['Match', 'Date', 'Stage', 'Team', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
       body: tableData,
-      startY: stageFilter !== "all" ? 32 : 28,
+      startY: stageFilter !== "all" ? 37 : 32,
       styles: {
         fontSize: 8,
         cellPadding: 1.5,
@@ -337,9 +338,10 @@ export default function Results() {
     doc.text('Team Summary Statistics', 14, 15);
     
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
     if (stageFilter !== "all") {
-      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 27);
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 32);
     }
     
     const tableData = teamSummaries.map((summary) => [
@@ -357,7 +359,7 @@ export default function Results() {
     autoTable(doc, {
       head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
       body: tableData,
-      startY: stageFilter !== "all" ? 32 : 28,
+      startY: stageFilter !== "all" ? 37 : 32,
       styles: {
         fontSize: 10,
         cellPadding: 3,
@@ -481,10 +483,15 @@ export default function Results() {
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
                     <div className="flex items-center justify-between">
-                      <DialogTitle>
-                        Team Summary Statistics
-                        {stageFilter !== "all" && ` - ${stageLabels[stageFilter as keyof typeof stageLabels]}`}
-                      </DialogTitle>
+                      <div className="space-y-1">
+                        <DialogTitle>
+                          Team Summary Statistics
+                          {stageFilter !== "all" && ` - ${stageLabels[stageFilter as keyof typeof stageLabels]}`}
+                        </DialogTitle>
+                        <p className="text-sm text-muted-foreground">
+                          {currentTournament?.name} • {new Date().toLocaleString()}
+                        </p>
+                      </div>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
