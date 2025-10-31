@@ -51,6 +51,11 @@ Boules League Manager is a web application designed to manage multiple boules le
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Android Mobile Compatibility Fix (October 2025)**: Fixed black screen issue on Android mobile when accessing Results page via view-only link:
+  - Added 500ms delay before auto-opening Summary dialog in read-only mode
+  - Ensures page fully renders before dialog opens, especially on slower mobile browsers
+  - Improves compatibility with Android browsers without affecting desktop experience
+
 - **Results Summary Enhancements (October 2025)**: Added tournament name and date/time to both on-screen Summary dialog and PDF reports:
   - Summary dialog shows tournament name and timestamp below title
   - Match Results PDF includes tournament name and full date/time
