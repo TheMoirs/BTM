@@ -1,18 +1,7 @@
 # Boules League Manager
 
 ## Overview
-Boules League Manager is a web application designed to manage multiple boules league tournaments. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application features a tournament selection system where users can create and manage multiple tournaments, each with isolated data (teams, matches, results). The application aims for a modern SaaS design, emphasizing clarity and efficient workflows.
-
-## Tournament System
-- **Multi-Tournament Support**: Application supports multiple independent tournaments with isolated data
-- **Tournament Selection**: Users select active tournament via dropdown in navigation bar
-- **Auto-Select Latest**: On initial load, automatically selects the most recently created tournament
-- **Cascade Deletion**: Deleting a tournament removes all associated teams, matches, and results
-- **Tournament Configuration**:
-  - Name (required)
-  - Number of divisions (default: 2)
-  - Tournament stages: Quarter-finals, Semi-finals, Finals (default: Finals only)
-- **Data Isolation**: All teams, matches, and results are scoped to the selected tournament
+Boules League Manager is a web application designed to manage multiple boules league tournaments. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application features a tournament selection system where users can create and manage multiple tournaments, each with isolated data (teams, matches, results). The application aims for a modern SaaS design, emphasizing clarity and efficient workflows, with the business vision of providing a comprehensive, user-friendly platform for boules league management.
 
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
@@ -21,159 +10,52 @@ Boules League Manager is a web application designed to manage multiple boules le
 ## System Architecture
 
 ### Frontend
-- **Frameworks**: React 18 with TypeScript, Vite for bundling, Wouter for routing, TanStack Query for server state management.
-- **UI/UX**: shadcn/ui components built on Radix UI, styled with Tailwind CSS using a "new-york" design variant.
-- **Design System**: Inter font for UI, JetBrains Mono for numerical data, consistent spacing, responsive grid layouts, and custom CSS variables for them.
-- **State Management**: React Query for server state, React Hook Form with Zod for form state, local component state for UI.
+- **Frameworks**: React 18 with TypeScript, Vite, Wouter, TanStack Query.
+- **UI/UX**: shadcn/ui components (Radix UI base), Tailwind CSS ("new-york" variant), Inter font for UI, JetBrains Mono for numerical data, consistent spacing, responsive grid layouts, custom CSS variables.
+- **State Management**: React Query for server state, React Hook Form with Zod for form state, local component state.
 
 ### Backend
 - **Framework**: Express.js with TypeScript and Node.js.
-- **API Design**: RESTful API with resource-based endpoints (`/api/teams`, `/api/matches`, `/api/results`).
-- **Validation**: Zod schemas for request validation.
-- **Deployment**: Vite dev server for development; static file serving of client assets for production.
+- **API Design**: RESTful API with resource-based endpoints.
+- **Validation**: Zod schemas.
+- **Deployment**: Vite dev server (development), static file serving (production).
 
 ### Data Storage
-- **ORM & Database**: Drizzle ORM for type-safe queries, PostgreSQL via Neon serverless driver.
+- **ORM & Database**: Drizzle ORM, PostgreSQL via Neon serverless driver.
 - **Data Model**:
-    - **Teams**: Stores team name (unique), captain details (name, phone, email), optional division (A-Z), optional home piste (playing location), and optional other players (array of player names).
-    - **Matches**: Stores team references, up to 3 game scores (6 fields: team1Game1Score through team3Game3Score), stage, status, winner, and an optional scheduled date. Features a unique constraint on team pairs to prevent duplicate matches.
-    - **Results**: Automatically generated from match outcomes, recording match info, date, stage, team name, game statistics (games played, games won, games lost, games drawn), points (sum of individual game points: 2 per game win, 1 per draw, 0 per loss), score for (team's total game score), score against (opponent's total game score), and score difference (scoreFor - scoreAgainst). Two result records per completed match. Stage field enables filtering and summary statistics by tournament stage. Game statistics track individual games (1-3 games per match) rather than overall match outcomes.
-- **Match System**:
-    - Each match consists of up to 3 games
-    - Winner determination: Team that wins 2+ games wins the match
-    - Match status progression:
-        - "scheduled": No scores entered yet
-        - "in-progress": Games being played but no team has won 2 games yet
-        - "completed": One team has won 2+ games OR all 3 games played
-    - Point allocation (based on individual game results):
-        - Each game awards points independently: 2 points for win, 1 point for draw, 0 points for loss
-        - Example: Team wins Games 1 & 2, draws Game 3 = 2 + 2 + 1 = 5 points total
-        - Opponent gets: 0 + 0 + 1 = 1 point total
-    - Results are created when match status is "completed" and include total scores and points from all played games
-    - Clearing all scores reverts match to "scheduled" and deletes associated results
-- **Validation**: Shared Zod schemas ensure client-server consistency.
-- **Initialization**: Automatic database initialization for unique constraints on startup.
-- **Cascade Deletion**: Data integrity enforced through cascade deletion:
-    - Deleting a team removes all matches involving that team and all results for those matches
-    - Deleting all teams removes all matches and all results
-    - Deleting a match removes all results for that match
-    - Deleting all matches removes all results (teams remain)
-- **Tournament Progression**: Comprehensive multi-stage progression system:
-    - **Initial Stage**: Generate Matches creates round-robin matches within divisions
-      - Incremental generation: If new teams added, generates missing matches only
-      - Division requirements: Teams must have divisions assigned to participate
-      - Round-robin format: Each team plays every other team in their division exactly once
-      - Duplicate prevention: Skips matches that already exist between team pairs
-    - **Automatic Stage Advancement**: System detects completed stages and generates next stage
-      - Quarter-finals: Generated when initial stage is complete (all matches have results)
-      - Semi-finals: Generated when quarter-finals are complete
-      - Finals: Generated when semi-finals (or quarter-finals if SF disabled) are complete
-    - **Traditional Seeding**: Playoff pairings follow standard seeding (1v8, 2v7, 3v6, 4v5 for QF; 1v4, 2v3 for SF; 1v2 for Finals)
-    - **Team Selection Logic**: Teams advance based on division count and rankings:
-      - 1 division: Top 8 teams overall advance to quarter-finals
-      - 2 divisions: Top 4 from each division advance to quarter-finals
-      - 3 divisions: Top 4 from largest + top 2 from others advance to quarter-finals
-      - 4+ divisions: Top 2 from first 4 divisions advance to quarter-finals
-      - Division priority: Largest first, then alphabetical order (A, B, C)
-    - **Ranking Calculation**: Team rankings based on latest completed stage results
-      - Finals use semi-final results (or quarter-final if SF disabled, or initial if both disabled)
-      - Semi-finals use quarter-final results (or initial if QF disabled)
-      - Quarter-finals use initial stage results
-      - Rankings ordered by: Points (desc) → Score Difference (desc) → Score For (desc)
-    - **Safe Re-generation**: If initial stage results change before playoffs start:
-      - Regenerate updates playoff team pairings based on new rankings
-      - Only updates matches still in "scheduled" status (no results)
-      - Protects completed playoff matches from deletion
-      - Warns user if matches cannot be updated due to existing results
-    - **User Feedback**: Clear messages show matches created, updated, skipped, and warnings
+    - **Teams**: Team name (unique), captain details, optional division, home piste, other players.
+    - **Matches**: Team references, up to 3 game scores, stage, status, winner, scheduled date. Unique constraint on team pairs.
+    - **Results**: Generated from match outcomes, records match info, date, stage, team name, game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
+- **Match System**: Up to 3 games per match. Winner based on 2+ game wins. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 win, 1 draw, 0 loss). Results created on "completed" status. Clearing scores reverts match to "scheduled" and deletes results.
+- **Validation**: Shared Zod schemas for client-server consistency.
+- **Initialization**: Automatic database initialization for unique constraints.
+- **Cascade Deletion**: Enforces data integrity (e.g., deleting a team removes associated matches and results).
 
-## Features
+### Tournament System
+- **Multi-Tournament Support**: Independent tournaments with isolated data.
+- **Tournament Selection**: Dropdown in navigation bar; auto-selects latest on load.
+- **Cascade Deletion**: Deleting a tournament removes all associated data.
+- **Configuration**: Name, number of divisions (default 2), stages (Quarter-finals, Semi-finals, Finals; default Finals only).
+- **Tournament Progression**:
+    - **Initial Stage**: Round-robin match generation within divisions; incremental generation; requires divisions for teams.
+    - **Automatic Stage Advancement**: Generates Quarter-finals, Semi-finals, Finals when preceding stage is complete.
+    - **Traditional Seeding**: Playoff pairings (1v8, 2v7, 3v6, 4v5 for QF; 1v4, 2v3 for SF; 1v2 for Finals).
+    - **Team Selection**: Based on division count and rankings (e.g., 1 division: top 8 overall; 2 divisions: top 4 from each).
+    - **Ranking Calculation**: Based on latest completed stage results, ordered by Points, Score Difference, Score For (all descending).
+    - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
 
-### Teams Management
-- **Registration**: Add teams individually via form or bulk import via Excel
-- **Team Count Display**: Badge showing total number of registered teams appears next to page title
-- **Team Information**: 
-  - Team name (required, unique)
-  - Division (optional, A-Z)
-  - Home Piste (optional, playing location)
-  - Other Players (optional, array of player names)
-  - Captain contact details (name, phone, email - all required)
-- **Excel Import**: Upload Excel file to create/update teams in bulk. Column headers must match: `name`, `division`, `homePiste`, `otherPlayers` (comma-separated), `captainName`, `captainPhone`, `captainEmail`
-- **Inline Editing**: Click edit icon to modify team details directly in the table
-- **Table Layout**: 
-  - Unified table layout for all screen sizes
-  - Horizontal scrolling on mobile devices to view all columns
-  - All columns are sortable: Division, Team Name, Home Piste, Captain Name, Phone, Email, Other Players
-  - Empty values (division, home piste, other players) are pushed to the end of sorted results
-  - Inline row editing within the table
-
-### Matches Management & Reporting
-- **PDF Reports**: Generate comprehensive match reports with preview-first workflow
-  - **Preview-First Design**: View PDF on screen before deciding what to do
-  - **In-Viewer Actions**: Save, Print, or Close directly from viewer (landscape orientation)
-  - **Mobile-Friendly**: Responsive dialog with iframe display works on all devices
-  - **Resource Management**: Automatic blob URL cleanup prevents memory leaks
-- **Report Contents**: Generated PDF includes:
-  - All matches grouped by tournament stage
-  - Team names, game scores, match status
-  - Scheduled dates for upcoming matches
-  - Complete tournament overview
-- **Technical Implementation**:
-  - jsPDF library for PDF generation with auto-table plugin
-  - Single PDF generation function prevents duplication
-  - Centralized cleanup ensures no memory leaks
-  - Blob URLs revoked on all exit paths (Close or re-opening)
-  - All PDFs use landscape orientation for better table display
-
-### Read-Only Mode (View-Only Sharing)
-- **Shareable Links**: Generate shareable URLs with `?view=readonly` parameter for external viewing
-- **Copy Share Link Buttons**: 
-  - Teams page: Copies shareable link to Teams page in read-only mode
-  - Results page: Copies shareable link to Results page in read-only mode (auto-opens Summary)
-- **View Only Badge**: Visible indicator in navigation bar when in read-only mode
-- **Hidden Controls**: All editing, creating, and deleting controls automatically hidden:
-  - Teams page: No Add Team, Import Excel, Clear All Data, Copy Share Link, or edit buttons
-  - Matches page: No Generate Matches, Clear All Matches, Edit All, Create Match buttons, or Actions column
-  - Results page: No Copy Share Link or Clear All Results buttons
-- **Read-Only Navigation**: Query parameter preserved when navigating between pages
-- **Auto-Open Summary**: Results Summary dialog automatically opens when viewing Results page in read-only mode (if results exist)
-- **Active Tab Highlighting**: Navigation tabs correctly highlighted in read-only mode
-
-## Recent Changes
-- **Read-Only Mode (October 2025)**: Implemented comprehensive view-only mode with shareable links:
-  - URL parameter-based activation (`?view=readonly`)
-  - ViewModeContext manages read-only state across all pages
-  - Navigation preserves query parameters when switching pages
-  - Copy Share Link buttons on Teams and Results pages for easy sharing
-  - Results page share link automatically opens Summary dialog when accessed
-  - All editing controls automatically hidden in read-only mode
-  - Results Summary auto-opens for read-only viewers
-  - Proper URL construction handles existing query parameters
-  - Navigation tab highlighting works correctly in read-only mode
-
-- **Tournament Progression System (October 2025)**: Implemented comprehensive multi-stage tournament progression with:
-  - Automatic playoff generation when stages complete (Quarter-finals, Semi-finals, Finals)
-  - Traditional seeding for playoff pairings (1v8, 2v7, 3v6, 4v5 for QF; 1v4, 2v3 for SF; 1v2 for Finals)
-  - Intelligent team selection based on division count (1 div: top 8; 2 divs: top 4 each; 3+ divs: top teams from largest divisions)
-  - Rankings calculated from latest completed stage results for accurate playoff seeding
-  - Safe re-generation that preserves completed playoff matches and only updates scheduled fixtures
-  - Clear user feedback showing matches created, updated, skipped, and warnings
-
-- **Multi-Tournament Support (December 2024)**: Implemented comprehensive tournament management system with:
-  - Tournament selection dropdown in navigation bar
-  - Automatic data scoping across all pages (Teams, Matches, Results)
-  - Cascade deletion of all associated data when tournament is deleted
-  - Configurable tournament settings (divisions, tournament stages)
-  - Auto-selection of latest tournament on initial load
-  - Complete data isolation between tournaments
+### Features
+- **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing. Table with sortable columns and horizontal scrolling for mobile.
+- **Matches Management & Reporting**: Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
+- **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## External Dependencies
 
-- **UI Libraries**: Radix UI (headless components), Lucide React (icons), class-variance-authority, tailwind-merge, clsx.
+- **UI Libraries**: Radix UI, Lucide React, class-variance-authority, tailwind-merge, clsx.
 - **Form & Validation**: React Hook Form, @hookform/resolvers, Zod, drizzle-zod.
-- **Data Import/Export**: xlsx for Excel spreadsheet parsing and generation. Includes sample Excel file download feature with 12 pre-populated teams.
-- **PDF Generation**: jsPDF with jspdf-autotable for generating PDF reports with tables.
-- **Email Service**: Resend for sending PDF reports via email, integrated via Replit connector.
-- **Database & ORM**: @neondatabase/serverless (PostgreSQL client), drizzle-orm, drizzle-kit.
+- **Data Import/Export**: xlsx (Excel parsing/generation).
+- **PDF Generation**: jsPDF, jspdf-autotable.
+- **Email Service**: Resend (via Replit connector).
+- **Database & ORM**: @neondatabase/serverless, drizzle-orm, drizzle-kit.
 - **Development Tools**: esbuild, tsx, PostCSS, Autoprefixer.
 - **Fonts**: Google Fonts (Inter, Architects Daughter, DM Sans, Fira Code, Geist Mono).
