@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -95,6 +96,7 @@ type EditingMatch = {
 
 export default function Matches() {
   const { currentTournament } = useTournament();
+  const { isReadOnly } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<EditingMatch>>({});
@@ -929,35 +931,39 @@ export default function Matches() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Matches</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Schedule matches and record results
+              {isReadOnly ? "View matches and results" : "Schedule matches and record results"}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              variant={isEditAllMode ? "default" : "outline"}
-              onClick={toggleEditAllMode}
-              data-testid="button-edit-all"
-            >
-              {isEditAllMode ? (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  Save All
-                </>
-              ) : (
-                <>
-                  <Users className="h-4 w-4 mr-2" />
-                  Edit All
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleGenerateMatches}
-              data-testid="button-generate-matches"
-            >
-              <Shuffle className="h-4 w-4 mr-2" />
-              Generate Matches
-            </Button>
+            {!isReadOnly && (
+              <>
+                <Button
+                  variant={isEditAllMode ? "default" : "outline"}
+                  onClick={toggleEditAllMode}
+                  data-testid="button-edit-all"
+                >
+                  {isEditAllMode ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Save All
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-4 w-4 mr-2" />
+                      Edit All
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleGenerateMatches}
+                  data-testid="button-generate-matches"
+                >
+                  <Shuffle className="h-4 w-4 mr-2" />
+                  Generate Matches
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               onClick={openPdfViewer}
@@ -966,21 +972,23 @@ export default function Matches() {
               <FileDown className="h-4 w-4 mr-2" />
               View PDF Report
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowClearConfirm(true)}
-              data-testid="button-clear-all-matches"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear All Data
-            </Button>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button data-testid="button-create-match">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Match
+            {!isReadOnly && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowClearConfirm(true)}
+                  data-testid="button-clear-all-matches"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear All Data
                 </Button>
-              </DialogTrigger>
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-create-match">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Match
+                    </Button>
+                  </DialogTrigger>
               <DialogContent aria-describedby="match-form-description">
                 <DialogHeader>
                   <DialogTitle>Create New Match</DialogTitle>
@@ -1086,7 +1094,9 @@ export default function Matches() {
                   </form>
                 </Form>
               </DialogContent>
-            </Dialog>
+                </Dialog>
+              </>
+            )}
           </div>
         </div>
 
@@ -1253,7 +1263,9 @@ export default function Matches() {
                     <TableHead className="w-[70px] text-center">Game 1</TableHead>
                     <TableHead className="w-[70px] text-center">Game 2</TableHead>
                     <TableHead className="w-[70px] text-center">Game 3</TableHead>
-                    <TableHead className="w-[120px] text-right">Actions</TableHead>
+                    {!isReadOnly && (
+                      <TableHead className="w-[120px] text-right">Actions</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1429,54 +1441,56 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {isEditAllMode ? (
-                            // Hide individual actions in Edit All mode
-                            <span className="text-muted-foreground text-sm">—</span>
-                          ) : isEditing ? (
-                            <div className="flex gap-1 justify-end">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => saveEditing(match.id)}
-                                disabled={updateMutation.isPending}
-                                data-testid={`button-save-${match.id}`}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={cancelEditing}
-                                disabled={updateMutation.isPending}
-                                data-testid={`button-cancel-edit-${match.id}`}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-1 justify-end">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => startEditing(match)}
-                                data-testid={`button-edit-${match.id}`}
-                              >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => setDeletingMatch(match)}
-                                data-testid={`button-delete-${match.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+                        {!isReadOnly && (
+                          <TableCell className="text-right">
+                            {isEditAllMode ? (
+                              // Hide individual actions in Edit All mode
+                              <span className="text-muted-foreground text-sm">—</span>
+                            ) : isEditing ? (
+                              <div className="flex gap-1 justify-end">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => saveEditing(match.id)}
+                                  disabled={updateMutation.isPending}
+                                  data-testid={`button-save-${match.id}`}
+                                >
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={cancelEditing}
+                                  disabled={updateMutation.isPending}
+                                  data-testid={`button-cancel-edit-${match.id}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-1 justify-end">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => startEditing(match)}
+                                  data-testid={`button-edit-${match.id}`}
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => setDeletingMatch(match)}
+                                  data-testid={`button-delete-${match.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
