@@ -311,12 +311,17 @@ export class DatabaseStorage implements IStorage {
                             (team1Game2Score !== null && team2Game2Score !== null) ||
                             (team1Game3Score !== null && team2Game3Score !== null);
 
+    // Check if all 3 games have been played
+    const allGamesPlayed = (team1Game1Score !== null && team2Game1Score !== null) &&
+                           (team1Game2Score !== null && team2Game2Score !== null) &&
+                           (team1Game3Score !== null && team2Game3Score !== null);
+
     // Determine the matchDate to use (new value or existing)
     const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
-      // Match is completed when date is populated AND at least one complete game has been played
-      if (finalMatchDate && hasCompleteGame) {
+      // Match is completed when one team wins 2+ games OR all 3 games are played
+      if ((team1GamesWon >= 2 || team2GamesWon >= 2) || allGamesPlayed) {
         status = "completed";
         
         // Determine winner based on games won
@@ -332,9 +337,12 @@ export class DatabaseStorage implements IStorage {
           // Tie or no clear winner yet
           winnerId = null;
         }
-      } else {
-        // Games in progress but either no date or no complete game yet
+      } else if (hasCompleteGame) {
+        // Games in progress - at least one complete game but no winner yet
         status = "in-progress";
+      } else {
+        // Scheduled - scores entered but no complete game yet
+        status = "scheduled";
       }
 
       // Handle results based on match status
