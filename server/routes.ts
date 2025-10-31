@@ -868,13 +868,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await client.emails.send({
         from: fromEmail,
         to: validatedData.recipientEmail,
-        subject: "Boules League - Matches Report",
+        subject: "Boules Tournament - Matches Report",
         html: `
-          <h2>Boules League Matches Report</h2>
+          <h2>Boules Tournament Matches Report</h2>
           <p>Please find attached the matches report generated on ${new Date().toLocaleDateString()}.</p>
           <p>This report contains all match information including schedules, scores, and results.</p>
           <br/>
-          <p>Best regards,<br/>Boules League Management</p>
+          <p>Best regards,<br/>Boules Tournament Management</p>
         `,
         attachments: [
           {

@@ -30,7 +30,7 @@ export function Navigation() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
             <h1 className="text-xl font-semibold text-foreground">
-              Boules League Manager
+              Boules Tournament Manager
             </h1>
             <TournamentSelector />
             {isReadOnly && (

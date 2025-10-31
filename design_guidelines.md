@@ -1,4 +1,4 @@
-# Design Guidelines: Boules League Management Application
+# Design Guidelines: Boules Tournament Management Application
 
 ## Design Approach
 
@@ -43,7 +43,7 @@
 
 ### Navigation
 **Top Navigation Bar:**
-- Fixed header with app title "Boules League Manager"
+- Fixed header with app title "Boules Tournament Manager"
 - Primary navigation tabs: Teams | Matches | Brackets | Results
 - Action button top-right: "+ New Team" or "+ Record Match" based on context
 - Clean horizontal layout with subtle bottom border
@@ -172,4 +172,4 @@
 - Sufficient color contrast for text (WCAG AA minimum)
 - Screen reader announcements for dynamic content updates
 
-This design prioritizes efficient workflows, clear data visualization, and intuitive navigation suitable for tournament organizers managing league competitions.
+This design prioritizes efficient workflows, clear data visualization, and intuitive navigation suitable for tournament organizers managing tournament competitions.

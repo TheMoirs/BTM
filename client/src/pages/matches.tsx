@@ -753,7 +753,7 @@ export default function Matches() {
     
     // Add title
     doc.setFontSize(16);
-    doc.text("Boules League - Matches Report", 14, 15);
+    doc.text("Boules Tournament - Matches Report", 14, 15);
     
     // Add generation date
     doc.setFontSize(9);

@@ -153,7 +153,7 @@ export function TournamentSelector() {
                   <FormItem>
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Summer League 2024" data-testid="input-tournament-name" />
+                      <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-tournament-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -349,7 +349,7 @@ export function TournamentSelector() {
                   <FormItem>
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Summer League 2024" data-testid="input-tournament-name" />
+                      <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-tournament-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -470,7 +470,7 @@ export function TournamentSelector() {
                   <FormItem>
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Summer League 2024" data-testid="input-edit-tournament-name" />
+                      <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-edit-tournament-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

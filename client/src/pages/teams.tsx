@@ -170,7 +170,7 @@ export default function Teams() {
       setDeletingTeam(null);
       toast({
         title: "Team deleted",
-        description: "The team has been removed from the league.",
+        description: "The team has been removed from the tournament.",
       });
     },
     onError: (error: Error) => {
@@ -1001,7 +1001,7 @@ export default function Teams() {
               <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
                 {isReadOnly 
                   ? "No teams have been registered for this tournament yet" 
-                  : "Get started by registering your first team for the league competition"
+                  : "Get started by registering your first team for the tournament"
                 }
               </p>
               {!isReadOnly && (
