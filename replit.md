@@ -1,7 +1,7 @@
 # Boules Tournament Manager
 
 ## Overview
-Boules Tournament Manager is a web application designed to manage multiple boules tournaments. It facilitates team registration, tracks match progress, visualizes tournament brackets across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application features a tournament selection system where users can create and manage multiple tournaments, each with isolated data (teams, matches, results). The application aims for a modern SaaS design, emphasizing clarity and efficient workflows, with the business vision of providing a comprehensive, user-friendly platform for boules tournament management.
+Boules Tournament Manager is a web application designed to manage multiple boules tournaments. It facilitates team registration, tracks match progress across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel spreadsheet imports. The application features a tournament selection system where users can create and manage multiple tournaments, each with isolated data (teams, matches, results). The application aims for a modern SaaS design, emphasizing clarity and efficient workflows, with the business vision of providing a comprehensive, user-friendly platform for boules tournament management.
 
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
@@ -46,11 +46,15 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 
 ### Features
 - **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing. Table with sortable columns and horizontal scrolling for mobile.
-- **Matches Management & Reporting**: Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
+- **Matches Management & Reporting**: View, edit, and track all tournament matches. Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
 - **Results Summary & Reports**: View team statistics and match results grouped by division. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity. Results are displayed in separate sections for each division with collapsible cards.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Simplified Navigation (November 2025)**: Removed redundant Bracket page:
+  - Bracket page functionality was redundant with Matches page
+  - Streamlined navigation to three core pages: Teams, Matches, Results
+  - All match viewing and editing remains available on Matches page
 - **Division-Based Grouping for Results (November 2025)**: Enhanced Results page and Summary to group by division:
   - Results page displays separate collapsible cards for each division (A, B, C, etc.)
   - Teams without assigned divisions appear in "No Division Assigned" section at bottom

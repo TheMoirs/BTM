@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Grid3x3, Eye } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ export function Navigation() {
     { path: "/", label: "Teams", icon: Users },
     { path: "/matches", label: "Matches", icon: Trophy },
     { path: "/results", label: "Results", icon: ListChecks },
-    { path: "/bracket", label: "Bracket", icon: Grid3x3 },
   ];
 
   // Helper function to add query parameters to path

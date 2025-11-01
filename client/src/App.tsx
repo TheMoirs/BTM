@@ -9,7 +9,6 @@ import { Navigation } from "@/components/navigation";
 import Teams from "@/pages/teams";
 import Matches from "@/pages/matches";
 import Results from "@/pages/results";
-import Bracket from "@/pages/bracket";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,7 +18,6 @@ function Router() {
       <Route path="/teams" component={Teams} />
       <Route path="/matches" component={Matches} />
       <Route path="/results" component={Results} />
-      <Route path="/bracket" component={Bracket} />
       <Route component={NotFound} />
     </Switch>
   );
