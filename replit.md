@@ -24,8 +24,8 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **ORM & Database**: Drizzle ORM, PostgreSQL via Neon serverless driver.
 - **Data Model**:
     - **Teams**: Team name (unique), captain details, optional division, home piste, other players.
-    - **Matches**: Team references, up to 3 game scores, stage, status, winner, scheduled date. Unique constraint on team pairs.
-    - **Results**: Generated from match outcomes, records match info, date, stage, team name, division (populated from team data), game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
+    - **Matches**: Team references, up to 3 game scores, stage, status, winner, scheduled date, division (set for initial stage matches). Unique constraint on team pairs.
+    - **Results**: Generated from match outcomes, records match info, date, stage, team name, division (populated from match.division), game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
 - **Match System**: Up to 3 games per match. Winner based on 2+ game wins. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 win, 1 draw, 0 loss). Results created on "completed" status. Clearing scores reverts match to "scheduled" and deletes results.
 - **Validation**: Shared Zod schemas for client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints.
@@ -51,12 +51,14 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
-- **Division-Based Grouping for Results (October 2025)**: Enhanced Results page and Summary to group by division:
+- **Division-Based Grouping for Results (November 2025)**: Enhanced Results page and Summary to group by division:
   - Results page displays separate collapsible cards for each division (A, B, C, etc.)
   - Teams without assigned divisions appear in "No Division Assigned" section at bottom
   - Summary dialog groups team statistics by division with separate headers
   - PDF reports (both Match Results and Team Summary) group content by division
-  - Added division field to results table schema, populated from team data
+  - Added division field to matches table schema (populated for initial stage matches only)
+  - Added division field to results table schema (populated from match.division, not team data)
+  - Results inherit division from the match they belong to, ensuring consistency even if team division changes
   - Fixed bug where teams could be misassigned to "No Division" when playoff matches were processed first
   - Division grouping preserves all existing sorting, filtering, and export functionality
 
