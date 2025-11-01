@@ -430,6 +430,8 @@ export class DatabaseStorage implements IStorage {
           }
           
           // Create result records for both teams
+          // Use match.division for initial stage matches (stored on match record)
+          // For playoff matches, match.division will be null
           await this.createResult({
             tournamentId: match.tournamentId,
             matchId: id,
@@ -437,7 +439,7 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team1.name,
-            division: team1.division || null,
+            division: match.division || null,
             gamesPlayed,
             gamesWon: team1GamesWonCount,
             gamesLost: team1GamesLostCount,
@@ -455,7 +457,7 @@ export class DatabaseStorage implements IStorage {
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
             teamName: team2.name,
-            division: team2.division || null,
+            division: match.division || null,
             gamesPlayed,
             gamesWon: team2GamesWonCount,
             gamesLost: team2GamesLostCount,
