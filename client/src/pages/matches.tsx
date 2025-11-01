@@ -932,7 +932,7 @@ export default function Matches() {
             <h1 className="text-3xl font-bold text-foreground">Matches</h1>
             {matches && matches.length > 0 && (
               <Badge variant="secondary" className="font-mono" data-testid="badge-match-count">
-                {matches.length}
+                {getFilteredAndSortedMatches.length}
               </Badge>
             )}
           </div>
