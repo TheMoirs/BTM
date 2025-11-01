@@ -144,6 +144,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(teams.id, id))
       .returning();
     
+    // If division changed, update matches and results for initial stage
+    if (updatedTeam && existingTeam.division !== updatedTeam.division) {
+      await this.updateMatchDivisionsForTeam(id);
+    }
+    
     return updatedTeam || undefined;
   }
 
@@ -556,6 +561,44 @@ export class DatabaseStorage implements IStorage {
   async deleteResultsByMatchId(matchId: string): Promise<boolean> {
     await db.delete(results).where(eq(results.matchId, matchId));
     return true;
+  }
+
+  // Helper method to update match divisions when team division changes
+  private async updateMatchDivisionsForTeam(teamId: string): Promise<void> {
+    // Find all INITIAL stage matches where this team participates
+    const teamMatches = await db
+      .select()
+      .from(matches)
+      .where(
+        and(
+          eq(matches.stage, "initial"),
+          or(eq(matches.team1Id, teamId), eq(matches.team2Id, teamId))
+        )
+      );
+
+    // For each match, update the division based on both teams' divisions
+    for (const match of teamMatches) {
+      const team1 = await this.getTeam(match.team1Id);
+      const team2 = await this.getTeam(match.team2Id);
+
+      if (!team1 || !team2) continue;
+
+      // If both teams have the same division, set match division to that
+      // Otherwise set to null (cross-division match)
+      const newDivision = team1.division === team2.division ? team1.division : null;
+
+      // Update the match division
+      await db
+        .update(matches)
+        .set({ division: newDivision })
+        .where(eq(matches.id, match.id));
+
+      // Update results for this match to use the new division
+      await db
+        .update(results)
+        .set({ division: newDivision })
+        .where(eq(results.matchId, match.id));
+    }
   }
 }
 
