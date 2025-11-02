@@ -53,6 +53,11 @@ import {
 type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail" | "homePiste" | "otherPlayers";
 type SortDirection = "asc" | "desc";
 
+interface EditingTeam extends Partial<InsertTeam> {
+  id?: string;
+  isNew?: boolean;
+}
+
 export default function Teams() {
   const { currentTournament } = useTournament();
   const { isReadOnly, getShareableLink } = useViewMode();
@@ -68,6 +73,11 @@ export default function Teams() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTournamentRef = useRef<string | null>(null);
   const { toast } = useToast();
+  
+  // Edit All mode state
+  const [isEditAllMode, setIsEditAllMode] = useState(false);
+  const [allEditingValues, setAllEditingValues] = useState<Record<string, EditingTeam>>({});
+  const [newTeamCounter, setNewTeamCounter] = useState(0);
   
   // Keep ref in sync with currentTournament to avoid stale closures
   useEffect(() => {
@@ -521,6 +531,169 @@ export default function Teams() {
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
+  const updateAllEditingValue = (teamId: string, field: keyof EditingTeam, value: string | string[]) => {
+    setAllEditingValues(prev => ({
+      ...prev,
+      [teamId]: {
+        ...prev[teamId],
+        [field]: value
+      }
+    }));
+  };
+
+  const toggleEditAllMode = () => {
+    if (isEditAllMode) {
+      // Exiting edit all mode - save all changes
+      saveAllEdits();
+    } else {
+      // Entering edit all mode - initialize editing values for all teams
+      const initialValues: Record<string, EditingTeam> = {};
+      getSortedTeams().forEach(team => {
+        initialValues[team.id] = {
+          id: team.id,
+          name: team.name,
+          captainName: team.captainName,
+          captainPhone: team.captainPhone,
+          captainEmail: team.captainEmail,
+          division: team.division || "",
+          homePiste: team.homePiste || "",
+          otherPlayers: team.otherPlayers || [],
+          isNew: false,
+        };
+      });
+      setAllEditingValues(initialValues);
+      setNewTeamCounter(0);
+      setIsEditAllMode(true);
+    }
+  };
+
+  const addNewTeam = () => {
+    const newId = `new-${newTeamCounter}`;
+    setAllEditingValues(prev => ({
+      ...prev,
+      [newId]: {
+        id: newId,
+        name: "",
+        captainName: "",
+        captainPhone: "",
+        captainEmail: "",
+        division: "",
+        homePiste: "",
+        otherPlayers: [],
+        isNew: true,
+      }
+    }));
+    setNewTeamCounter(prev => prev + 1);
+  };
+
+  const removeNewTeam = (teamId: string) => {
+    setAllEditingValues(prev => {
+      const updated = { ...prev };
+      delete updated[teamId];
+      return updated;
+    });
+  };
+
+  const saveAllEdits = async () => {
+    if (!currentTournament) {
+      toast({
+        title: "Error",
+        description: "No tournament selected.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+
+    const teamsToProcess = Object.values(allEditingValues);
+    
+    let successCount = 0;
+    const errors: string[] = [];
+
+    for (const teamData of teamsToProcess) {
+      const teamLabel = teamData.name?.trim() || (teamData.isNew ? "New team" : "Unknown");
+      
+      try {
+        // Validate required fields
+        if (!teamData.name?.trim()) {
+          errors.push(`${teamLabel}: Team name is required`);
+          continue;
+        }
+        if (!teamData.captainName?.trim()) {
+          errors.push(`${teamLabel}: Captain name is required`);
+          continue;
+        }
+        if (!teamData.captainPhone?.trim()) {
+          errors.push(`${teamLabel}: Captain phone is required`);
+          continue;
+        }
+        if (!teamData.captainEmail?.trim()) {
+          errors.push(`${teamLabel}: Captain email is required`);
+          continue;
+        }
+
+        const capitalizedData: InsertTeam = {
+          tournamentId: currentTournament.id,
+          name: capitalizeWords(teamData.name.trim()),
+          captainName: capitalizeWords(teamData.captainName.trim()),
+          captainPhone: teamData.captainPhone.trim(),
+          captainEmail: teamData.captainEmail.trim(),
+          division: teamData.division?.trim().toUpperCase() || null,
+          homePiste: teamData.homePiste?.trim() || null,
+          otherPlayers: teamData.otherPlayers && Array.isArray(teamData.otherPlayers) && teamData.otherPlayers.length > 0
+            ? teamData.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
+            : null,
+        };
+
+        if (teamData.isNew) {
+          // Create new team
+          await apiRequest("POST", "/api/teams", capitalizedData);
+        } else {
+          // Update existing team
+          await apiRequest("PATCH", `/api/teams/${teamData.id}`, capitalizedData);
+        }
+        
+        successCount++;
+      } catch (error) {
+        errors.push(`${teamLabel}: ${error instanceof Error ? error.message : "Failed to save"}`);
+      }
+    }
+
+    // Invalidate queries and exit edit mode if there were successful updates
+    if (successCount > 0) {
+      await queryClient.invalidateQueries({ queryKey: ["/api/teams", currentTournament.id] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+    }
+
+    if (successCount > 0 && errors.length === 0) {
+      // All updates successful - exit edit mode
+      setIsEditAllMode(false);
+      setAllEditingValues({});
+      setNewTeamCounter(0);
+      toast({
+        title: "Teams saved",
+        description: `Successfully saved ${successCount} team${successCount > 1 ? 's' : ''}.`,
+      });
+    } else if (successCount > 0 && errors.length > 0) {
+      // Some succeeded, some failed - show partial success and stay in edit mode
+      toast({
+        title: "Partially saved",
+        description: `Saved ${successCount} team${successCount > 1 ? 's' : ''}. ${errors.length} failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`,
+        variant: "destructive",
+        duration: Infinity,
+      });
+    } else if (errors.length > 0) {
+      // All failed - show error and stay in edit mode
+      toast({
+        title: "Save failed",
+        description: errors.length === 1 ? errors[0] : `${errors.length} errors: ${errors[0]} (+${errors.length - 1} more)`,
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+  };
+
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -782,23 +955,51 @@ export default function Teams() {
             </Button>
             {!isReadOnly && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowClearConfirm(true)}
-                  data-testid="button-clear-all-teams"
-                >
-                  <Trash2 className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Clear All Data</span>
-                </Button>
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" data-testid="button-add-team">
-                      <Plus className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Add Team</span>
-                    </Button>
-                  </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
+                {teams && teams.length > 0 && !isEditAllMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleEditAllMode}
+                    data-testid="button-edit-all"
+                  >
+                    <svg className="h-4 w-4 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    <span className="hidden sm:inline">Edit All</span>
+                  </Button>
+                )}
+                {isEditAllMode && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={toggleEditAllMode}
+                    data-testid="button-save-all"
+                  >
+                    <Check className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Save All</span>
+                  </Button>
+                )}
+                {!isEditAllMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowClearConfirm(true)}
+                    data-testid="button-clear-all-teams"
+                  >
+                    <Trash2 className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Clear All Data</span>
+                  </Button>
+                )}
+                {!isEditAllMode && (
+                  <>
+                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" data-testid="button-add-team">
+                          <Plus className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Add Team</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
                 <DialogHeader>
                   <DialogTitle>Register New Team</DialogTitle>
                   <p id="team-form-description" className="sr-only">
@@ -973,17 +1174,19 @@ export default function Teams() {
                     </div>
                   </form>
                 </Form>
-              </DialogContent>
-                </Dialog>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyShareLink}
-                  data-testid="button-copy-share-link"
-                >
-                  <Share2 className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Copy Share Link</span>
-                </Button>
+                      </DialogContent>
+                    </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyShareLink}
+                      data-testid="button-copy-share-link"
+                    >
+                      <Share2 className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Copy Share Link</span>
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1096,14 +1299,20 @@ export default function Teams() {
                 <TableBody>
                   {getSortedTeams().map((team) => {
                     const isEditing = editingRowId === team.id;
+                    const isEditingInBulk = isEditAllMode && allEditingValues[team.id];
+                    const shouldShowInputs = isEditing || isEditingInBulk;
+                    const currentValues = isEditingInBulk ? allEditingValues[team.id] : editingValues;
+                    const updateValue = isEditingInBulk 
+                      ? (field: keyof EditingTeam, value: string | string[]) => updateAllEditingValue(team.id, field, value)
+                      : updateEditingValue;
                     
                     return (
                       <TableRow key={team.id} data-testid={`row-team-${team.id}`}>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
-                              value={editingValues.division || ""}
-                              onChange={(e) => updateEditingValue("division", e.target.value)}
+                              value={currentValues.division || ""}
+                              onChange={(e) => updateValue("division", e.target.value)}
                               maxLength={1}
                               className="h-8 w-16 uppercase"
                               data-testid={`input-edit-division-${team.id}`}
@@ -1119,10 +1328,10 @@ export default function Teams() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
-                              value={editingValues.name || ""}
-                              onChange={(e) => updateEditingValue("name", e.target.value)}
+                              value={currentValues.name || ""}
+                              onChange={(e) => updateValue("name", e.target.value)}
                               className="h-8"
                               data-testid={`input-edit-name-${team.id}`}
                             />
@@ -1131,10 +1340,10 @@ export default function Teams() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
-                              value={editingValues.homePiste || ""}
-                              onChange={(e) => updateEditingValue("homePiste", e.target.value)}
+                              value={currentValues.homePiste || ""}
+                              onChange={(e) => updateValue("homePiste", e.target.value)}
                               className="h-8"
                               data-testid={`input-edit-home-piste-${team.id}`}
                             />
@@ -1147,10 +1356,10 @@ export default function Teams() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
-                              value={editingValues.captainName || ""}
-                              onChange={(e) => updateEditingValue("captainName", e.target.value)}
+                              value={currentValues.captainName || ""}
+                              onChange={(e) => updateValue("captainName", e.target.value)}
                               className="h-8"
                               data-testid={`input-edit-captain-name-${team.id}`}
                             />
@@ -1159,10 +1368,10 @@ export default function Teams() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
-                              value={editingValues.captainPhone || ""}
-                              onChange={(e) => updateEditingValue("captainPhone", e.target.value)}
+                              value={currentValues.captainPhone || ""}
+                              onChange={(e) => updateValue("captainPhone", e.target.value)}
                               className="h-8"
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
@@ -1171,10 +1380,10 @@ export default function Teams() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Input
-                              value={editingValues.captainEmail || ""}
-                              onChange={(e) => updateEditingValue("captainEmail", e.target.value)}
+                              value={currentValues.captainEmail || ""}
+                              onChange={(e) => updateValue("captainEmail", e.target.value)}
                               type="email"
                               className="h-8"
                               data-testid={`input-edit-captain-email-${team.id}`}
@@ -1184,12 +1393,12 @@ export default function Teams() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {isEditing ? (
+                          {shouldShowInputs ? (
                             <Textarea
-                              value={editingValues.otherPlayers ? editingValues.otherPlayers.join("\n") : ""}
+                              value={currentValues.otherPlayers ? currentValues.otherPlayers.join("\n") : ""}
                               onChange={(e) => {
                                 const lines = e.target.value.split("\n").filter(line => line.trim());
-                                updateEditingValue("otherPlayers", lines as any);
+                                updateValue("otherPlayers", lines as any);
                               }}
                               className="min-h-[60px] text-sm"
                               placeholder="One per line"
@@ -1205,7 +1414,7 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
-                        {!isReadOnly && (
+                        {!isReadOnly && !isEditAllMode && (
                           <TableCell className="text-right">
                             {isEditing ? (
                               <div className="flex gap-1 justify-end">
@@ -1252,9 +1461,106 @@ export default function Teams() {
                             )}
                           </TableCell>
                         )}
+                        {isEditAllMode && (
+                          <TableCell className="text-right">
+                            <span className="text-muted-foreground text-sm">—</span>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
+                  {isEditAllMode && Object.entries(allEditingValues).filter(([id, _]) => id.startsWith('new-')).map(([id, teamData]) => (
+                    <TableRow key={id} data-testid={`row-team-${id}`} className="bg-muted/30">
+                      <TableCell>
+                        <Input
+                          value={teamData.division || ""}
+                          onChange={(e) => updateAllEditingValue(id, "division", e.target.value)}
+                          maxLength={1}
+                          className="h-8 w-16 uppercase"
+                          data-testid={`input-edit-division-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={teamData.name || ""}
+                          onChange={(e) => updateAllEditingValue(id, "name", e.target.value)}
+                          className="h-8"
+                          placeholder="New team name"
+                          data-testid={`input-edit-name-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={teamData.homePiste || ""}
+                          onChange={(e) => updateAllEditingValue(id, "homePiste", e.target.value)}
+                          className="h-8"
+                          data-testid={`input-edit-home-piste-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={teamData.captainName || ""}
+                          onChange={(e) => updateAllEditingValue(id, "captainName", e.target.value)}
+                          className="h-8"
+                          data-testid={`input-edit-captain-name-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={teamData.captainPhone || ""}
+                          onChange={(e) => updateAllEditingValue(id, "captainPhone", e.target.value)}
+                          className="h-8"
+                          data-testid={`input-edit-captain-phone-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={teamData.captainEmail || ""}
+                          onChange={(e) => updateAllEditingValue(id, "captainEmail", e.target.value)}
+                          type="email"
+                          className="h-8"
+                          data-testid={`input-edit-captain-email-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Textarea
+                          value={teamData.otherPlayers ? teamData.otherPlayers.join("\n") : ""}
+                          onChange={(e) => {
+                            const lines = e.target.value.split("\n").filter(line => line.trim());
+                            updateAllEditingValue(id, "otherPlayers", lines as any);
+                          }}
+                          className="min-h-[60px] text-sm"
+                          placeholder="One per line"
+                          data-testid={`input-edit-other-players-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeNewTeam(id)}
+                          data-testid={`button-remove-${id}`}
+                        >
+                          <X className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {isEditAllMode && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={addNewTeam}
+                          data-testid="button-add-new-team"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add New Team
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>

@@ -45,12 +45,23 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
 
 ### Features
-- **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing. Table with sortable columns and horizontal scrolling for mobile. Division changes automatically cascade to initial stage matches and results.
+- **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing and "Edit All" mode for bulk editing all teams at once. Allows adding new teams inline during Edit All mode. Table with sortable columns and horizontal scrolling for mobile. Division changes automatically cascade to initial stage matches and results.
 - **Matches Management & Reporting**: View, edit, and track all tournament matches. Displays match count badge that reflects current filters. Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
 - **Results Summary & Reports**: View team statistics and match results grouped by division. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity. Results are displayed in separate sections for each division with collapsible cards.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Teams Edit All Mode (November 2025)**: Added comprehensive bulk editing capability:
+  - "Edit All" button allows editing all teams simultaneously
+  - All fields become editable when in Edit All mode
+  - "Add New Team" button appears to add teams inline during edit
+  - New teams can be removed before saving
+  - Single "Save All" button saves all changes at once
+  - Validates all required fields (name, captain name, phone, email)
+  - Partial save support: successful teams are saved even if some fail validation
+  - Individual edit buttons hidden during Edit All mode
+  - New teams highlighted with subtle background color
+  
 - **Match Count and Division Cascading (November 2025)**: Enhanced match tracking and division consistency:
   - Matches page displays match count badge that reflects currently selected filters (stage and division)
   - Match count updates dynamically when filters are changed
