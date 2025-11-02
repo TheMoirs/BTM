@@ -14,6 +14,8 @@ interface TournamentContextType {
 
 const TournamentContext = createContext<TournamentContextType | undefined>(undefined);
 
+const TOURNAMENT_STORAGE_KEY = 'boules-selected-tournament-id';
+
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const [currentTournament, setCurrentTournament] = useState<Tournament | null>(null);
 
@@ -29,6 +31,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     onSuccess: (newTournament) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       setCurrentTournament(newTournament);
+      localStorage.setItem(TOURNAMENT_STORAGE_KEY, newTournament.id);
     },
   });
 
@@ -61,37 +64,58 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Set the latest tournament as the current one on initial load or after deletion
-  // Also check URL for tournament ID to auto-select specific tournament from shareable links
+  // Set the tournament on initial load or after deletion
+  // Priority: 1) URL parameter, 2) localStorage, 3) latest tournament
   useEffect(() => {
     if (tournaments && tournaments.length > 0) {
       // Check if URL has a tournament ID parameter (from shareable link)
       const params = new URLSearchParams(window.location.search);
       const tournamentIdFromUrl = params.get('tournament');
       
-      // If URL specifies a tournament and we haven't loaded it yet, select it
+      // Priority 1: If URL specifies a tournament, select it
       if (tournamentIdFromUrl) {
         const tournamentFromUrl = tournaments.find(t => t.id === tournamentIdFromUrl);
         if (tournamentFromUrl && tournamentFromUrl.id !== currentTournament?.id) {
           setCurrentTournament(tournamentFromUrl);
+          localStorage.setItem(TOURNAMENT_STORAGE_KEY, tournamentFromUrl.id);
           return;
         }
       }
       
-      // If no current tournament or current tournament no longer exists, select the first one
-      if (!currentTournament || !tournaments.find(t => t.id === currentTournament.id)) {
+      // Priority 2: If no current tournament, try to restore from localStorage
+      if (!currentTournament) {
+        const savedTournamentId = localStorage.getItem(TOURNAMENT_STORAGE_KEY);
+        if (savedTournamentId) {
+          const savedTournament = tournaments.find(t => t.id === savedTournamentId);
+          if (savedTournament) {
+            setCurrentTournament(savedTournament);
+            return;
+          }
+        }
+        
+        // Priority 3: Default to the latest (first) tournament
         setCurrentTournament(tournaments[0]);
+        localStorage.setItem(TOURNAMENT_STORAGE_KEY, tournaments[0].id);
+      }
+      
+      // If current tournament no longer exists (was deleted), select the first one
+      if (currentTournament && !tournaments.find(t => t.id === currentTournament.id)) {
+        setCurrentTournament(tournaments[0]);
+        localStorage.setItem(TOURNAMENT_STORAGE_KEY, tournaments[0].id);
       }
     } else {
-      // No tournaments available, clear current tournament
+      // No tournaments available, clear current tournament and localStorage
       if (currentTournament) {
         setCurrentTournament(null);
+        localStorage.removeItem(TOURNAMENT_STORAGE_KEY);
       }
     }
   }, [tournaments, currentTournament]);
 
   const selectTournament = (tournament: Tournament) => {
     setCurrentTournament(tournament);
+    // Save to localStorage to persist selection across page refreshes
+    localStorage.setItem(TOURNAMENT_STORAGE_KEY, tournament.id);
     // Invalidate all data queries to refetch for the new tournament
     queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
     queryClient.invalidateQueries({ queryKey: ["/api/matches"] });

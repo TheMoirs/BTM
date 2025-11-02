@@ -33,7 +33,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 
 ### Tournament System
 - **Multi-Tournament Support**: Independent tournaments with isolated data.
-- **Tournament Selection**: Dropdown in navigation bar; auto-selects latest on load.
+- **Tournament Selection**: Dropdown in navigation bar; persists selection across page refreshes via localStorage. Selection priority: 1) URL parameter (shareable links), 2) localStorage (last selected), 3) latest tournament.
 - **Cascade Deletion**: Deleting a tournament removes all associated data.
 - **Configuration**: Name, number of divisions (default 2), stages (Quarter-finals, Semi-finals, Finals; default Finals only).
 - **Tournament Progression**:
@@ -51,6 +51,13 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Tournament Selection Persistence Fix (November 2025)**: Fixed bug where page refreshes would reset selected tournament to first in list:
+  - Tournament selection now persists across page refreshes via localStorage
+  - Selection priority: 1) URL parameter (shareable links), 2) localStorage (last selected), 3) latest tournament
+  - Works consistently across all pages (Teams, Matches, Results)
+  - Newly created tournaments are automatically saved to localStorage
+  - Deleted tournaments clear localStorage and auto-select next available tournament
+  
 - **Teams Edit All Mode (November 2025)**: Added comprehensive bulk editing capability:
   - "Edit All" button allows editing all teams simultaneously
   - All fields become editable when in Edit All mode
