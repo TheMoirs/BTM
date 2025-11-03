@@ -849,7 +849,7 @@ export default function Results() {
               <div>
                 <h3 className="font-semibold mb-2">Understanding Statistics</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Points:</strong> Total points earned (1 point per game won)</li>
+                  <li><strong>Points:</strong> Total points earned (2 points per game won, 1 for a draw)</li>
                   <li><strong>Games Played/Won/Drawn/Lost:</strong> Individual game statistics</li>
                   <li><strong>Score For/Against:</strong> Total points scored for and against the team</li>
                   <li><strong>Score Difference:</strong> The difference between points for and against (used for ranking)</li>
@@ -858,7 +858,7 @@ export default function Results() {
               
               <div>
                 <h3 className="font-semibold mb-2">Team Rankings</h3>
-                <p>Teams are ranked by: 1) Total Points, 2) Score Difference, 3) Score For. Top teams from each division advance to playoff stages.</p>
+                <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Top teams from each division advance to playoff stages.</p>
               </div>
               
               <div>
