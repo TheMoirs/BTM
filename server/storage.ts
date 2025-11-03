@@ -286,7 +286,16 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Calculate winner based on games won (best of 3)
+    // Get the tournament to check gamesPerMatch setting
+    const tournament = await this.getTournament(match.tournamentId);
+    if (!tournament) {
+      return undefined;
+    }
+
+    // Cap gamesPerMatch at 3 since matches table only supports 3 games
+    const gamesPerMatch = Math.min(tournament.gamesPerMatch, 3);
+
+    // Calculate winner based on games won
     let winnerId = null;
     let status = match.status;
     let team1GamesWon = 0;
@@ -316,34 +325,31 @@ export class DatabaseStorage implements IStorage {
                             (team1Game2Score !== null && team2Game2Score !== null) ||
                             (team1Game3Score !== null && team2Game3Score !== null);
 
-    // Check if all 3 games have been played
-    const allGamesPlayed = (team1Game1Score !== null && team2Game1Score !== null) &&
-                           (team1Game2Score !== null && team2Game2Score !== null) &&
-                           (team1Game3Score !== null && team2Game3Score !== null);
+    // Count number of complete games played
+    let completeGamesCount = 0;
+    if (team1Game1Score !== null && team2Game1Score !== null) completeGamesCount++;
+    if (team1Game2Score !== null && team2Game2Score !== null) completeGamesCount++;
+    if (team1Game3Score !== null && team2Game3Score !== null) completeGamesCount++;
 
     // Determine the matchDate to use (new value or existing)
     const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
-      // Match is completed when one team wins 2+ games OR all 3 games are played
-      if ((team1GamesWon >= 2 || team2GamesWon >= 2) || allGamesPlayed) {
+      // Match is completed when the number of games played matches the tournament's gamesPerMatch setting
+      if (completeGamesCount >= gamesPerMatch) {
         status = "completed";
         
         // Determine winner based on games won
-        if (team1GamesWon >= 2) {
-          winnerId = match.team1Id;
-        } else if (team2GamesWon >= 2) {
-          winnerId = match.team2Id;
-        } else if (team1GamesWon > team2GamesWon) {
+        if (team1GamesWon > team2GamesWon) {
           winnerId = match.team1Id;
         } else if (team2GamesWon > team1GamesWon) {
           winnerId = match.team2Id;
         } else {
-          // Tie or no clear winner yet
+          // Tie - no clear winner
           winnerId = null;
         }
       } else if (hasCompleteGame) {
-        // Games in progress - at least one complete game but no winner yet
+        // Games in progress - at least one complete game but not enough to complete the match yet
         status = "in-progress";
       } else {
         // Scheduled - scores entered but no complete game yet

@@ -26,7 +26,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - **Teams**: Team name (unique), captain details, optional division, home piste, other players.
     - **Matches**: Team references, up to 3 game scores, stage, status, winner, scheduled date, division (set for initial stage matches). Unique constraint on team pairs.
     - **Results**: Generated from match outcomes, records match info, date, stage, team name, division (populated from match.division), game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
-- **Match System**: Up to 3 games per match. Winner based on 2+ game wins. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 win, 1 draw, 0 loss). Results created on "completed" status. Clearing scores reverts match to "scheduled" and deletes results.
+- **Match System**: Up to 3 games per match. Auto-completion based on tournament's gamesPerMatch setting. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 win, 1 draw, 0 loss). Results created on "completed" status. Clearing scores reverts match to "scheduled" and deletes results.
 - **Validation**: Shared Zod schemas for client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints.
 - **Cascade Deletion**: Enforces data integrity (e.g., deleting a team removes associated matches and results).
@@ -51,11 +51,20 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Automatic Match Completion Based on Games Per Match (November 2025)**: Matches now auto-complete when the configured number of games are played:
+  - Match completes when number of scored games equals tournament's gamesPerMatch setting
+  - For gamesPerMatch=1: completes after Game 1
+  - For gamesPerMatch=2: completes after Games 1 and 2
+  - For gamesPerMatch=3: completes after all 3 games
+  - Winner determined by who won more games (no longer requires 2+ wins)
+  - Status flow: scheduled → in-progress → completed
+  
 - **Games Per Match Field (November 2025)**: Added configurable games per match to tournament details:
   - New field in tournament configuration to specify number of games per match (1-5, default 3)
   - Shows in tournament selector details (e.g., "2 divs • 3 games • F")
   - Available in both create and edit tournament forms
   - Database column: `games_per_match` with default value of 3
+  - Note: Matches table supports up to 3 games; values 4-5 will only use first 3 games
   
 - **Tournament Selection Persistence Fix (November 2025)**: Fixed bug where page refreshes would reset selected tournament to first in list:
   - Tournament selection now persists across page refreshes via localStorage
