@@ -1056,11 +1056,6 @@ export default function Matches() {
               </Badge>
             )}
           </div>
-          <div className="hidden sm:block">
-            <p className="text-sm text-muted-foreground">
-              {isReadOnly ? "View matches and results" : "Schedule matches and record results"}
-            </p>
-          </div>
           <div className="flex gap-2">
             {!isReadOnly && (
               <>
