@@ -103,6 +103,7 @@ export default function Matches() {
   const [isEditAllMode, setIsEditAllMode] = useState(false);
   const [allEditingValues, setAllEditingValues] = useState<Record<string, Partial<EditingMatch>>>({});
   const [deletingMatch, setDeletingMatch] = useState<Match | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -554,6 +555,12 @@ export default function Matches() {
       allEditingValues[match.id] !== undefined
     );
 
+    setIsSaving(true);
+    toast({
+      title: "Updating - Please Wait",
+      description: `Saving ${matchesToUpdate.length} match${matchesToUpdate.length > 1 ? 'es' : ''}...`,
+    });
+
     let successCount = 0;
     const errors: string[] = [];
 
@@ -637,6 +644,8 @@ export default function Matches() {
       await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
     }
+
+    setIsSaving(false);
 
     if (successCount > 0 && errors.length === 0) {
       // All updates successful - exit edit mode
@@ -989,12 +998,13 @@ export default function Matches() {
                 <Button
                   variant={isEditAllMode ? "default" : "outline"}
                   onClick={toggleEditAllMode}
+                  disabled={isSaving}
                   data-testid="button-edit-all"
                 >
                   {isEditAllMode ? (
                     <>
                       <Check className="h-4 w-4 mr-2" />
-                      Save All
+                      {isSaving ? "Saving..." : "Save All"}
                     </>
                   ) : (
                     <>

@@ -78,6 +78,7 @@ export default function Results() {
   const [showSummaryPdfViewer, setShowSummaryPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [summaryPdfBlobUrl, setSummaryPdfBlobUrl] = useState<string | null>(null);
+  const [isClearing, setIsClearing] = useState(false);
   const { toast } = useToast();
 
   const { data: results, isLoading } = useQuery<Result[]>({
@@ -349,6 +350,12 @@ export default function Results() {
   };
 
   const handleClearAllResults = async () => {
+    setIsClearing(true);
+    toast({
+      title: "Updating - Please Wait",
+      description: "Clearing all results...",
+    });
+    
     try {
       await apiRequest("DELETE", "/api/results");
       queryClient.invalidateQueries({ queryKey: ["/api/results"] });
@@ -365,6 +372,8 @@ export default function Results() {
         variant: "destructive",
         duration: Infinity,
       });
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -1100,13 +1109,14 @@ export default function Results() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-clear">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isClearing} data-testid="button-cancel-clear">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleClearAllResults}
+              disabled={isClearing}
               className="bg-destructive text-destructive-foreground hover-elevate"
               data-testid="button-confirm-clear"
             >
-              Clear All Results
+              {isClearing ? "Clearing..." : "Clear All Results"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -78,6 +78,7 @@ export default function Teams() {
   const [isEditAllMode, setIsEditAllMode] = useState(false);
   const [allEditingValues, setAllEditingValues] = useState<Record<string, EditingTeam>>({});
   const [newTeamCounter, setNewTeamCounter] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Keep ref in sync with currentTournament to avoid stale closures
   useEffect(() => {
@@ -608,6 +609,12 @@ export default function Teams() {
 
     const teamsToProcess = Object.values(allEditingValues);
     
+    setIsSaving(true);
+    toast({
+      title: "Updating - Please Wait",
+      description: `Saving ${teamsToProcess.length} team${teamsToProcess.length > 1 ? 's' : ''}...`,
+    });
+    
     let successCount = 0;
     const errors: string[] = [];
 
@@ -662,6 +669,8 @@ export default function Teams() {
       await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
     }
+
+    setIsSaving(false);
 
     if (successCount > 0 && errors.length === 0) {
       // All updates successful - exit edit mode
@@ -1004,10 +1013,11 @@ export default function Teams() {
                     variant="default"
                     size="sm"
                     onClick={toggleEditAllMode}
+                    disabled={isSaving}
                     data-testid="button-save-all"
                   >
                     <Check className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Save All</span>
+                    <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save All"}</span>
                   </Button>
                 )}
                 {!isEditAllMode && (
