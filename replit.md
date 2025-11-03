@@ -35,7 +35,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Multi-Tournament Support**: Independent tournaments with isolated data.
 - **Tournament Selection**: Dropdown in navigation bar; persists selection across page refreshes via localStorage. Selection priority: 1) URL parameter (shareable links), 2) localStorage (last selected), 3) latest tournament.
 - **Cascade Deletion**: Deleting a tournament removes all associated data.
-- **Configuration**: Name, number of divisions (default 2), stages (Quarter-finals, Semi-finals, Finals; default Finals only).
+- **Configuration**: Name, number of divisions (default 2), games per match (1-5, default 3), stages (Quarter-finals, Semi-finals, Finals; default Finals only).
 - **Tournament Progression**:
     - **Initial Stage**: Round-robin match generation within divisions; incremental generation; requires divisions for teams.
     - **Automatic Stage Advancement**: Generates Quarter-finals, Semi-finals, Finals when preceding stage is complete.
@@ -51,6 +51,12 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Games Per Match Field (November 2025)**: Added configurable games per match to tournament details:
+  - New field in tournament configuration to specify number of games per match (1-5, default 3)
+  - Shows in tournament selector details (e.g., "2 divs • 3 games • F")
+  - Available in both create and edit tournament forms
+  - Database column: `games_per_match` with default value of 3
+  
 - **Tournament Selection Persistence Fix (November 2025)**: Fixed bug where page refreshes would reset selected tournament to first in list:
   - Tournament selection now persists across page refreshes via localStorage
   - Selection priority: 1) URL parameter (shareable links), 2) localStorage (last selected), 3) latest tournament

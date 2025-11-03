@@ -60,6 +60,7 @@ export function TournamentSelector() {
     defaultValues: {
       name: "",
       numberOfDivisions: 2,
+      gamesPerMatch: 3,
       hasQuarterFinals: false,
       hasSemiFinals: false,
       hasFinals: true,
@@ -128,7 +129,7 @@ export function TournamentSelector() {
     if (tournament.hasQuarterFinals) stages.push("QF");
     if (tournament.hasSemiFinals) stages.push("SF");
     if (tournament.hasFinals) stages.push("F");
-    return `${tournament.numberOfDivisions} div${tournament.numberOfDivisions !== 1 ? 's' : ''} • ${stages.join(', ') || 'No stages'}`;
+    return `${tournament.numberOfDivisions} div${tournament.numberOfDivisions !== 1 ? 's' : ''} • ${tournament.gamesPerMatch} game${tournament.gamesPerMatch !== 1 ? 's' : ''} • ${stages.join(', ') || 'No stages'}`;
   };
 
   if (!currentTournament) {
@@ -176,6 +177,28 @@ export function TournamentSelector() {
                       />
                     </FormControl>
                     <FormDescription>Teams will be organized into divisions (A, B, C, etc.)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gamesPerMatch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Games Per Match</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        max={5}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-games-per-match"
+                      />
+                    </FormControl>
+                    <FormDescription>Number of games in each match (1-5)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -303,6 +326,7 @@ export function TournamentSelector() {
                     form.reset({
                       name: tournament.name,
                       numberOfDivisions: tournament.numberOfDivisions,
+                      gamesPerMatch: tournament.gamesPerMatch,
                       hasQuarterFinals: tournament.hasQuarterFinals,
                       hasSemiFinals: tournament.hasSemiFinals,
                       hasFinals: tournament.hasFinals,
@@ -372,6 +396,28 @@ export function TournamentSelector() {
                       />
                     </FormControl>
                     <FormDescription>Teams will be organized into divisions (A, B, C, etc.)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gamesPerMatch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Games Per Match</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        max={5}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-games-per-match"
+                      />
+                    </FormControl>
+                    <FormDescription>Number of games in each match (1-5)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -493,6 +539,28 @@ export function TournamentSelector() {
                       />
                     </FormControl>
                     <FormDescription>Teams will be organized into divisions (A, B, C, etc.)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gamesPerMatch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Games Per Match</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        max={5}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-edit-games-per-match"
+                      />
+                    </FormControl>
+                    <FormDescription>Number of games in each match (1-5)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
