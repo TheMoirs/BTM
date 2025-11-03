@@ -45,9 +45,30 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 
 ### Features
 - **Teams Management**: Add individually or bulk import via Excel. Supports inline editing and "Edit All" mode for bulk updates. Division changes are prevented once a team has any matches.
-- **Matches Management & Reporting**: View, edit, track matches. Generate PDF reports grouped by stage.
+- **Matches Management & Reporting**: View, edit, track matches. Generate PDF reports grouped by stage. Edit All mode with keyboard navigation for efficient score entry.
 - **Results Summary & Reports**: View team statistics and match results grouped by Stage, then Division. PDF reports include tournament name and timestamp.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls. Auto-opens Results Summary in read-only mode.
+
+## Recent Changes
+
+### Keyboard Navigation for Match Scores (November 2025)
+Enhanced data entry workflow in Matches Edit All mode:
+- Removed spinner arrows from number input fields for cleaner interface
+- Arrow key navigation through score fields: Left/Right moves between fields in same row, Up/Down moves to same field in adjacent rows
+- Navigation scoped to division boundaries (doesn't jump between division groups)
+- Field order: Date → Team 1 Game 1-3 → Team 2 Game 1-3
+- Prevents default arrow key behavior to avoid accidental value changes
+- Improves speed and accuracy when entering multiple match scores
+
+### Loading Indicators for Bulk Operations (November 2025)
+Added clear visual feedback during save operations:
+- "Updating - Please Wait" toast notifications display during all bulk operations
+- Teams "Save All" button disables during save, shows "Saving..." text
+- Matches "Save All" button disables during save, shows "Saving..." text
+- Results "Clear All Results" button disables during clear, shows "Clearing..." text
+- Toast messages include operation details (e.g., "Saving 12 team(s)...")
+- Loading state properly managed with finally blocks to prevent stuck buttons
+- Improves user experience by providing clear feedback for operations that may take time
 
 ## External Dependencies
 
