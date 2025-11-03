@@ -281,11 +281,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } else if (targetCount === 4) {
-      // Semi-finals: Top 4 overall
-      selectedTeams.push(...rankings.slice(0, 4).map(r => r.team));
+      // Semi-finals: Select 4 teams
+      if (numberOfDivisions === 1) {
+        // Top 4 from single division
+        selectedTeams.push(...rankings.slice(0, 4).map(r => r.team));
+      } else {
+        // Top 2 from each of the first 2 divisions
+        sortedDivisions.slice(0, 2).forEach(div => {
+          const divRankings = divisionRankings.get(div)!;
+          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
+        });
+      }
     } else if (targetCount === 2) {
-      // Finals: Top 2 overall
-      selectedTeams.push(...rankings.slice(0, 2).map(r => r.team));
+      // Finals: Select 2 teams
+      if (numberOfDivisions === 1) {
+        // Top 2 from single division
+        selectedTeams.push(...rankings.slice(0, 2).map(r => r.team));
+      } else {
+        // Top 1 from each of the first 2 divisions
+        sortedDivisions.slice(0, 2).forEach(div => {
+          const divRankings = divisionRankings.get(div)!;
+          selectedTeams.push(...divRankings.slice(0, 1).map(r => r.team));
+        });
+      }
     }
 
     return selectedTeams.slice(0, targetCount); // Ensure we don't exceed target
