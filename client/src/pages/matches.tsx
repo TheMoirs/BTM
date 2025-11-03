@@ -356,6 +356,75 @@ export default function Matches() {
     setEditingValues({});
   };
 
+  const handleKeyboardNavigation = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    matchId: string,
+    fieldName: string,
+    matchIndex: number,
+    totalMatches: number,
+    division: string
+  ) => {
+    const fieldOrder = [
+      "matchDate",
+      "team1Game1Score",
+      "team1Game2Score",
+      "team1Game3Score",
+      "team2Game1Score",
+      "team2Game2Score",
+      "team2Game3Score",
+    ];
+
+    const currentFieldIndex = fieldOrder.indexOf(fieldName);
+    if (currentFieldIndex === -1) return;
+
+    let targetField: string | null = null;
+    let targetMatchIndex = matchIndex;
+    let shouldPreventDefault = false;
+
+    switch (e.key) {
+      case "ArrowLeft":
+        shouldPreventDefault = true;
+        if (currentFieldIndex > 0) {
+          targetField = fieldOrder[currentFieldIndex - 1];
+        }
+        break;
+      case "ArrowRight":
+        shouldPreventDefault = true;
+        if (currentFieldIndex < fieldOrder.length - 1) {
+          targetField = fieldOrder[currentFieldIndex + 1];
+        }
+        break;
+      case "ArrowUp":
+        shouldPreventDefault = true;
+        if (matchIndex > 0) {
+          targetField = fieldName;
+          targetMatchIndex = matchIndex - 1;
+        }
+        break;
+      case "ArrowDown":
+        shouldPreventDefault = true;
+        if (matchIndex < totalMatches - 1) {
+          targetField = fieldName;
+          targetMatchIndex = matchIndex + 1;
+        }
+        break;
+    }
+
+    if (shouldPreventDefault) {
+      e.preventDefault();
+    }
+
+    if (targetField) {
+      const targetInput = document.querySelector(
+        `input[data-field-name="${targetField}"][data-match-index="${targetMatchIndex}"][data-division="${division}"]`
+      ) as HTMLInputElement;
+      if (targetInput) {
+        targetInput.focus();
+        targetInput.select();
+      }
+    }
+  };
+
   const saveEditing = (matchId: string) => {
     // Parse all game scores, keeping null for empty values
     // Use !== "" to allow 0 as a valid score
@@ -1341,7 +1410,7 @@ export default function Matches() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {divisionMatches.map((match) => {
+                  {divisionMatches.map((match, matchIndex) => {
                     const isEditing = editingRowId === match.id;
                     const isEditingInBulk = isEditAllMode && allEditingValues[match.id];
                     const shouldShowInputs = isEditing || isEditingInBulk;
@@ -1375,8 +1444,12 @@ export default function Matches() {
                               type="date"
                               value={currentValues?.matchDate || ""}
                               onChange={(e) => updateValue("matchDate", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "matchDate", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-36"
                               data-testid={`input-edit-date-${match.id}`}
+                              data-field-name="matchDate"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : match.matchDate ? (
                             <span className="text-sm">
@@ -1401,8 +1474,12 @@ export default function Matches() {
                               max="13"
                               value={currentValues?.team1Game1Score || ""}
                               onChange={(e) => updateValue("team1Game1Score", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team1Game1Score", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-14 text-center"
                               data-testid={`input-edit-team1-game1-${match.id}`}
+                              data-field-name="team1Game1Score"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : (
                             <span className="font-mono text-sm" data-testid={`text-team1-game1-${match.id}`}>
@@ -1418,8 +1495,12 @@ export default function Matches() {
                               max="13"
                               value={currentValues?.team1Game2Score || ""}
                               onChange={(e) => updateValue("team1Game2Score", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team1Game2Score", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-14 text-center"
                               data-testid={`input-edit-team1-game2-${match.id}`}
+                              data-field-name="team1Game2Score"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : (
                             <span className="font-mono text-sm" data-testid={`text-team1-game2-${match.id}`}>
@@ -1435,8 +1516,12 @@ export default function Matches() {
                               max="13"
                               value={currentValues?.team1Game3Score || ""}
                               onChange={(e) => updateValue("team1Game3Score", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team1Game3Score", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-14 text-center"
                               data-testid={`input-edit-team1-game3-${match.id}`}
+                              data-field-name="team1Game3Score"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : (
                             <span className="font-mono text-sm" data-testid={`text-team1-game3-${match.id}`}>
@@ -1455,8 +1540,12 @@ export default function Matches() {
                               max="13"
                               value={currentValues?.team2Game1Score || ""}
                               onChange={(e) => updateValue("team2Game1Score", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team2Game1Score", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-14 text-center"
                               data-testid={`input-edit-team2-game1-${match.id}`}
+                              data-field-name="team2Game1Score"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : (
                             <span className="font-mono text-sm" data-testid={`text-team2-game1-${match.id}`}>
@@ -1472,8 +1561,12 @@ export default function Matches() {
                               max="13"
                               value={currentValues?.team2Game2Score || ""}
                               onChange={(e) => updateValue("team2Game2Score", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team2Game2Score", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-14 text-center"
                               data-testid={`input-edit-team2-game2-${match.id}`}
+                              data-field-name="team2Game2Score"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : (
                             <span className="font-mono text-sm" data-testid={`text-team2-game2-${match.id}`}>
@@ -1489,8 +1582,12 @@ export default function Matches() {
                               max="13"
                               value={currentValues?.team2Game3Score || ""}
                               onChange={(e) => updateValue("team2Game3Score", e.target.value)}
+                              onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team2Game3Score", matchIndex, divisionMatches.length, division)}
                               className="h-8 w-14 text-center"
                               data-testid={`input-edit-team2-game3-${match.id}`}
+                              data-field-name="team2Game3Score"
+                              data-match-index={matchIndex}
+                              data-division={division}
                             />
                           ) : (
                             <span className="font-mono text-sm" data-testid={`text-team2-game3-${match.id}`}>
