@@ -103,7 +103,7 @@ export default function Teams() {
       captainName: "",
       captainPhone: "",
       captainEmail: "",
-      division: "",
+      division: "A",
       homePiste: "",
       otherPlayers: [],
     },
@@ -130,7 +130,7 @@ export default function Teams() {
         captainName: "",
         captainPhone: "",
         captainEmail: "",
-        division: "",
+        division: "A",
         homePiste: "",
         otherPlayers: [],
       });
@@ -357,7 +357,6 @@ export default function Teams() {
           if (!name || String(name).trim() === "") missingFields.push("name");
           if (!captainName || String(captainName).trim() === "") missingFields.push("captainName");
           if (!captainPhone || String(captainPhone).trim() === "") missingFields.push("captainPhone");
-          if (!captainEmail || String(captainEmail).trim() === "") missingFields.push("captainEmail");
           
           if (missingFields.length > 0) {
             errorCount++;
@@ -377,10 +376,12 @@ export default function Teams() {
               name: capitalizeWords(String(name).trim()),
               captainName: capitalizeWords(String(captainName).trim()),
               captainPhone: String(captainPhone).trim(),
-              captainEmail: String(captainEmail).trim(),
+              captainEmail: captainEmail && String(captainEmail).trim() !== "" 
+                ? String(captainEmail).trim() 
+                : null,
               division: division && String(division).trim() !== "" 
                 ? String(division).trim().toUpperCase() 
-                : null,
+                : "A",
               homePiste: homePiste && String(homePiste).trim() !== "" 
                 ? String(homePiste).trim() 
                 : null,
@@ -471,8 +472,8 @@ export default function Teams() {
       name: capitalizeWords(data.name.trim()),
       captainName: capitalizeWords(data.captainName.trim()),
       captainPhone: data.captainPhone.trim(),
-      captainEmail: data.captainEmail.trim(),
-      division: data.division?.trim().toUpperCase() || null,
+      captainEmail: data.captainEmail?.trim() || null,
+      division: data.division?.trim().toUpperCase() || "A",
       homePiste: data.homePiste?.trim() || null,
       otherPlayers: data.otherPlayers && data.otherPlayers.length > 0 
         ? data.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
@@ -488,8 +489,8 @@ export default function Teams() {
       name: team.name,
       captainName: team.captainName,
       captainPhone: team.captainPhone,
-      captainEmail: team.captainEmail,
-      division: team.division || "",
+      captainEmail: team.captainEmail || "",
+      division: team.division || "A",
       homePiste: team.homePiste || "",
       otherPlayers: team.otherPlayers || [],
     });
@@ -516,8 +517,8 @@ export default function Teams() {
       name: capitalizeWords(editingValues.name?.trim() || ""),
       captainName: capitalizeWords(editingValues.captainName?.trim() || ""),
       captainPhone: editingValues.captainPhone?.trim() || "",
-      captainEmail: editingValues.captainEmail?.trim() || "",
-      division: editingValues.division?.trim().toUpperCase() || null,
+      captainEmail: editingValues.captainEmail?.trim() || null,
+      division: editingValues.division?.trim().toUpperCase() || "A",
       homePiste: editingValues.homePiste?.trim() || null,
       otherPlayers: editingValues.otherPlayers && editingValues.otherPlayers.length > 0
         ? editingValues.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
@@ -554,8 +555,8 @@ export default function Teams() {
           name: team.name,
           captainName: team.captainName,
           captainPhone: team.captainPhone,
-          captainEmail: team.captainEmail,
-          division: team.division || "",
+          captainEmail: team.captainEmail || "",
+          division: team.division || "A",
           homePiste: team.homePiste || "",
           otherPlayers: team.otherPlayers || [],
           isNew: false,
@@ -577,7 +578,7 @@ export default function Teams() {
         captainName: "",
         captainPhone: "",
         captainEmail: "",
-        division: "",
+        division: "A",
         homePiste: "",
         otherPlayers: [],
         isNew: true,
@@ -627,18 +628,14 @@ export default function Teams() {
           errors.push(`${teamLabel}: Captain phone is required`);
           continue;
         }
-        if (!teamData.captainEmail?.trim()) {
-          errors.push(`${teamLabel}: Captain email is required`);
-          continue;
-        }
 
         const capitalizedData: InsertTeam = {
           tournamentId: currentTournament.id,
           name: capitalizeWords(teamData.name.trim()),
           captainName: capitalizeWords(teamData.captainName.trim()),
           captainPhone: teamData.captainPhone.trim(),
-          captainEmail: teamData.captainEmail.trim(),
-          division: teamData.division?.trim().toUpperCase() || null,
+          captainEmail: teamData.captainEmail?.trim() || null,
+          division: teamData.division?.trim().toUpperCase() || "A",
           homePiste: teamData.homePiste?.trim() || null,
           otherPlayers: teamData.otherPlayers && Array.isArray(teamData.otherPlayers) && teamData.otherPlayers.length > 0
             ? teamData.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
@@ -1137,10 +1134,11 @@ export default function Teams() {
                           name="captainEmail"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Email Address</FormLabel>
+                              <FormLabel>Email Address (Optional)</FormLabel>
                               <FormControl>
                                 <Input
                                   {...field}
+                                  value={field.value || ""}
                                   type="email"
                                   placeholder="captain@example.com"
                                   data-testid="input-captain-email"

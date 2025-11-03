@@ -23,7 +23,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 ### Data Storage
 - **ORM & Database**: Drizzle ORM, PostgreSQL via Neon serverless driver.
 - **Data Model**:
-    - **Teams**: Team name (unique), captain details, optional division, home piste, other players.
+    - **Teams**: Team name (unique), captain name, captain phone (all required); optional: captain email, division (defaults to 'A'), home piste, other players.
     - **Matches**: Team references, up to 3 game scores, stage, status, winner, scheduled date, division (set for initial stage matches). Unique constraint on team pairs.
     - **Results**: Generated from match outcomes, records match info, date, stage, team name, division (populated from match.division), game statistics (games played, won, lost, drawn), points, score for, score against, score difference. Two records per completed match.
 - **Match System**: Up to 3 games per match. Auto-completion based on tournament's gamesPerMatch setting. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 win, 1 draw, 0 loss). Results created on "completed" status. Clearing scores reverts match to "scheduled" and deletes results.
@@ -51,6 +51,18 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Team Defaults and Optional Email (November 2025)**: Simplified team creation and improved data entry:
+  - Division now defaults to 'A' for all new teams (manual creation, Edit All mode, Excel import)
+  - Email is now optional - only Team Name, Captain Name, and Phone are mandatory
+  - Empty division fields in Excel imports automatically default to 'A'
+  - Form label updated to show "Email Address (Optional)"
+  - Email validation still applies if provided (must be valid email format)
+
+- **Match Score Input UX (November 2025)**: Improved clarity for unscored games:
+  - Score input fields now show blank instead of placeholder "0"
+  - Makes it clearer to distinguish between "not entered" vs. "score of 0"
+  - Applies to both individual row editing and Edit All mode
+
 - **Automatic Match Completion Based on Games Per Match (November 2025)**: Matches now auto-complete when the configured number of games are played:
   - Match completes when number of scored games equals tournament's gamesPerMatch setting
   - For gamesPerMatch=1: completes after Game 1
@@ -79,7 +91,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
   - "Add New Team" button appears to add teams inline during edit
   - New teams can be removed before saving
   - Single "Save All" button saves all changes at once
-  - Validates all required fields (name, captain name, phone, email)
+  - Validates all required fields (name, captain name, phone)
   - Partial save support: successful teams are saved even if some fail validation
   - Individual edit buttons hidden during Edit All mode
   - New teams highlighted with subtle background color

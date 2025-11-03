@@ -33,8 +33,8 @@ export const teams = pgTable("teams", {
   name: text("name").notNull(),
   captainName: text("captain_name").notNull(),
   captainPhone: text("captain_phone").notNull(),
-  captainEmail: text("captain_email").notNull(),
-  division: text("division"),
+  captainEmail: text("captain_email"),
+  division: text("division").default("A"),
   homePiste: text("home_piste"),
   otherPlayers: text("other_players").array(),
 }, (table) => ({
@@ -46,13 +46,15 @@ export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).ext
   name: z.string().min(1, "Team name is required"),
   captainName: z.string().min(1, "Captain name is required"),
   captainPhone: z.string().min(1, "Phone number is required"),
-  captainEmail: z.string().email("Valid email is required"),
-  division: z.string().transform(val => val === "" ? null : val).pipe(
+  captainEmail: z.string().transform(val => val === "" ? null : val).pipe(
     z.union([
-      z.string().regex(/^[A-Z]$/, "Division must be a single letter A-Z"),
+      z.string().email("Valid email is required"),
       z.null()
     ])
   ).optional().nullable(),
+  division: z.string().transform(val => val === "" ? "A" : val).pipe(
+    z.string().regex(/^[A-Z]$/, "Division must be a single letter A-Z")
+  ).default("A"),
   homePiste: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   otherPlayers: z.array(z.string()).nullable().optional(),
 });
