@@ -179,22 +179,39 @@ export default function Results() {
     });
   }, [filteredResults, sortColumn, sortDirection]);
 
-  const groupedByDivision = useMemo(() => {
-    const groups = new Map<string, Result[]>();
+  const groupedByStageAndDivision = useMemo(() => {
+    const stageGroups = new Map<string, Map<string, Result[]>>();
     
     getSortedResults.forEach(result => {
+      const stage = result.stage;
       const division = result.division || 'No Division';
-      if (!groups.has(division)) {
-        groups.set(division, []);
+      
+      if (!stageGroups.has(stage)) {
+        stageGroups.set(stage, new Map<string, Result[]>());
       }
-      groups.get(division)!.push(result);
+      
+      const divisionGroups = stageGroups.get(stage)!;
+      if (!divisionGroups.has(division)) {
+        divisionGroups.set(division, []);
+      }
+      
+      divisionGroups.get(division)!.push(result);
     });
     
-    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
-    return Array.from(groups.entries()).sort(([a], [b]) => {
-      if (a === 'No Division') return 1;
-      if (b === 'No Division') return -1;
-      return a.localeCompare(b);
+    // Sort stages in tournament progression order
+    const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals'];
+    const sortedStages = Array.from(stageGroups.entries()).sort(([a], [b]) => {
+      return stageOrder.indexOf(a) - stageOrder.indexOf(b);
+    });
+    
+    // Within each stage, sort divisions alphabetically with "No Division" last
+    return sortedStages.map(([stage, divisionGroups]) => {
+      const sortedDivisions = Array.from(divisionGroups.entries()).sort(([a], [b]) => {
+        if (a === 'No Division') return 1;
+        if (b === 'No Division') return -1;
+        return a.localeCompare(b);
+      });
+      return [stage, sortedDivisions] as [string, [string, Result[]][]];
     });
   }, [getSortedResults]);
 
@@ -244,24 +261,81 @@ export default function Results() {
     });
   }, [filteredResults]);
 
-  const teamSummariesByDivision = useMemo(() => {
-    const groups = new Map<string, (TeamSummary & { division: string | null })[]>();
-    
-    teamSummaries.forEach(summary => {
-      const division = summary.division || 'No Division';
-      if (!groups.has(division)) {
-        groups.set(division, []);
+  const teamSummariesByStageAndDivision = useMemo(() => {
+    if (!filteredResults || filteredResults.length === 0) return [];
+
+    // Group results by stage and team
+    const stageGroups = new Map<string, Map<string, (TeamSummary & { division: string | null })>>();
+
+    filteredResults.forEach(result => {
+      const stage = result.stage;
+      
+      if (!stageGroups.has(stage)) {
+        stageGroups.set(stage, new Map<string, TeamSummary & { division: string | null }>());
       }
-      groups.get(division)!.push(summary);
+      
+      const teamMap = stageGroups.get(stage)!;
+      
+      if (!teamMap.has(result.teamName)) {
+        teamMap.set(result.teamName, {
+          teamName: result.teamName,
+          division: result.division,
+          gamesPlayed: 0,
+          gamesWon: 0,
+          gamesDrawn: 0,
+          gamesLost: 0,
+          points: 0,
+          scoreFor: 0,
+          scoreAgainst: 0,
+          scoreDifference: 0,
+        });
+      }
+
+      const summary = teamMap.get(result.teamName)!;
+      if (result.division && !summary.division) {
+        summary.division = result.division;
+      }
+      summary.gamesPlayed += result.gamesPlayed;
+      summary.gamesWon += result.gamesWon;
+      summary.gamesLost += result.gamesLost;
+      summary.gamesDrawn += result.gamesDrawn;
+      summary.points += result.points;
+      summary.scoreFor += result.scoreFor;
+      summary.scoreAgainst += result.scoreAgainst;
+      summary.scoreDifference += result.scoreDifference;
     });
-    
-    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
-    return Array.from(groups.entries()).sort(([a], [b]) => {
-      if (a === 'No Division') return 1;
-      if (b === 'No Division') return -1;
-      return a.localeCompare(b);
+
+    // Sort stages in tournament progression order
+    const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals'];
+    const sortedStages = Array.from(stageGroups.entries()).sort(([a], [b]) => {
+      return stageOrder.indexOf(a) - stageOrder.indexOf(b);
     });
-  }, [teamSummaries]);
+
+    // For each stage, group teams by division
+    return sortedStages.map(([stage, teamMap]) => {
+      const summaries = Array.from(teamMap.values()).sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        return b.scoreDifference - a.scoreDifference;
+      });
+
+      const divisionGroups = new Map<string, (TeamSummary & { division: string | null })[]>();
+      summaries.forEach(summary => {
+        const division = summary.division || 'No Division';
+        if (!divisionGroups.has(division)) {
+          divisionGroups.set(division, []);
+        }
+        divisionGroups.get(division)!.push(summary);
+      });
+
+      const sortedDivisions = Array.from(divisionGroups.entries()).sort(([a], [b]) => {
+        if (a === 'No Division') return 1;
+        if (b === 'No Division') return -1;
+        return a.localeCompare(b);
+      });
+
+      return [stage, sortedDivisions] as [string, [string, (TeamSummary & { division: string | null })[]][]];
+    });
+  }, [filteredResults]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
@@ -334,65 +408,76 @@ export default function Results() {
     
     let startY = stageFilter !== "all" ? 37 : 32;
     
-    groupedByDivision.forEach(([division, divisionResults], index) => {
-      // Add division header
-      if (index > 0) {
-        startY += 10; // Add spacing between divisions
+    groupedByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
+      // Add stage header
+      if (stageIndex > 0) {
+        startY += 10; // Add spacing between stages
       }
       
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
-      doc.text(divisionLabel, 14, startY);
+      doc.text(`Stage: ${stageLabels[stage as keyof typeof stageLabels]}`, 14, startY);
       doc.setFont('helvetica', 'normal');
-      startY += 5;
+      startY += 7;
       
-      const tableData = divisionResults.map((result) => [
-        result.teamName,
-        stageLabels[result.stage as keyof typeof stageLabels] || result.stage,
-        result.matchInfo,
-        result.matchDate || '—',
-        result.gamesPlayed.toString(),
-        result.gamesWon.toString(),
-        result.gamesDrawn.toString(),
-        result.gamesLost.toString(),
-        result.points.toString(),
-        result.scoreFor.toString(),
-        result.scoreAgainst.toString(),
-        result.scoreDifference.toString(),
-      ]);
-      
-      autoTable(doc, {
-        head: [['Team', 'Stage', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
-        body: tableData,
-        startY: startY,
-        styles: {
-          fontSize: 8,
-          cellPadding: 1.5,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: 'bold',
-        },
-        columnStyles: {
-          0: { cellWidth: 40 },
-          1: { cellWidth: 30 },
-          2: { cellWidth: 60 },
-          3: { cellWidth: 22 },
-          4: { cellWidth: 10, halign: 'center' },
-          5: { cellWidth: 10, halign: 'center' },
-          6: { cellWidth: 10, halign: 'center' },
-          7: { cellWidth: 10, halign: 'center' },
-          8: { cellWidth: 12, halign: 'center' },
-          9: { cellWidth: 10, halign: 'center' },
-          10: { cellWidth: 10, halign: 'center' },
-          11: { cellWidth: 12, halign: 'center' },
-        },
+      divisions.forEach(([division, divisionResults], divIndex) => {
+        // Add division header
+        if (divIndex > 0) {
+          startY += 8; // Add spacing between divisions within a stage
+        }
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+        doc.text(divisionLabel, 14, startY);
+        doc.setFont('helvetica', 'normal');
+        startY += 5;
+        
+        const tableData = divisionResults.map((result) => [
+          result.teamName,
+          result.matchInfo,
+          result.matchDate || '—',
+          result.gamesPlayed.toString(),
+          result.gamesWon.toString(),
+          result.gamesDrawn.toString(),
+          result.gamesLost.toString(),
+          result.points.toString(),
+          result.scoreFor.toString(),
+          result.scoreAgainst.toString(),
+          result.scoreDifference.toString(),
+        ]);
+        
+        autoTable(doc, {
+          head: [['Team', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
+          body: tableData,
+          startY: startY,
+          styles: {
+            fontSize: 8,
+            cellPadding: 1.5,
+          },
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          columnStyles: {
+            0: { cellWidth: 50 },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 22 },
+            3: { cellWidth: 10, halign: 'center' },
+            4: { cellWidth: 10, halign: 'center' },
+            5: { cellWidth: 10, halign: 'center' },
+            6: { cellWidth: 10, halign: 'center' },
+            7: { cellWidth: 12, halign: 'center' },
+            8: { cellWidth: 10, halign: 'center' },
+            9: { cellWidth: 10, halign: 'center' },
+            10: { cellWidth: 12, halign: 'center' },
+          },
+        });
+        
+        // @ts-ignore - autoTable adds finalY to doc
+        startY = doc.lastAutoTable.finalY + 5;
       });
-      
-      // @ts-ignore - autoTable adds finalY to doc
-      startY = doc.lastAutoTable.finalY + 5;
     });
     
     return doc;
@@ -413,59 +498,72 @@ export default function Results() {
     
     let startY = stageFilter !== "all" ? 37 : 32;
     
-    teamSummariesByDivision.forEach(([division, divisionSummaries], index) => {
-      // Add division header
-      if (index > 0) {
-        startY += 10; // Add spacing between divisions
+    teamSummariesByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
+      // Add stage header
+      if (stageIndex > 0) {
+        startY += 10; // Add spacing between stages
       }
       
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
-      doc.text(divisionLabel, 14, startY);
+      doc.text(`Stage: ${stageLabels[stage as keyof typeof stageLabels]}`, 14, startY);
       doc.setFont('helvetica', 'normal');
-      startY += 5;
+      startY += 7;
       
-      const tableData = divisionSummaries.map((summary) => [
-        summary.teamName,
-        summary.gamesPlayed.toString(),
-        summary.gamesWon.toString(),
-        summary.gamesDrawn.toString(),
-        summary.gamesLost.toString(),
-        summary.points.toString(),
-        summary.scoreFor.toString(),
-        summary.scoreAgainst.toString(),
-        summary.scoreDifference.toString(),
-      ]);
-      
-      autoTable(doc, {
-        head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
-        body: tableData,
-        startY: startY,
-        styles: {
-          fontSize: 10,
-          cellPadding: 3,
-        },
-        headStyles: {
-          fillColor: [41, 128, 185],
-          textColor: 255,
-          fontStyle: 'bold',
-        },
-        columnStyles: {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 22, halign: 'center' },
-          2: { cellWidth: 22, halign: 'center' },
-          3: { cellWidth: 22, halign: 'center' },
-          4: { cellWidth: 22, halign: 'center' },
-          5: { cellWidth: 22, halign: 'center' },
-          6: { cellWidth: 22, halign: 'center' },
-          7: { cellWidth: 22, halign: 'center' },
-          8: { cellWidth: 22, halign: 'center' },
-        },
+      divisions.forEach(([division, divisionSummaries], divIndex) => {
+        // Add division header
+        if (divIndex > 0) {
+          startY += 8; // Add spacing between divisions within a stage
+        }
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+        doc.text(divisionLabel, 14, startY);
+        doc.setFont('helvetica', 'normal');
+        startY += 5;
+        
+        const tableData = divisionSummaries.map((summary) => [
+          summary.teamName,
+          summary.gamesPlayed.toString(),
+          summary.gamesWon.toString(),
+          summary.gamesDrawn.toString(),
+          summary.gamesLost.toString(),
+          summary.points.toString(),
+          summary.scoreFor.toString(),
+          summary.scoreAgainst.toString(),
+          summary.scoreDifference.toString(),
+        ]);
+        
+        autoTable(doc, {
+          head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
+          body: tableData,
+          startY: startY,
+          styles: {
+            fontSize: 10,
+            cellPadding: 3,
+          },
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: 255,
+            fontStyle: 'bold',
+          },
+          columnStyles: {
+            0: { cellWidth: 70 },
+            1: { cellWidth: 22, halign: 'center' },
+            2: { cellWidth: 22, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center' },
+            4: { cellWidth: 22, halign: 'center' },
+            5: { cellWidth: 22, halign: 'center' },
+            6: { cellWidth: 22, halign: 'center' },
+            7: { cellWidth: 22, halign: 'center' },
+            8: { cellWidth: 22, halign: 'center' },
+          },
+        });
+        
+        // @ts-ignore - autoTable adds finalY to doc
+        startY = doc.lastAutoTable.finalY + 5;
       });
-      
-      // @ts-ignore - autoTable adds finalY to doc
-      startY = doc.lastAutoTable.finalY + 5;
     });
     
     return doc;
@@ -600,24 +698,32 @@ export default function Results() {
                       </div>
                     </div>
                   </DialogHeader>
-                  <div className="space-y-6">
-                    {teamSummariesByDivision.map(([division, divisionSummaries]) => (
-                      <div key={division}>
-                        <div className="mb-3">
-                          <h3 className="text-lg font-semibold flex items-center gap-2">
-                            {division !== 'No Division' && (
-                              <Badge variant="default" className="text-base px-2 py-1">
-                                Division {division}
-                              </Badge>
-                            )}
-                            {division === 'No Division' && (
-                              <span>No Division Assigned</span>
-                            )}
-                            <span className="text-muted-foreground text-sm font-normal">
-                              ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
-                            </span>
-                          </h3>
+                  <div className="space-y-8">
+                    {teamSummariesByStageAndDivision.map(([stage, divisions]) => (
+                      <div key={stage} className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default" className="text-lg px-3 py-1.5">
+                            {stageLabels[stage as keyof typeof stageLabels]}
+                          </Badge>
                         </div>
+                        
+                        {divisions.map(([division, divisionSummaries]) => (
+                          <div key={`${stage}-${division}`}>
+                            <div className="mb-3">
+                              <h3 className="text-base font-semibold flex items-center gap-2">
+                                {division !== 'No Division' && (
+                                  <Badge variant="outline" className="px-2 py-1">
+                                    Division {division}
+                                  </Badge>
+                                )}
+                                {division === 'No Division' && (
+                                  <span>No Division Assigned</span>
+                                )}
+                                <span className="text-muted-foreground text-sm font-normal">
+                                  ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
+                                </span>
+                              </h3>
+                            </div>
                         <div className="overflow-x-auto">
                           <div className="rounded-md border">
                             <Table>
@@ -677,6 +783,8 @@ export default function Results() {
                             </Table>
                           </div>
                         </div>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -769,50 +877,48 @@ export default function Results() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {groupedByDivision.map(([division, divisionResults]) => (
-            <Card key={division}>
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  {division !== 'No Division' && (
-                    <Badge variant="default" className="text-lg px-3 py-1">
-                      Division {division}
-                    </Badge>
-                  )}
-                  {division === 'No Division' && (
-                    <span>No Division Assigned</span>
-                  )}
-                  <span className="text-muted-foreground text-base font-normal">
-                    ({divisionResults.length} {divisionResults.length === 1 ? 'result' : 'results'})
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <div className="rounded-md border">
-                    <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>
-                          <button
-                            className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                            onClick={() => handleSort("teamName")}
-                            data-testid="sort-teamName"
-                          >
-                            Team
-                            <SortIcon column="teamName" />
-                          </button>
-                        </TableHead>
-                        <TableHead>
-                          <button
-                            className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                            onClick={() => handleSort("stage")}
-                            data-testid="sort-stage"
-                          >
-                            Stage
-                            <SortIcon column="stage" />
-                          </button>
-                        </TableHead>
+        <div className="space-y-8">
+          {groupedByStageAndDivision.map(([stage, divisions]) => (
+            <div key={stage} className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="text-xl px-4 py-2">
+                  {stageLabels[stage as keyof typeof stageLabels]}
+                </Badge>
+              </div>
+              
+              {divisions.map(([division, divisionResults]) => (
+                <Card key={`${stage}-${division}`}>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {division !== 'No Division' && (
+                        <Badge variant="outline" className="text-base px-3 py-1">
+                          Division {division}
+                        </Badge>
+                      )}
+                      {division === 'No Division' && (
+                        <span>No Division Assigned</span>
+                      )}
+                      <span className="text-muted-foreground text-sm font-normal">
+                        ({divisionResults.length} {divisionResults.length === 1 ? 'result' : 'results'})
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <div className="rounded-md border">
+                        <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>
+                              <button
+                                className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                                onClick={() => handleSort("teamName")}
+                                data-testid="sort-teamName"
+                              >
+                                Team
+                                <SortIcon column="teamName" />
+                              </button>
+                            </TableHead>
                         <TableHead>
                           <button
                             className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -921,11 +1027,6 @@ export default function Results() {
                           <TableCell data-testid={`text-team-${result.id}`}>
                             {result.teamName}
                           </TableCell>
-                          <TableCell data-testid={`text-stage-${result.id}`}>
-                            <Badge variant="outline">
-                              {stageLabels[result.stage as keyof typeof stageLabels]}
-                            </Badge>
-                          </TableCell>
                           <TableCell data-testid={`text-match-${result.id}`}>
                             {result.matchInfo}
                           </TableCell>
@@ -984,6 +1085,8 @@ export default function Results() {
               </div>
               </CardContent>
             </Card>
+          ))}
+            </div>
           ))}
         </div>
       )}

@@ -47,10 +47,18 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 ### Features
 - **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing and "Edit All" mode for bulk editing all teams at once. Allows adding new teams inline during Edit All mode. Table with sortable columns and horizontal scrolling for mobile. Division changes automatically cascade to initial stage matches and results.
 - **Matches Management & Reporting**: View, edit, and track all tournament matches. Displays match count badge that reflects current filters. Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
-- **Results Summary & Reports**: View team statistics and match results grouped by division. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity. Results are displayed in separate sections for each division with collapsible cards.
+- **Results Summary & Reports**: View team statistics and match results grouped by Stage, then Division. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity. Results are displayed with stage badges, then separate sections for each division within that stage.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Stage → Division Grouping for Results (November 2025)**: Enhanced Results organization:
+  - Results page now groups by Stage first, then by Division within each stage
+  - Stage badges appear as top-level headings
+  - Each stage shows all divisions with results for that stage
+  - Summary dialog reflects the same Stage → Division grouping structure
+  - PDF exports (both Match Results and Team Summary) group by Stage → Division
+  - Stage column removed from results table since stage is now a top-level grouping
+
 - **Division-Based Grouping for Teams & Matches (November 2025)**: Enhanced organization and usability:
   - Teams page now groups records by division in separate cards
   - Default sort for Teams is by team name (ascending)
@@ -119,16 +127,6 @@ Boules Tournament Manager is a web application designed to manage multiple boule
   - Bracket page functionality was redundant with Matches page
   - Streamlined navigation to three core pages: Teams, Matches, Results
   - All match viewing and editing remains available on Matches page
-- **Division-Based Grouping for Results (November 2025)**: Enhanced Results page and Summary to group by division:
-  - Results page displays separate collapsible cards for each division (A, B, C, etc.)
-  - Teams without assigned divisions appear in "No Division Assigned" section at bottom
-  - Summary dialog groups team statistics by division with separate headers
-  - PDF reports (both Match Results and Team Summary) group content by division
-  - Added division field to matches table schema (populated for initial stage matches only)
-  - Added division field to results table schema (populated from match.division, not team data)
-  - Results inherit division from the match they belong to, ensuring consistency even if team division changes
-  - Fixed bug where teams could be misassigned to "No Division" when playoff matches were processed first
-  - Division grouping preserves all existing sorting, filtering, and export functionality
 
 - **Results Page Column Reordering (October 2025)**: Improved readability by reordering columns on Results page:
   - Team name moved to leftmost position
