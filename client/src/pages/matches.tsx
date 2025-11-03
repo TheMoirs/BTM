@@ -1241,8 +1241,9 @@ export default function Matches() {
                   <ul className="list-disc pl-5 space-y-1">
                     <li><strong>Edit All Mode:</strong> Enable bulk editing to enter scores for multiple matches quickly</li>
                     <li><strong>Keyboard Navigation:</strong> In Edit All mode, use arrow keys to move between score fields</li>
-                    <li><strong>Match Completion:</strong> Matches complete when one team wins 2 games or all games are played</li>
-                    <li><strong>Points:</strong> Winners earn 1 point per game won (max 3 points per match)</li>
+                    <li><strong>Match Completion:</strong> Matches complete when all game scores are entered (1, 2 or 3 games per match)</li>
+                    <li><strong>Points:</strong> Winners earn 2 points per game. One point for a draw.</li>
+                    <li><strong>Results:</strong> Match scores are automatically transferred to the Results page.</li>
                   </ul>
                 </div>
                 
