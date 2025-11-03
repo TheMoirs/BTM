@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
@@ -37,7 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   insertMatchSchema,
@@ -66,8 +66,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info } from "lucide-react";
 
 const stageLabels = {
   initial: "Initial",
@@ -152,6 +150,21 @@ export default function Matches() {
       team2Game3Score: null,
     },
   });
+
+  // Watch team1Id to filter team2 options and clear team2 if it matches team1
+  const team1Id = useWatch({
+    control: form.control,
+    name: "team1Id",
+  });
+
+  // Clear team2Id if it matches the newly selected team1Id
+  useEffect(() => {
+    const team2Id = form.getValues("team2Id");
+    if (team1Id && team2Id && team1Id === team2Id) {
+      form.setValue("team2Id", "");
+      form.clearErrors("team2Id");
+    }
+  }, [team1Id, form]);
 
   const createMutation = useMutation({
     mutationFn: (data: InsertMatch) => {
@@ -328,6 +341,10 @@ export default function Matches() {
 
   const onSubmit = (data: InsertMatch) => {
     if (data.team1Id === data.team2Id) {
+      form.setError("team2Id", {
+        type: "manual",
+        message: "Please select a different team",
+      });
       toast({
         title: "Invalid selection",
         description: "Please select two different teams",
@@ -1153,14 +1170,20 @@ export default function Matches() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Team 2</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select 
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              form.clearErrors("team2Id");
+                            }} 
+                            value={field.value}
+                          >
                             <FormControl>
                               <SelectTrigger data-testid="select-team2">
                                 <SelectValue placeholder="Select second team" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {teams?.map((team) => (
+                              {teams?.filter((team) => team.id !== team1Id).map((team) => (
                                 <SelectItem key={team.id} value={team.id}>
                                   {team.name} {team.division && `(Division ${team.division})`}
                                 </SelectItem>
