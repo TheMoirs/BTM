@@ -47,6 +47,7 @@ import {
 } from "@shared/schema";
 import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -1220,6 +1221,55 @@ export default function Matches() {
                 </Dialog>
               </>
             )}
+            <HelpDialog title="Matches - Help">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">What is this page?</h3>
+                  <p>The Matches page lets you schedule games, record scores, and track match progress through tournament stages (Initial, Quarter-Finals, Semi-Finals, Finals).</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Creating Matches</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Create Match:</strong> Manually schedule a single match between two teams</li>
+                    <li><strong>Generate Matches:</strong> Automatically create matches for the current or next stage based on team rankings</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Recording Scores</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Edit All Mode:</strong> Enable bulk editing to enter scores for multiple matches quickly</li>
+                    <li><strong>Keyboard Navigation:</strong> In Edit All mode, use arrow keys to move between score fields</li>
+                    <li><strong>Match Completion:</strong> Matches complete when one team wins 2 games or all games are played</li>
+                    <li><strong>Points:</strong> Winners earn 1 point per game won (max 3 points per match)</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Filters & Sorting</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Stage Filter:</strong> View matches by tournament stage</li>
+                    <li><strong>Division Filter:</strong> View matches by division</li>
+                    <li><strong>Sort:</strong> Click column headers to sort by date, stage, or team names</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Other Actions</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>View PDF Report:</strong> Generate a printable match schedule and results</li>
+                    <li><strong>Clear All Data:</strong> Delete all matches from the tournament</li>
+                    <li><strong>Delete Match:</strong> Click the trash icon to remove a specific match</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Tournament Progression</h3>
+                  <p>Complete all matches in a stage to unlock the next playoff stage. The system automatically selects top teams from each division for playoffs.</p>
+                </div>
+              </div>
+            </HelpDialog>
           </div>
         </div>
 

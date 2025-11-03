@@ -31,6 +31,7 @@ import {
 import type { Result } from "@shared/schema";
 import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -829,6 +830,52 @@ export default function Results() {
               )}
             </>
           )}
+          <HelpDialog title="Results - Help">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">What is this page?</h3>
+                <p>The Results page displays statistics and outcomes from completed matches, showing individual game results and team performance summaries.</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-2">Viewing Results</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Summary View:</strong> Click "Summary" to see team rankings with statistics grouped by Stage and Division</li>
+                  <li><strong>Detailed Results:</strong> The main table shows individual game results from all completed matches</li>
+                  <li><strong>Stage Filter:</strong> Filter results by tournament stage (Initial, Quarter-Finals, Semi-Finals, Finals)</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-2">Understanding Statistics</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Points:</strong> Total points earned (1 point per game won)</li>
+                  <li><strong>Games Played/Won/Drawn/Lost:</strong> Individual game statistics</li>
+                  <li><strong>Score For/Against:</strong> Total points scored for and against the team</li>
+                  <li><strong>Score Difference:</strong> The difference between points for and against (used for ranking)</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-2">Team Rankings</h3>
+                <p>Teams are ranked by: 1) Total Points, 2) Score Difference, 3) Score For. Top teams from each division advance to playoff stages.</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-2">Other Actions</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>View PDF:</strong> Generate a printable results report</li>
+                  <li><strong>Copy Share Link:</strong> Get a read-only link to share results with others</li>
+                  <li><strong>Clear All Results:</strong> Delete all results (warning: this cannot be undone)</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold mb-2">Sorting</h3>
+                <p>Click on column headers to sort results by different statistics (team name, points, scores, etc.)</p>
+              </div>
+            </div>
+          </HelpDialog>
         </div>
       </div>
 

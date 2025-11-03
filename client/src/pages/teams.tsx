@@ -36,6 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
 import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { HelpDialog } from "@/components/help-dialog";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1231,6 +1232,45 @@ export default function Teams() {
                 )}
               </>
             )}
+            <HelpDialog title="Teams - Help">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">What is this page?</h3>
+                  <p>The Teams page lets you manage all teams registered for the tournament, including their captain contact information and division assignments.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Adding Teams</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Add Team:</strong> Click to register a new team one at a time</li>
+                    <li><strong>Import Excel:</strong> Upload an Excel file to add multiple teams at once</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Editing Teams</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Edit All:</strong> Enable bulk editing mode to update multiple teams at once</li>
+                    <li><strong>Inline Edit:</strong> Click on any field in the table to edit that team directly</li>
+                    <li><strong>Division Changes:</strong> You can only change a team's division if they haven't played any matches yet</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Other Actions</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>View PDF:</strong> Generate a printable PDF report of all registered teams</li>
+                    <li><strong>Clear All Data:</strong> Delete all teams from the tournament (warning: this cannot be undone)</li>
+                    <li><strong>Delete Team:</strong> Click the trash icon next to a team to remove them</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Sorting</h3>
+                  <p>Click on column headers to sort teams by that field (name, division, captain details, etc.)</p>
+                </div>
+              </div>
+            </HelpDialog>
           </div>
         </div>
 
