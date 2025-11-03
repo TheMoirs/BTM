@@ -1333,14 +1333,9 @@ export default function Matches() {
               <div className="rounded-full bg-muted p-6 mb-4">
                 <Users className="h-12 w-12 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
+              <h3 className="text-lg font-semibold text-foreground mb-6">
                 No matches scheduled yet
               </h3>
-              <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-                {isReadOnly 
-                  ? "No matches have been created for this tournament yet" 
-                  : "Create your first match or generate matches automatically from your teams"}
-              </p>
               {!isReadOnly && (
                 <div className="flex gap-2">
                   <Button onClick={handleGenerateMatches} variant="outline" data-testid="button-generate-first-matches">
