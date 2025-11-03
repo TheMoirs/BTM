@@ -1350,7 +1350,6 @@ export default function Matches() {
                               value={currentValues?.team1Game1Score || ""}
                               onChange={(e) => updateValue("team1Game1Score", e.target.value)}
                               className="h-8 w-14 text-center"
-                              placeholder="0"
                               data-testid={`input-edit-team1-game1-${match.id}`}
                             />
                           ) : (
@@ -1368,7 +1367,6 @@ export default function Matches() {
                               value={currentValues?.team1Game2Score || ""}
                               onChange={(e) => updateValue("team1Game2Score", e.target.value)}
                               className="h-8 w-14 text-center"
-                              placeholder="0"
                               data-testid={`input-edit-team1-game2-${match.id}`}
                             />
                           ) : (
@@ -1386,7 +1384,6 @@ export default function Matches() {
                               value={currentValues?.team1Game3Score || ""}
                               onChange={(e) => updateValue("team1Game3Score", e.target.value)}
                               className="h-8 w-14 text-center"
-                              placeholder="0"
                               data-testid={`input-edit-team1-game3-${match.id}`}
                             />
                           ) : (
@@ -1407,7 +1404,6 @@ export default function Matches() {
                               value={currentValues?.team2Game1Score || ""}
                               onChange={(e) => updateValue("team2Game1Score", e.target.value)}
                               className="h-8 w-14 text-center"
-                              placeholder="0"
                               data-testid={`input-edit-team2-game1-${match.id}`}
                             />
                           ) : (
@@ -1425,7 +1421,6 @@ export default function Matches() {
                               value={currentValues?.team2Game2Score || ""}
                               onChange={(e) => updateValue("team2Game2Score", e.target.value)}
                               className="h-8 w-14 text-center"
-                              placeholder="0"
                               data-testid={`input-edit-team2-game2-${match.id}`}
                             />
                           ) : (
@@ -1443,7 +1438,6 @@ export default function Matches() {
                               value={currentValues?.team2Game3Score || ""}
                               onChange={(e) => updateValue("team2Game3Score", e.target.value)}
                               className="h-8 w-14 text-center"
-                              placeholder="0"
                               data-testid={`input-edit-team2-game3-${match.id}`}
                             />
                           ) : (
