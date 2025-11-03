@@ -39,7 +39,10 @@ Boules Tournament Manager is a web application for managing multiple boules tour
     - **Initial Stage**: Round-robin match generation within divisions.
     - **Automatic Stage Advancement**: Generates playoff stages (QF, SF, Finals) when preceding stage is complete.
     - **Seeding**: Traditional playoff pairings based on rankings.
-    - **Team Selection**: Based on division count and rankings.
+    - **Team Selection**: Division-aware selection based on tournament configuration:
+        - **Quarter-Finals (8 teams)**: 1 div → top 8; 2 divs → top 4 from each; 3 divs → top 4 from largest, top 2 from others; 4+ divs → top 2 from each of first 4
+        - **Semi-Finals (4 teams)**: 1 div → top 4; 2+ divs → top 2 from each of first 2 divisions
+        - **Finals (2 teams)**: 1 div → top 2; 2+ divs → top 1 from each of first 2 divisions
     - **Ranking Calculation**: Based on latest completed stage results (Points, Score Difference, Score For).
     - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
 
