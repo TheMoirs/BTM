@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -104,7 +104,7 @@ export default function Matches() {
   const [allEditingValues, setAllEditingValues] = useState<Record<string, Partial<EditingMatch>>>({});
   const [deletingMatch, setDeletingMatch] = useState<Match | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("matchDate");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
@@ -698,7 +698,7 @@ export default function Matches() {
       return stageMatch && divisionMatch;
     });
 
-    // Sort matches
+    // Sort matches with secondary sort by team1 name
     const sorted = [...filtered].sort((a, b) => {
       let aValue: any;
       let bValue: any;
@@ -725,13 +725,40 @@ export default function Matches() {
           bValue = (b[sortColumn] || "").toString().toLowerCase();
       }
 
+      // Primary sort
       if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
       if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      
+      // Secondary sort by team1 name
+      const aTeam1 = getTeamName(a.team1Id).toLowerCase();
+      const bTeam1 = getTeamName(b.team1Id).toLowerCase();
+      if (aTeam1 < bTeam1) return sortDirection === "asc" ? -1 : 1;
+      if (aTeam1 > bTeam1) return sortDirection === "asc" ? 1 : -1;
+      
       return 0;
     });
 
     return sorted;
   }, [matches, sortColumn, sortDirection, stageFilter, divisionFilter, teams]);
+
+  const groupedByDivision = useMemo(() => {
+    const groups = new Map<string, Match[]>();
+    
+    getFilteredAndSortedMatches.forEach(match => {
+      const division = match.division || 'No Division';
+      if (!groups.has(division)) {
+        groups.set(division, []);
+      }
+      groups.get(division)!.push(match);
+    });
+    
+    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'No Division') return 1;
+      if (b === 'No Division') return -1;
+      return a.localeCompare(b);
+    });
+  }, [getFilteredAndSortedMatches]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
@@ -757,86 +784,101 @@ export default function Matches() {
     
     // Add generation date
     doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
     
-    // Prepare table data to match on-screen form columns
-    const tableData = getFilteredAndSortedMatches.map(match => {
-      const team1 = getTeamName(match.team1Id);
-      const team2 = getTeamName(match.team2Id);
-      const division = match.division || "-";
-      const stage = stageLabels[match.stage as keyof typeof stageLabels];
-      const status = statusLabels[match.status as keyof typeof statusLabels];
-      const matchDate = match.matchDate 
-        ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        : "-";
-      
-      // Individual game scores (matching form layout)
-      const t1g1 = match.team1Game1Score !== null ? match.team1Game1Score.toString() : "-";
-      const t1g2 = match.team1Game2Score !== null ? match.team1Game2Score.toString() : "-";
-      const t1g3 = match.team1Game3Score !== null ? match.team1Game3Score.toString() : "-";
-      const t2g1 = match.team2Game1Score !== null ? match.team2Game1Score.toString() : "-";
-      const t2g2 = match.team2Game2Score !== null ? match.team2Game2Score.toString() : "-";
-      const t2g3 = match.team2Game3Score !== null ? match.team2Game3Score.toString() : "-";
-      
-      return [
-        division,
-        stage,
-        status,
-        matchDate,
-        team1,
-        t1g1,
-        t1g2,
-        t1g3,
-        team2,
-        t2g1,
-        t2g2,
-        t2g3
-      ];
-    });
+    let startY = 28;
     
-    // Add table with columns matching on-screen form
-    autoTable(doc, {
-      head: [[
-        'Div',
-        'Stage',
-        'Status',
-        'Date',
-        'Team 1',
-        'G1',
-        'G2',
-        'G3',
-        'Team 2',
-        'G1',
-        'G2',
-        'G3'
-      ]],
-      body: tableData,
-      startY: 28,
-      styles: { 
-        fontSize: 8, 
-        cellPadding: 1.5,
-        overflow: 'linebreak'
-      },
-      headStyles: { 
-        fillColor: [59, 130, 246], 
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },  // Div
-        1: { cellWidth: 22 },                     // Stage
-        2: { cellWidth: 20 },                     // Status
-        3: { cellWidth: 24 },                     // Date
-        4: { cellWidth: 40 },                     // Team 1
-        5: { cellWidth: 12, halign: 'center' },  // Team 1 Game 1
-        6: { cellWidth: 12, halign: 'center' },  // Team 1 Game 2
-        7: { cellWidth: 12, halign: 'center' },  // Team 1 Game 3
-        8: { cellWidth: 40 },                     // Team 2
-        9: { cellWidth: 12, halign: 'center' },  // Team 2 Game 1
-        10: { cellWidth: 12, halign: 'center' }, // Team 2 Game 2
-        11: { cellWidth: 12, halign: 'center' }  // Team 2 Game 3
-      },
+    groupedByDivision.forEach(([division, divisionMatches], index) => {
+      // Add division header
+      if (index > 0) {
+        startY += 10; // Add spacing between divisions
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+      doc.text(divisionLabel, 14, startY);
+      doc.setFont('helvetica', 'normal');
+      startY += 5;
+      
+      // Prepare table data for this division
+      const tableData = divisionMatches.map(match => {
+        const team1 = getTeamName(match.team1Id);
+        const team2 = getTeamName(match.team2Id);
+        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const status = statusLabels[match.status as keyof typeof statusLabels];
+        const matchDate = match.matchDate 
+          ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : "-";
+        
+        // Individual game scores (matching form layout)
+        const t1g1 = match.team1Game1Score !== null ? match.team1Game1Score.toString() : "-";
+        const t1g2 = match.team1Game2Score !== null ? match.team1Game2Score.toString() : "-";
+        const t1g3 = match.team1Game3Score !== null ? match.team1Game3Score.toString() : "-";
+        const t2g1 = match.team2Game1Score !== null ? match.team2Game1Score.toString() : "-";
+        const t2g2 = match.team2Game2Score !== null ? match.team2Game2Score.toString() : "-";
+        const t2g3 = match.team2Game3Score !== null ? match.team2Game3Score.toString() : "-";
+        
+        return [
+          stage,
+          status,
+          matchDate,
+          team1,
+          t1g1,
+          t1g2,
+          t1g3,
+          team2,
+          t2g1,
+          t2g2,
+          t2g3
+        ];
+      });
+      
+      // Add table with columns matching on-screen form (no division column since grouped)
+      autoTable(doc, {
+        head: [[
+          'Stage',
+          'Status',
+          'Date',
+          'Team 1',
+          'G1',
+          'G2',
+          'G3',
+          'Team 2',
+          'G1',
+          'G2',
+          'G3'
+        ]],
+        body: tableData,
+        startY: startY,
+        styles: { 
+          fontSize: 8, 
+          cellPadding: 1.5,
+          overflow: 'linebreak'
+        },
+        headStyles: { 
+          fillColor: [59, 130, 246], 
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        columnStyles: {
+          0: { cellWidth: 24 },                     // Stage
+          1: { cellWidth: 22 },                     // Status
+          2: { cellWidth: 24 },                     // Date
+          3: { cellWidth: 42 },                     // Team 1
+          4: { cellWidth: 12, halign: 'center' },  // Team 1 Game 1
+          5: { cellWidth: 12, halign: 'center' },  // Team 1 Game 2
+          6: { cellWidth: 12, halign: 'center' },  // Team 1 Game 3
+          7: { cellWidth: 42 },                     // Team 2
+          8: { cellWidth: 12, halign: 'center' },  // Team 2 Game 1
+          9: { cellWidth: 12, halign: 'center' },  // Team 2 Game 2
+          10: { cellWidth: 12, halign: 'center' }  // Team 2 Game 3
+        },
+      });
+      
+      // @ts-ignore - autoTable adds finalY to doc
+      startY = doc.lastAutoTable.finalY + 5;
     });
     
     return doc;
@@ -1203,21 +1245,30 @@ export default function Matches() {
             </CardContent>
           </Card>
         ) : (
-          <Card>
+          <div className="space-y-6">
+            {groupedByDivision.map(([division, divisionMatches]) => (
+              <Card key={division}>
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    {division !== 'No Division' && (
+                      <Badge variant="default" className="text-lg px-3 py-1">
+                        Division {division}
+                      </Badge>
+                    )}
+                    {division === 'No Division' && (
+                      <span>No Division Assigned</span>
+                    )}
+                    <span className="text-muted-foreground text-base font-normal">
+                      ({divisionMatches.length} {divisionMatches.length === 1 ? 'match' : 'matches'})
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
             <div className="overflow-x-auto">
+              <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("division")}
-                        data-testid="sort-division"
-                      >
-                        Division
-                        <SortIcon column="division" />
-                      </button>
-                    </TableHead>
                     <TableHead className="w-[140px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1280,7 +1331,7 @@ export default function Matches() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getFilteredAndSortedMatches.map((match) => {
+                  {divisionMatches.map((match) => {
                     const isEditing = editingRowId === match.id;
                     const isEditingInBulk = isEditAllMode && allEditingValues[match.id];
                     const shouldShowInputs = isEditing || isEditingInBulk;
@@ -1291,15 +1342,6 @@ export default function Matches() {
 
                     return (
                       <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
-                        <TableCell>
-                          {match.division ? (
-                            <Badge variant="outline" data-testid={`badge-division-${match.id}`}>
-                              {match.division}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">—</span>
-                          )}
-                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" data-testid={`badge-stage-${match.id}`}>
                             {stageLabels[match.stage as keyof typeof stageLabels]}
@@ -1502,7 +1544,11 @@ export default function Matches() {
                 </TableBody>
               </Table>
             </div>
-          </Card>
+              </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
 
         <AlertDialog open={!!deletingMatch} onOpenChange={(open) => !open && setDeletingMatch(null)}>

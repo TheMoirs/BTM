@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -757,6 +757,25 @@ export default function Teams() {
     return sorted;
   };
 
+  const groupedByDivision = useMemo(() => {
+    const groups = new Map<string, Team[]>();
+    
+    getSortedTeams().forEach(team => {
+      const division = team.division || 'No Division';
+      if (!groups.has(division)) {
+        groups.set(division, []);
+      }
+      groups.get(division)!.push(team);
+    });
+    
+    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'No Division') return 1;
+      if (b === 'No Division') return -1;
+      return a.localeCompare(b);
+    });
+  }, [teams, sortColumn, sortDirection]);
+
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 ml-1 text-muted-foreground" />;
@@ -775,42 +794,57 @@ export default function Teams() {
     doc.text('Teams Report', 14, 15);
     
     doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
     
-    const sortedTeams = getSortedTeams();
+    let startY = 28;
     
-    const tableData = sortedTeams.map((team) => [
-      team.division || '—',
-      team.name,
-      team.homePiste || '—',
-      team.captainName,
-      team.captainPhone,
-      team.captainEmail,
-      team.otherPlayers && team.otherPlayers.length > 0 ? team.otherPlayers.join(', ') : '—',
-    ]);
-    
-    autoTable(doc, {
-      head: [['Div', 'Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
-      body: tableData,
-      startY: 28,
-      styles: {
-        fontSize: 9,
-        cellPadding: 2,
-      },
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 30 },
-        5: { cellWidth: 45 },
-        6: { cellWidth: 50 },
-      },
+    groupedByDivision.forEach(([division, divisionTeams], index) => {
+      // Add division header
+      if (index > 0) {
+        startY += 10; // Add spacing between divisions
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+      doc.text(divisionLabel, 14, startY);
+      doc.setFont('helvetica', 'normal');
+      startY += 5;
+      
+      const tableData = divisionTeams.map((team) => [
+        team.name,
+        team.homePiste || '—',
+        team.captainName,
+        team.captainPhone,
+        team.captainEmail || '—',
+        team.otherPlayers && team.otherPlayers.length > 0 ? team.otherPlayers.join(', ') : '—',
+      ]);
+      
+      autoTable(doc, {
+        head: [['Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
+        body: tableData,
+        startY: startY,
+        styles: {
+          fontSize: 9,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold',
+        },
+        columnStyles: {
+          0: { cellWidth: 45 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 32 },
+          4: { cellWidth: 50 },
+          5: { cellWidth: 50 },
+        },
+      });
+      
+      // @ts-ignore - autoTable adds finalY to doc
+      startY = doc.lastAutoTable.finalY + 5;
     });
     
     return doc;
@@ -1214,21 +1248,30 @@ export default function Teams() {
             </CardContent>
           </Card>
         ) : (
-          <Card>
+          <div className="space-y-6">
+            {groupedByDivision.map(([division, divisionTeams]) => (
+              <Card key={division}>
+                <CardHeader>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    {division !== 'No Division' && (
+                      <Badge variant="default" className="text-lg px-3 py-1">
+                        Division {division}
+                      </Badge>
+                    )}
+                    {division === 'No Division' && (
+                      <span>No Division Assigned</span>
+                    )}
+                    <span className="text-muted-foreground text-base font-normal">
+                      ({divisionTeams.length} {divisionTeams.length === 1 ? 'team' : 'teams'})
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
               <div className="overflow-x-auto">
+                <div className="rounded-md border">
                 <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[80px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("division")}
-                        data-testid="sort-division"
-                      >
-                        Division
-                        <SortIcon column="division" />
-                      </button>
-                    </TableHead>
                     <TableHead className="w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1295,7 +1338,7 @@ export default function Teams() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {getSortedTeams().map((team) => {
+                  {divisionTeams.map((team) => {
                     const isEditing = editingRowId === team.id;
                     const isEditingInBulk = isEditAllMode && allEditingValues[team.id];
                     const shouldShowInputs = isEditing || isEditingInBulk;
@@ -1562,7 +1605,11 @@ export default function Teams() {
                 </TableBody>
               </Table>
             </div>
-          </Card>
+              </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
 
         <AlertDialog open={!!deletingTeam} onOpenChange={(open) => !open && setDeletingTeam(null)}>

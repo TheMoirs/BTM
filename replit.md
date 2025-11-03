@@ -51,6 +51,15 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Division-Based Grouping for Teams & Matches (November 2025)**: Enhanced organization and usability:
+  - Teams page now groups records by division in separate cards
+  - Default sort for Teams is by team name (ascending)
+  - Matches page now groups records by division in separate cards  
+  - Default sort for Matches is by Status, with Team 1 Name as secondary sort
+  - PDF exports for both Teams and Matches reflect the same division grouping and sorting
+  - Division column removed from tables since grouping provides this context
+  - Each division group shows count of teams/matches in header
+
 - **Team Defaults and Optional Email (November 2025)**: Simplified team creation and improved data entry:
   - Division now defaults to 'A' for all new teams (manual creation, Edit All mode, Excel import)
   - Email is now optional - only Team Name, Captain Name, and Phone are mandatory
