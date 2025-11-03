@@ -1272,6 +1272,16 @@ export default function Teams() {
                 <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[100px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("division")}
+                        data-testid="sort-division"
+                      >
+                        Division
+                        <SortIcon column="division" />
+                      </button>
+                    </TableHead>
                     <TableHead className="w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1589,7 +1599,7 @@ export default function Teams() {
                   ))}
                   {isEditAllMode && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-4">
+                      <TableCell colSpan={9} className="text-center py-4">
                         <Button
                           variant="outline"
                           size="sm"
