@@ -138,14 +138,33 @@ export class DatabaseStorage implements IStorage {
       throw new Error("A team with this name already exists in this tournament");
     }
 
+    // Normalize divisions for comparison (both to uppercase, handle null/undefined)
+    const existingDivision = existingTeam.division?.toUpperCase() || null;
+    const newDivision = insertTeam.division?.toUpperCase() || null;
+    
+    // Check if division is being changed and if team has any matches
+    if (existingDivision !== newDivision) {
+      const teamMatches = await db.select().from(matches).where(
+        or(
+          eq(matches.team1Id, id),
+          eq(matches.team2Id, id)
+        )
+      );
+      
+      if (teamMatches.length > 0) {
+        throw new Error("Cannot change division for a team that has existing matches");
+      }
+    }
+
     const [updatedTeam] = await db
       .update(teams)
       .set(insertTeam)
       .where(eq(teams.id, id))
       .returning();
     
-    // If division changed, update matches and results for initial stage
-    if (updatedTeam && existingTeam.division !== updatedTeam.division) {
+    // If division changed and team has no matches, update matches and results for initial stage
+    // This path is only reached if team has no matches (due to validation above)
+    if (updatedTeam && existingDivision !== newDivision) {
       await this.updateMatchDivisionsForTeam(id);
     }
     

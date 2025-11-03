@@ -45,12 +45,19 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
 
 ### Features
-- **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing and "Edit All" mode for bulk editing all teams at once. Allows adding new teams inline during Edit All mode. Table with sortable columns and horizontal scrolling for mobile. Division changes automatically cascade to initial stage matches and results.
+- **Teams Management**: Add individually or bulk import via Excel. Displays team count. Supports inline editing and "Edit All" mode for bulk editing all teams at once. Allows adding new teams inline during Edit All mode. Table with sortable columns and horizontal scrolling for mobile. **Division changes are prevented once a team has any matches**, ensuring tournament integrity.
 - **Matches Management & Reporting**: View, edit, and track all tournament matches. Displays match count badge that reflects current filters. Generate PDF reports of matches grouped by stage. Preview-first design with in-viewer actions (Save, Print, Close). Uses jsPDF with auto-table plugin. Landscape orientation for PDFs.
 - **Results Summary & Reports**: View team statistics and match results grouped by Stage, then Division. Summary dialog and PDF reports include tournament name and full date/time timestamp for clarity. Results are displayed with stage badges, then separate sections for each division within that stage.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`). Auto-selects shared tournament. Hides all editing controls. Preserves query parameters across navigation. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+- **Division Change Constraint (November 2025)**: Added business rule to prevent division changes for teams with matches:
+  - Once a team has any matches (regardless of stage or status), their division cannot be changed
+  - Backend validation throws clear error: "Cannot change division for a team that has existing matches"
+  - Frontend displays error message in sticky toast notification
+  - Ensures tournament data integrity and prevents inconsistencies in match/result records
+  - Teams without matches can still freely change divisions
+
 - **Stage → Division Grouping for Results (November 2025)**: Enhanced Results organization:
   - Results page now groups by Stage first, then by Division within each stage
   - Stage badges appear as top-level headings
