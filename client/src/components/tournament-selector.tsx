@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,6 +47,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament } = useTournament();
+  const { isReadOnly } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
@@ -282,6 +284,19 @@ export function TournamentSelector() {
           </Form>
         </DialogContent>
       </Dialog>
+    );
+  }
+
+  // In read-only mode, show tournament name without dropdown
+  if (isReadOnly) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-background" data-testid="tournament-display-readonly">
+        <Trophy className="h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col items-start">
+          <span className="font-medium text-sm">{currentTournament.name}</span>
+          <span className="text-xs text-muted-foreground">{getTournamentDetails(currentTournament)}</span>
+        </div>
+      </div>
     );
   }
 
