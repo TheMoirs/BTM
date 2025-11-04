@@ -25,7 +25,7 @@ Boules Tournament Manager is a web application for managing multiple boules tour
     - **Teams**: Unique name, captain details. Division defaults to 'A'.
     - **Matches**: Up to 3 game scores, stage, status, winner. Unique constraint on team pairs.
     - **Results**: Generated from match outcomes, records match info and game statistics.
-- **Match System**: Up to 3 games per match. Auto-completion based on `gamesPerMatch` setting. Status progression: "scheduled", "in-progress", "completed". Points allocated per game.
+- **Match System**: Up to 3 games per match. Matches are marked as "completed" once 1 or more complete game results (both teams' scores) are entered, regardless of `gamesPerMatch` setting. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 for win, 1 for draw, 0 for loss).
 - **Validation**: Shared Zod schemas for client-server consistency.
 - **Initialization**: Automatic database initialization for unique constraints.
 - **Cascade Deletion**: Enforces data integrity (e.g., deleting a team removes associated matches and results).
@@ -53,6 +53,16 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+
+### Match Completion Rule Update (November 2025)
+Changed match completion logic to be more flexible and user-friendly:
+- Matches are now marked as "completed" when 1 or more complete game results are entered
+- A "complete game result" means both teams' scores are entered for that game
+- Previously, matches required all games (based on `gamesPerMatch` setting) to be completed
+- New behavior allows matches to be completed with partial game scores (e.g., 1 of 3 games played)
+- Winner determination and points calculation work correctly with partial games
+- Results are automatically generated when match becomes completed
+- Frontend validation ensures both teams' scores must be entered for each game (prevents partial game scores)
 
 ### PDF Report Layout Improvements (November 2025)
 Enhanced PDF report generation across Teams, Matches, and Results pages:
