@@ -54,6 +54,16 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 
 ## Recent Changes
 
+### Tournament Selector Read-Only Mode (November 2025)
+Enhanced tournament selector behavior in read-only mode:
+- Tournament selector displays as static, non-interactive element when `?view=readonly` parameter is present
+- No dropdown menu accessible in read-only mode (early return prevents rendering of mutating controls)
+- Users cannot switch tournaments, edit tournament settings, or delete tournaments in read-only mode
+- "View Only" badge indicates read-only status in navigation bar
+- Tournament name and configuration details (divisions, games per match, stages) remain visible but non-editable
+- Implemented via ViewModeContext integration with early return pattern for clean separation of concerns
+- All tournament management operations (create, edit, delete, switch) disabled in read-only mode
+
 ### Team Deletion Cascade Warning (November 2025)
 Enhanced team deletion with detailed impact warnings:
 - New API endpoint `/api/teams/:id/deletion-impact` fetches counts of affected matches and results before deletion
