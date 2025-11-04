@@ -376,8 +376,8 @@ export class DatabaseStorage implements IStorage {
     const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
-      // Match is completed when the number of games played matches the tournament's gamesPerMatch setting
-      if (completeGamesCount >= gamesPerMatch) {
+      // Match is completed when at least one complete game has been played
+      if (hasCompleteGame) {
         status = "completed";
         
         // Determine winner based on games won
@@ -389,12 +389,9 @@ export class DatabaseStorage implements IStorage {
           // Tie - no clear winner
           winnerId = null;
         }
-      } else if (hasCompleteGame) {
-        // Games in progress - at least one complete game but not enough to complete the match yet
-        status = "in-progress";
       } else {
-        // Scheduled - scores entered but no complete game yet
-        status = "scheduled";
+        // Scores entered but no complete game yet
+        status = "in-progress";
       }
 
       // Handle results based on match status
