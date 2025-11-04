@@ -54,6 +54,14 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 
 ## Recent Changes
 
+### Team Deletion Cascade Warning (November 2025)
+Enhanced team deletion with detailed impact warnings:
+- New API endpoint `/api/teams/:id/deletion-impact` fetches counts of affected matches and results before deletion
+- Delete confirmation dialog now displays exact counts: number of matches and result records to be deleted
+- Clear warning structure: "This action will delete: X matches (where this team plays), Y result records (for both teams in those matches)"
+- Cascade deletion verified: deleting a team removes all matches where team is team1 or team2, plus all results from those matches
+- Improved user safety by showing specific impact before confirming destructive actions
+
 ### Keyboard Navigation for Match Scores (November 2025)
 Enhanced data entry workflow in Matches Edit All mode:
 - Removed spinner arrows from number input fields for cleaner interface
