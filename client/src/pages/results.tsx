@@ -435,11 +435,11 @@ export default function Results() {
       divisions.forEach(([division, divisionResults], divIndex) => {
         const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
         
-        // Estimate space needed for this division
-        // Header (5) + table header (~8) + rows (results.length * ~5) + spacing
-        const estimatedHeight = 5 + 8 + (divisionResults.length * 5) + 10;
+        // Conservative estimate for space needed (accounting for text wrapping)
+        // Header (5) + table header (~10) + rows (results.length * ~7 for potential wrapping) + spacing
+        const estimatedHeight = 5 + 10 + (divisionResults.length * 7) + 15;
         
-        // Check if division will fit on current page
+        // Check if division will fit on current page (with conservative margin)
         if (startY + estimatedHeight > pageHeight - bottomMargin && divIndex > 0) {
           doc.addPage();
           startY = 20; // Start near top of new page
@@ -535,11 +535,11 @@ export default function Results() {
       divisions.forEach(([division, divisionSummaries], divIndex) => {
         const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
         
-        // Estimate space needed for this division
-        // Header (5) + table header (~10) + rows (summaries.length * ~7) + spacing
-        const estimatedHeight = 5 + 10 + (divisionSummaries.length * 7) + 10;
+        // Conservative estimate for space needed (accounting for text wrapping)
+        // Header (5) + table header (~12) + rows (summaries.length * ~9 for potential wrapping) + spacing
+        const estimatedHeight = 5 + 12 + (divisionSummaries.length * 9) + 15;
         
-        // Check if division will fit on current page
+        // Check if division will fit on current page (with conservative margin)
         if (startY + estimatedHeight > pageHeight - bottomMargin && divIndex > 0) {
           doc.addPage();
           startY = 20; // Start near top of new page

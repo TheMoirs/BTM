@@ -835,11 +835,11 @@ export default function Teams() {
     groupedByDivision.forEach(([division, divisionTeams], index) => {
       const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
       
-      // Estimate space needed for this division
-      // Header (5) + table header (~8) + rows (teams.length * ~6) + spacing
-      const estimatedHeight = 5 + 8 + (divisionTeams.length * 6) + 10;
+      // Conservative estimate for space needed (accounting for text wrapping)
+      // Header (5) + table header (~10) + rows (teams.length * ~10 for potential wrapping) + spacing
+      const estimatedHeight = 5 + 10 + (divisionTeams.length * 10) + 15;
       
-      // Check if division will fit on current page
+      // Check if division will fit on current page (with conservative margin)
       if (startY + estimatedHeight > pageHeight - bottomMargin && index > 0) {
         doc.addPage();
         startY = 20; // Start near top of new page

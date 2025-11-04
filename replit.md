@@ -54,6 +54,15 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 
 ## Recent Changes
 
+### PDF Report Layout Improvements (November 2025)
+Enhanced PDF report generation across Teams, Matches, and Results pages:
+- Data now starts near top of page (y=24-33) instead of halfway down (y=28-37)
+- Added intelligent page break logic to prevent division data from being split across pages
+- Conservative height estimation accounts for text wrapping in table cells
+- Divisions that don't fit on current page automatically start on new page
+- Improved readability and professional appearance of all PDF reports
+- Applied consistently across Teams PDF, Matches PDF, Results PDF, and Summary PDF
+
 ### Tournament Selector Read-Only Mode (November 2025)
 Enhanced tournament selector behavior in read-only mode:
 - Tournament selector displays as static, non-interactive element when `?view=readonly` parameter is present
