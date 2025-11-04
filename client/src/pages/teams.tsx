@@ -66,6 +66,7 @@ export default function Teams() {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
+  const [deletionImpact, setDeletionImpact] = useState<{ matchCount: number; resultCount: number } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -175,14 +176,35 @@ export default function Teams() {
     },
   });
 
+  const handleDeleteClick = async (team: Team) => {
+    try {
+      const response = await fetch(`/api/teams/${team.id}/deletion-impact`);
+      if (!response.ok) throw new Error("Failed to fetch deletion impact");
+      const impact = await response.json();
+      setDeletionImpact(impact);
+      setDeletingTeam(team);
+    } catch (error) {
+      console.error("Error fetching deletion impact:", error);
+      toast({
+        title: "Error",
+        description: "Failed to check deletion impact. Please try again.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+  };
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/teams/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setDeletingTeam(null);
+      setDeletionImpact(null);
       toast({
         title: "Team deleted",
-        description: "The team has been removed from the tournament.",
+        description: "The team and all associated matches and results have been removed.",
       });
     },
     onError: (error: Error) => {
@@ -1553,7 +1575,7 @@ export default function Teams() {
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  onClick={() => setDeletingTeam(team)}
+                                  onClick={() => handleDeleteClick(team)}
                                   data-testid={`button-delete-${team.id}`}
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -1672,14 +1694,42 @@ export default function Teams() {
           </div>
         )}
 
-        <AlertDialog open={!!deletingTeam} onOpenChange={(open) => !open && setDeletingTeam(null)}>
+        <AlertDialog open={!!deletingTeam} onOpenChange={(open) => {
+          if (!open) {
+            setDeletingTeam(null);
+            setDeletionImpact(null);
+          }
+        }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Team</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete{" "}
-                <span className="font-semibold">{deletingTeam?.name}</span>? This
-                action cannot be undone and will remove the team from all matches.
+                {deletionImpact ? (
+                  <>
+                    Are you sure you want to delete{" "}
+                    <span className="font-semibold">{deletingTeam?.name}</span>?
+                    <div className="mt-3 space-y-1.5 text-sm">
+                      <p className="font-medium">This action cannot be undone and will also delete:</p>
+                      <ul className="list-disc list-inside space-y-0.5 ml-2">
+                        <li>
+                          <span className="font-semibold">{deletionImpact.matchCount}</span> match
+                          {deletionImpact.matchCount !== 1 ? "es" : ""} (where this team plays)
+                        </li>
+                        <li>
+                          <span className="font-semibold">{deletionImpact.resultCount}</span> result record
+                          {deletionImpact.resultCount !== 1 ? "s" : ""} (for both teams in those matches)
+                        </li>
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to delete{" "}
+                    <span className="font-semibold">{deletingTeam?.name}</span>? This
+                    action cannot be undone and will also delete all matches and results
+                    associated with this team.
+                  </>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
