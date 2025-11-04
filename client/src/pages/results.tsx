@@ -405,18 +405,20 @@ export default function Results() {
 
   const generateResultsPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    const pageHeight = doc.internal.pageSize.height;
+    const bottomMargin = 20;
     
-    doc.setFontSize(18);
-    doc.text('Match Results Report', 14, 15);
+    doc.setFontSize(14);
+    doc.text('Match Results Report', 14, 12);
     
-    doc.setFontSize(10);
-    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 22);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+    doc.setFontSize(9);
+    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 23);
     if (stageFilter !== "all") {
-      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 32);
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 28);
     }
     
-    let startY = stageFilter !== "all" ? 37 : 32;
+    let startY = stageFilter !== "all" ? 33 : 28;
     
     groupedByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
       // Add stage header
@@ -424,21 +426,29 @@ export default function Results() {
         startY += 10; // Add spacing between stages
       }
       
-      doc.setFontSize(14);
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text(`Stage: ${stageLabels[stage as keyof typeof stageLabels]}`, 14, startY);
       doc.setFont('helvetica', 'normal');
-      startY += 7;
+      startY += 6;
       
       divisions.forEach(([division, divisionResults], divIndex) => {
-        // Add division header
-        if (divIndex > 0) {
-          startY += 8; // Add spacing between divisions within a stage
+        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+        
+        // Estimate space needed for this division
+        // Header (5) + table header (~8) + rows (results.length * ~5) + spacing
+        const estimatedHeight = 5 + 8 + (divisionResults.length * 5) + 10;
+        
+        // Check if division will fit on current page
+        if (startY + estimatedHeight > pageHeight - bottomMargin && divIndex > 0) {
+          doc.addPage();
+          startY = 20; // Start near top of new page
+        } else if (divIndex > 0) {
+          startY += 8; // Add spacing between divisions within a stage on same page
         }
         
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
         doc.text(divisionLabel, 14, startY);
         doc.setFont('helvetica', 'normal');
         startY += 5;
@@ -495,18 +505,20 @@ export default function Results() {
 
   const generateSummaryPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    const pageHeight = doc.internal.pageSize.height;
+    const bottomMargin = 20;
     
-    doc.setFontSize(18);
-    doc.text('Team Summary Statistics', 14, 15);
+    doc.setFontSize(14);
+    doc.text('Team Summary Statistics', 14, 12);
     
-    doc.setFontSize(10);
-    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 22);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 27);
+    doc.setFontSize(9);
+    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 23);
     if (stageFilter !== "all") {
-      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 32);
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 28);
     }
     
-    let startY = stageFilter !== "all" ? 37 : 32;
+    let startY = stageFilter !== "all" ? 33 : 28;
     
     teamSummariesByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
       // Add stage header
@@ -514,21 +526,29 @@ export default function Results() {
         startY += 10; // Add spacing between stages
       }
       
-      doc.setFontSize(14);
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text(`Stage: ${stageLabels[stage as keyof typeof stageLabels]}`, 14, startY);
       doc.setFont('helvetica', 'normal');
-      startY += 7;
+      startY += 6;
       
       divisions.forEach(([division, divisionSummaries], divIndex) => {
-        // Add division header
-        if (divIndex > 0) {
-          startY += 8; // Add spacing between divisions within a stage
+        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+        
+        // Estimate space needed for this division
+        // Header (5) + table header (~10) + rows (summaries.length * ~7) + spacing
+        const estimatedHeight = 5 + 10 + (divisionSummaries.length * 7) + 10;
+        
+        // Check if division will fit on current page
+        if (startY + estimatedHeight > pageHeight - bottomMargin && divIndex > 0) {
+          doc.addPage();
+          startY = 20; // Start near top of new page
+        } else if (divIndex > 0) {
+          startY += 8; // Add spacing between divisions within a stage on same page
         }
         
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
         doc.text(divisionLabel, 14, startY);
         doc.setFont('helvetica', 'normal');
         startY += 5;

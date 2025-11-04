@@ -873,26 +873,36 @@ export default function Matches() {
       orientation: 'landscape',
       compress: true
     });
+    const pageHeight = doc.internal.pageSize.height;
+    const bottomMargin = 20;
     
     // Add title
-    doc.setFontSize(16);
-    doc.text("Boules Tournament - Matches Report", 14, 15);
+    doc.setFontSize(14);
+    doc.text("Boules Tournament - Matches Report", 14, 12);
     
     // Add generation date
     doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 18);
     
-    let startY = 28;
+    let startY = 24;
     
     groupedByDivision.forEach(([division, divisionMatches], index) => {
-      // Add division header
-      if (index > 0) {
-        startY += 10; // Add spacing between divisions
+      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+      
+      // Estimate space needed for this division
+      // Header (5) + table header (~8) + rows (matches.length * ~6) + spacing
+      const estimatedHeight = 5 + 8 + (divisionMatches.length * 6) + 10;
+      
+      // Check if division will fit on current page
+      if (startY + estimatedHeight > pageHeight - bottomMargin && index > 0) {
+        doc.addPage();
+        startY = 20; // Start near top of new page
+      } else if (index > 0) {
+        startY += 10; // Add spacing between divisions on same page
       }
       
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
       doc.text(divisionLabel, 14, startY);
       doc.setFont('helvetica', 'normal');
       startY += 5;
