@@ -15,6 +15,7 @@ export interface IStorage {
   getTeam(id: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: string, team: InsertTeam): Promise<Team | undefined>;
+  getTeamDeletionImpact(id: string): Promise<{ matchCount: number; resultCount: number }>;
   deleteTeam(id: string): Promise<boolean>;
   deleteAllTeams(tournamentId?: string): Promise<boolean>;
   
@@ -169,6 +170,27 @@ export class DatabaseStorage implements IStorage {
     }
     
     return updatedTeam || undefined;
+  }
+
+  async getTeamDeletionImpact(id: string): Promise<{ matchCount: number; resultCount: number }> {
+    // Get all matches for this team
+    const teamMatches = await db.select().from(matches).where(
+      or(
+        eq(matches.team1Id, id),
+        eq(matches.team2Id, id)
+      )
+    );
+    
+    const matchCount = teamMatches.length;
+    
+    // Count results for all these matches (2 results per match - one for each team)
+    let resultCount = 0;
+    for (const match of teamMatches) {
+      const matchResults = await db.select().from(results).where(eq(results.matchId, match.id));
+      resultCount += matchResults.length;
+    }
+    
+    return { matchCount, resultCount };
   }
 
   async deleteTeam(id: string): Promise<boolean> {

@@ -137,6 +137,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/teams/:id/deletion-impact", async (req, res) => {
+    try {
+      const impact = await storage.getTeamDeletionImpact(req.params.id);
+      res.json(impact);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get deletion impact" });
+    }
+  });
+
   app.delete("/api/teams/:id", async (req, res) => {
     try {
       const deleted = await storage.deleteTeam(req.params.id);
