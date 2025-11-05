@@ -264,12 +264,12 @@ export default function Results() {
   }, [filteredResults]);
 
   const teamSummariesByStageAndDivision = useMemo(() => {
-    if (!filteredResults || filteredResults.length === 0) return [];
+    if (!results || results.length === 0) return [];
 
-    // Group results by stage and team
+    // Group results by stage and team (use all results, not filtered)
     const stageGroups = new Map<string, Map<string, (TeamSummary & { division: string | null })>>();
 
-    filteredResults.forEach(result => {
+    results.forEach(result => {
       const stage = result.stage;
       
       if (!stageGroups.has(stage)) {
@@ -337,7 +337,7 @@ export default function Results() {
 
       return [stage, sortedDivisions] as [string, [string, (TeamSummary & { division: string | null })[]][]];
     });
-  }, [filteredResults]);
+  }, [results]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
@@ -509,16 +509,13 @@ export default function Results() {
     const bottomMargin = 20;
     
     doc.setFontSize(14);
-    doc.text('Team Summary Statistics', 14, 12);
+    doc.text('Team Summary Statistics - All Stages', 14, 12);
     
     doc.setFontSize(9);
     doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 23);
-    if (stageFilter !== "all") {
-      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 28);
-    }
     
-    let startY = stageFilter !== "all" ? 33 : 28;
+    let startY = 28;
     
     teamSummariesByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
       // Add stage header
@@ -699,8 +696,7 @@ export default function Results() {
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
                         <DialogTitle>
-                          Team Summary Statistics
-                          {stageFilter !== "all" && ` - ${stageLabels[stageFilter as keyof typeof stageLabels]}`}
+                          Team Summary Statistics - All Stages
                         </DialogTitle>
                         <p className="text-sm text-muted-foreground">
                           {currentTournament?.name} • {new Date().toLocaleString()}
