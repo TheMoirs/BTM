@@ -49,10 +49,19 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 ### Features
 - **Teams Management**: Add individually or bulk import via Excel. Supports inline editing and "Edit All" mode for bulk updates. Division changes are prevented once a team has any matches.
 - **Matches Management & Reporting**: View, edit, track matches. Generate PDF reports grouped by stage. Edit All mode with keyboard navigation for efficient score entry.
-- **Results Summary & Reports**: View team statistics and match results grouped by Stage, then Division. PDF reports include tournament name and timestamp.
+- **Results Summary & Reports**: View team statistics and match results. The detailed results table can be filtered by stage. The Summary dialog always shows all stages grouped by Stage → Division, providing a complete tournament overview regardless of filter settings. PDF reports include tournament name and timestamp.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+
+### Results Summary Stage Grouping (November 2025)
+Enhanced Results Summary dialog to provide a complete tournament overview:
+- Summary dialog now always shows all stages grouped by Stage → Division, regardless of stage filter setting
+- The detailed results table can be filtered to show specific stages (Initial, Quarter-Finals, Semi-Finals, Finals)
+- The Summary dialog displays all available stages to give users a complete view of the tournament
+- Dialog title updated to "Team Summary Statistics - All Stages" for clarity
+- Summary PDF report also shows all stages with title updated accordingly
+- This separation allows users to filter the detailed view while maintaining a comprehensive summary
 
 ### Match Completion Rule Update (November 2025)
 Changed match completion logic to be more flexible and user-friendly:
