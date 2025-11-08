@@ -124,7 +124,7 @@ export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;
 export const results = pgTable("results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
-  matchId: varchar("match_id").notNull(),
+  matchId: varchar("match_id").notNull().references(() => matches.id, { onDelete: "cascade" }),
   matchInfo: text("match_info").notNull(),
   matchDate: text("match_date"),
   stage: text("stage").notNull(),

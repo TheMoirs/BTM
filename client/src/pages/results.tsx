@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { Result } from "@shared/schema";
+import type { Result, Team } from "@shared/schema";
 import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
@@ -88,6 +88,17 @@ export default function Results() {
       if (!currentTournament) return [];
       const response = await fetch(`/api/results?tournamentId=${currentTournament.id}`);
       if (!response.ok) throw new Error("Failed to fetch results");
+      return response.json();
+    },
+    enabled: !!currentTournament,
+  });
+
+  const { data: teams } = useQuery<Team[]>({
+    queryKey: ["/api/teams", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await fetch(`/api/teams?tournamentId=${currentTournament.id}`);
+      if (!response.ok) throw new Error("Failed to fetch teams");
       return response.json();
     },
     enabled: !!currentTournament,
@@ -264,24 +275,18 @@ export default function Results() {
   }, [filteredResults]);
 
   const teamSummariesByStageAndDivision = useMemo(() => {
-    if (!results || results.length === 0) return [];
-
     // Group results by stage and team (use all results, not filtered)
     const stageGroups = new Map<string, Map<string, (TeamSummary & { division: string | null })>>();
 
-    results.forEach(result => {
-      const stage = result.stage;
+    // Add Initial stage with all teams if teams data is available
+    if (teams && teams.length > 0) {
+      const initialTeamMap = new Map<string, TeamSummary & { division: string | null }>();
       
-      if (!stageGroups.has(stage)) {
-        stageGroups.set(stage, new Map<string, TeamSummary & { division: string | null }>());
-      }
-      
-      const teamMap = stageGroups.get(stage)!;
-      
-      if (!teamMap.has(result.teamName)) {
-        teamMap.set(result.teamName, {
-          teamName: result.teamName,
-          division: result.division,
+      // Initialize all teams with zero stats
+      teams.forEach(team => {
+        initialTeamMap.set(team.name, {
+          teamName: team.name,
+          division: team.division,
           gamesPlayed: 0,
           gamesWon: 0,
           gamesDrawn: 0,
@@ -291,21 +296,54 @@ export default function Results() {
           scoreAgainst: 0,
           scoreDifference: 0,
         });
-      }
+      });
+      
+      stageGroups.set('initial', initialTeamMap);
+    }
 
-      const summary = teamMap.get(result.teamName)!;
-      if (result.division && !summary.division) {
-        summary.division = result.division;
-      }
-      summary.gamesPlayed += result.gamesPlayed;
-      summary.gamesWon += result.gamesWon;
-      summary.gamesLost += result.gamesLost;
-      summary.gamesDrawn += result.gamesDrawn;
-      summary.points += result.points;
-      summary.scoreFor += result.scoreFor;
-      summary.scoreAgainst += result.scoreAgainst;
-      summary.scoreDifference += result.scoreDifference;
-    });
+    // Process results and update team stats
+    if (results && results.length > 0) {
+      results.forEach(result => {
+        const stage = result.stage;
+        
+        if (!stageGroups.has(stage)) {
+          stageGroups.set(stage, new Map<string, TeamSummary & { division: string | null }>());
+        }
+        
+        const teamMap = stageGroups.get(stage)!;
+        
+        if (!teamMap.has(result.teamName)) {
+          teamMap.set(result.teamName, {
+            teamName: result.teamName,
+            division: result.division,
+            gamesPlayed: 0,
+            gamesWon: 0,
+            gamesDrawn: 0,
+            gamesLost: 0,
+            points: 0,
+            scoreFor: 0,
+            scoreAgainst: 0,
+            scoreDifference: 0,
+          });
+        }
+
+        const summary = teamMap.get(result.teamName)!;
+        if (result.division && !summary.division) {
+          summary.division = result.division;
+        }
+        summary.gamesPlayed += result.gamesPlayed;
+        summary.gamesWon += result.gamesWon;
+        summary.gamesLost += result.gamesLost;
+        summary.gamesDrawn += result.gamesDrawn;
+        summary.points += result.points;
+        summary.scoreFor += result.scoreFor;
+        summary.scoreAgainst += result.scoreAgainst;
+        summary.scoreDifference += result.scoreDifference;
+      });
+    }
+
+    // If no stages exist, return empty array
+    if (stageGroups.size === 0) return [];
 
     // Sort stages in tournament progression order
     const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals'];
@@ -337,7 +375,7 @@ export default function Results() {
 
       return [stage, sortedDivisions] as [string, [string, (TeamSummary & { division: string | null })[]][]];
     });
-  }, [results]);
+  }, [results, teams]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
