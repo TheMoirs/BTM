@@ -54,6 +54,23 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 
 ## Recent Changes
 
+### Match Deletion Cascade (November 2025)
+Enhanced database integrity for match and results relationship:
+- Added foreign key constraint from `results.matchId` to `matches.id` with `onDelete: "cascade"`
+- Deleting a match now automatically removes all associated results from the database
+- Prevents orphaned result records when matches are deleted
+- Database-level enforcement ensures data consistency
+- Verified via E2E testing: deleting a match reduced results count from 4 to 2
+
+### Initial Stage Summary Shows All Teams (November 2025)
+Enhanced Results Summary to provide complete tournament visibility:
+- Initial stage summary now displays ALL teams from the tournament, even those without matches
+- Teams without matches show zeros for all statistics (0 played, 0 won, 0 points, etc.)
+- Playoff stages (Quarter-Finals, Semi-Finals, Finals) continue to show only teams with results
+- Implementation: fetches all teams and pre-seeds Initial stage map with zeroed stats
+- Provides better tournament overview at start when not all teams have played matches yet
+- Verified via E2E testing: Initial stage displays all teams with zeros for teams without matches
+
 ### Results Summary Stage Grouping (November 2025)
 Enhanced Results Summary dialog to provide a complete tournament overview:
 - Summary dialog now always shows all stages grouped by Stage → Division, regardless of stage filter setting
