@@ -194,20 +194,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTeam(id: string): Promise<boolean> {
-    // Get all matches for this team to delete their results
-    const teamMatches = await db.select().from(matches).where(
-      or(
-        eq(matches.team1Id, id),
-        eq(matches.team2Id, id)
-      )
-    );
-    
-    // Delete results for all these matches
-    for (const match of teamMatches) {
-      await this.deleteResultsByMatchId(match.id);
-    }
-    
-    // Delete matches
+    // Delete matches (results are automatically deleted via CASCADE constraint)
     await db.delete(matches).where(
       or(
         eq(matches.team1Id, id),
@@ -222,16 +209,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllTeams(tournamentId?: string): Promise<boolean> {
     if (tournamentId) {
-      // Delete all results for this tournament first
-      await this.deleteAllResults(tournamentId);
-      // Delete all matches for this tournament
+      // Delete matches (results are automatically deleted via CASCADE constraint)
       await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
       // Delete all teams for this tournament
       await db.delete(teams).where(eq(teams.tournamentId, tournamentId));
     } else {
-      // Delete all results first
-      await this.deleteAllResults();
-      // Delete all matches
+      // Delete matches (results are automatically deleted via CASCADE constraint)
       await db.delete(matches);
       // Delete all teams
       await db.delete(teams);
@@ -547,22 +530,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMatch(id: string): Promise<boolean> {
-    // Delete associated results first
-    await this.deleteResultsByMatchId(id);
+    // Results are automatically deleted via CASCADE constraint
     const result = await db.delete(matches).where(eq(matches.id, id)).returning();
     return result.length > 0;
   }
 
   async deleteAllMatches(tournamentId?: string): Promise<boolean> {
     if (tournamentId) {
-      // Delete all results for this tournament first
-      await this.deleteAllResults(tournamentId);
-      // Delete all matches for this tournament
+      // Results are automatically deleted via CASCADE constraint
       await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
     } else {
-      // Delete all results first
-      await this.deleteAllResults();
-      // Delete all matches
+      // Results are automatically deleted via CASCADE constraint
       await db.delete(matches);
     }
     return true;

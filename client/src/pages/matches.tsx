@@ -218,6 +218,7 @@ export default function Matches() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/matches/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results", currentTournament?.id] });
       setDeletingMatch(null);
       toast({
         title: "Match deleted",
