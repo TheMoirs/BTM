@@ -68,8 +68,9 @@ Enhanced Results Summary to provide complete tournament visibility:
 - Teams without matches show zeros for all statistics (0 played, 0 won, 0 points, etc.)
 - Playoff stages (Quarter-Finals, Semi-Finals, Finals) continue to show only teams with results
 - Implementation: fetches all teams and pre-seeds Initial stage map with zeroed stats
+- Sorting logic: teams with results appear first (sorted by points/score difference), teams without results appear after (sorted alphabetically)
 - Provides better tournament overview at start when not all teams have played matches yet
-- Verified via E2E testing: Initial stage displays all teams with zeros for teams without matches
+- Verified via E2E testing: Initial stage displays all teams with correct sorting
 
 ### Results Summary Stage Grouping (November 2025)
 Enhanced Results Summary dialog to provide a complete tournament overview:

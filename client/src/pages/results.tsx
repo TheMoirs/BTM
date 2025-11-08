@@ -353,10 +353,23 @@ export default function Results() {
 
     // For each stage, group teams by division
     return sortedStages.map(([stage, teamMap]) => {
-      const summaries = Array.from(teamMap.values()).sort((a, b) => {
+      const allSummaries = Array.from(teamMap.values());
+      
+      // Separate teams with results from teams without results
+      const teamsWithResults = allSummaries.filter(s => s.gamesPlayed > 0);
+      const teamsWithoutResults = allSummaries.filter(s => s.gamesPlayed === 0);
+      
+      // Sort teams with results by points and score difference
+      teamsWithResults.sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points;
         return b.scoreDifference - a.scoreDifference;
       });
+      
+      // Sort teams without results alphabetically
+      teamsWithoutResults.sort((a, b) => a.teamName.localeCompare(b.teamName));
+      
+      // Combine: teams with results first, then teams without results
+      const summaries = [...teamsWithResults, ...teamsWithoutResults];
 
       const divisionGroups = new Map<string, (TeamSummary & { division: string | null })[]>();
       summaries.forEach(summary => {
