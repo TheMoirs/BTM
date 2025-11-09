@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isMobileDevice } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +46,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -869,10 +870,8 @@ export default function Matches() {
   };
 
   const generatePDFDocument = () => {
-    // Use landscape orientation for better fit, with compression to reduce size
     const doc = new jsPDF({ 
-      orientation: 'landscape',
-      compress: true
+      orientation: 'landscape'
     });
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
@@ -992,27 +991,45 @@ export default function Matches() {
   };
 
   const openPdfViewer = () => {
-    // Clean up any existing blob URL first (not data URLs)
     if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
       URL.revokeObjectURL(pdfBlobUrl);
     }
     
     const doc = generatePDFDocument();
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
     
-    // Detect mobile devices - use data URL instead of blob URL for better mobile compatibility
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    let pdfUrl: string;
-    if (isMobile) {
-      // Data URL works better on mobile browsers (especially Android)
-      pdfUrl = doc.output('dataurlstring');
+    if (isMobileDevice()) {
+      const popup = window.open(url, '_blank');
+      
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        toast({
+          title: "PDF Ready",
+          description: "If the PDF didn't open automatically, click the Download button below.",
+          duration: Infinity,
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = url;
+                const tournamentName = currentTournament?.name || 'Tournament';
+                link.download = `${tournamentName} - Matches.pdf`;
+                link.click();
+              }}
+            >
+              Download
+            </Button>
+          ),
+        });
+      }
+      
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
-      // Blob URL for desktop (more efficient)
-      pdfUrl = doc.output('bloburl') as unknown as string;
+      setPdfBlobUrl(url);
+      setShowPdfViewer(true);
     }
-    
-    setPdfBlobUrl(pdfUrl);
-    setShowPdfViewer(true);
   };
 
   const handlePdfSave = () => {
@@ -1789,6 +1806,14 @@ export default function Matches() {
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Save
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
+                  data-testid="button-open-new-tab-pdf"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in New Tab
                 </Button>
                 <Button
                   variant="outline"
