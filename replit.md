@@ -60,8 +60,12 @@ Added division filtering capability to Teams page for easier team management:
 - Filter only shows divisions that currently have teams (cleaner UX, avoids empty options)
 - Selecting a division shows only teams from that division
 - Empty state message appears if filtered division has no teams (with "Show All Divisions" reset button)
-- Filter integrates seamlessly with existing Teams page features (Edit All, PDF export, Email, etc.)
-- Verified via E2E testing: filter correctly shows/hides divisions and teams based on selection
+- **PDF Export & Email Integration**: PDF and Email buttons now respect the division filter
+  - PDF export only includes teams from the selected division (or all teams if "All Divisions" is selected)
+  - Email button only includes captain email addresses from teams in the selected division
+  - Context-aware error messages show team counts and division names when filtered teams lack emails
+  - Example: "None of the 5 teams in Division B have captain email addresses"
+- Verified via E2E testing: filter correctly shows/hides divisions, PDF exports filtered teams, Email uses filtered addresses
 
 ### Match Deletion Cascade (November 2025)
 Enhanced database integrity for match and results relationship:
