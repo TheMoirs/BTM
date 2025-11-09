@@ -47,12 +47,21 @@ Boules Tournament Manager is a web application for managing multiple boules tour
     - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
 
 ### Features
-- **Teams Management**: Add individually or bulk import via Excel. Supports inline editing and "Edit All" mode for bulk updates. Division changes are prevented once a team has any matches.
+- **Teams Management**: Add individually or bulk import via Excel. Supports inline editing and "Edit All" mode for bulk updates. Division changes are prevented once a team has any matches. Division filter allows viewing teams from specific divisions.
 - **Matches Management & Reporting**: View, edit, track matches. Generate PDF reports grouped by stage. Edit All mode with keyboard navigation for efficient score entry.
 - **Results Summary & Reports**: View team statistics and match results. The detailed results table can be filtered by stage. The Summary dialog always shows all stages grouped by Stage → Division, providing a complete tournament overview regardless of filter settings. PDF reports include tournament name and timestamp.
 - **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls. Auto-opens Results Summary in read-only mode.
 
 ## Recent Changes
+
+### Division Filter on Teams Page (November 2025)
+Added division filtering capability to Teams page for easier team management:
+- Division filter dropdown appears when teams exist, allowing selection of specific divisions or "All Divisions"
+- Filter only shows divisions that currently have teams (cleaner UX, avoids empty options)
+- Selecting a division shows only teams from that division
+- Empty state message appears if filtered division has no teams (with "Show All Divisions" reset button)
+- Filter integrates seamlessly with existing Teams page features (Edit All, PDF export, Email, etc.)
+- Verified via E2E testing: filter correctly shows/hides divisions and teams based on selection
 
 ### Match Deletion Cascade (November 2025)
 Enhanced database integrity for match and results relationship:
