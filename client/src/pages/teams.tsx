@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isMobileDevice } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import * as XLSX from "xlsx";
@@ -925,19 +926,39 @@ export default function Teams() {
     }
     
     const doc = generatePDFDocument();
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
     
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      const pdfDataUrl = doc.output('dataurlstring');
-      setPdfBlobUrl(pdfDataUrl);
+    if (isMobileDevice()) {
+      const popup = window.open(url, '_blank');
+      
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        toast({
+          title: "PDF Ready",
+          description: "If the PDF didn't open automatically, click the Download button below.",
+          duration: Infinity,
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `teams-report-${new Date().toISOString().split('T')[0]}.pdf`;
+                link.click();
+              }}
+            >
+              Download
+            </Button>
+          ),
+        });
+      }
+      
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
       setPdfBlobUrl(url);
+      setShowPdfViewer(true);
     }
-    
-    setShowPdfViewer(true);
   };
 
   const handlePdfSave = () => {
@@ -1926,6 +1947,14 @@ export default function Teams() {
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Save
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
+                  data-testid="button-open-new-tab-pdf"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in New Tab
                 </Button>
                 <Button
                   variant="outline"
