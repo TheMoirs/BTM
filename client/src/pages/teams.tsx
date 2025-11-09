@@ -839,7 +839,7 @@ export default function Teams() {
   };
 
   const generatePDFDocument = () => {
-    const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    const doc = new jsPDF({ orientation: 'landscape' });
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     

@@ -455,7 +455,7 @@ export default function Results() {
   }, [results]);
 
   const generateResultsPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    const doc = new jsPDF({ orientation: 'landscape' });
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
@@ -555,7 +555,7 @@ export default function Results() {
   };
 
   const generateSummaryPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape', compress: true });
+    const doc = new jsPDF({ orientation: 'landscape' });
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
