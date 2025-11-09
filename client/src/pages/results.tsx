@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -648,77 +648,47 @@ export default function Results() {
     return doc;
   };
 
-  const openPdfViewer = () => {
+  const openPdfViewer = async () => {
     const doc = generateResultsPDF();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const filename = `${tournamentName} - Results.pdf`;
     
     if (isMobileDevice()) {
-      const popup = window.open(url, '_blank');
-      
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      const success = await openPdfMobile(doc, filename);
+      if (!success) {
         toast({
-          title: "PDF Ready",
-          description: "If the PDF didn't open automatically, click the Download button below.",
+          title: "PDF Error",
+          description: "Failed to open PDF. Please try again.",
+          variant: "destructive",
           duration: Infinity,
-          action: (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = url;
-                const tournamentName = currentTournament?.name || 'Tournament';
-                link.download = `${tournamentName} - Results.pdf`;
-                link.click();
-              }}
-            >
-              Download
-            </Button>
-          ),
         });
       }
-      
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
       setPdfBlobUrl(url);
       setShowPdfViewer(true);
     }
   };
 
-  const openSummaryPdfViewer = () => {
+  const openSummaryPdfViewer = async () => {
     const doc = generateSummaryPDF();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const filename = `${tournamentName} - Summary.pdf`;
     
     if (isMobileDevice()) {
-      const popup = window.open(url, '_blank');
-      
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      const success = await openPdfMobile(doc, filename);
+      if (!success) {
         toast({
-          title: "PDF Ready",
-          description: "If the PDF didn't open automatically, click the Download button below.",
+          title: "PDF Error",
+          description: "Failed to open PDF. Please try again.",
+          variant: "destructive",
           duration: Infinity,
-          action: (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = url;
-                const tournamentName = currentTournament?.name || 'Tournament';
-                link.download = `${tournamentName} - Summary.pdf`;
-                link.click();
-              }}
-            >
-              Download
-            </Button>
-          ),
         });
       }
-      
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
       setSummaryPdfBlobUrl(url);
       setShowSummaryPdfViewer(true);
     }
