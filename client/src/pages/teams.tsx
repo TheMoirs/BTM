@@ -851,7 +851,7 @@ export default function Teams() {
     
     let startY = 24;
     
-    groupedByDivision.forEach(([division, divisionTeams], index) => {
+    filteredGroupedByDivision.forEach(([division, divisionTeams], index) => {
       const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
       
       // Conservative estimate for space needed (accounting for text wrapping)
@@ -912,6 +912,18 @@ export default function Teams() {
   };
 
   const openPdfViewer = () => {
+    if (filteredGroupedByDivision.length === 0) {
+      toast({
+        title: "No teams to export",
+        description: divisionFilter === "all" 
+          ? "There are no teams to include in the PDF." 
+          : "There are no teams in the selected division.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+    
     const doc = generatePDFDocument();
     
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -980,24 +992,29 @@ export default function Teams() {
   };
 
   const handleEmailCaptains = () => {
-    if (!teams || teams.length === 0) {
+    if (filteredGroupedByDivision.length === 0) {
       toast({
-        title: "No teams available",
-        description: "There are no teams to email.",
+        title: "No teams to email",
+        description: divisionFilter === "all" 
+          ? "There are no teams registered yet." 
+          : `No teams found in Division ${divisionFilter}.`,
         variant: "destructive",
         duration: Infinity,
       });
       return;
     }
 
-    const emailAddresses = teams
-      .map(team => team.captainEmail?.trim())
-      .filter(email => email && email.length > 0);
+    const filteredTeams = filteredGroupedByDivision.flatMap(([_, teams]) => teams);
+    const teamsWithEmail = filteredTeams.filter(team => team.captainEmail?.trim());
+    const emailAddresses = teamsWithEmail.map(team => team.captainEmail!.trim());
 
     if (emailAddresses.length === 0) {
+      const teamCount = filteredTeams.length;
       toast({
-        title: "No email addresses",
-        description: "No teams have captain email addresses.",
+        title: "No email addresses available",
+        description: divisionFilter === "all" 
+          ? `None of the ${teamCount} registered team${teamCount === 1 ? '' : 's'} have captain email addresses.`
+          : `None of the ${teamCount} team${teamCount === 1 ? '' : 's'} in Division ${divisionFilter} have captain email addresses.`,
         variant: "destructive",
         duration: Infinity,
       });
