@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isMobileDevice } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +30,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Result, Team } from "@shared/schema";
-import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2 } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -649,30 +650,78 @@ export default function Results() {
 
   const openPdfViewer = () => {
     const doc = generateResultsPDF();
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
     
-    if (isMobile) {
-      setPdfBlobUrl(doc.output('dataurlstring'));
+    if (isMobileDevice()) {
+      const popup = window.open(url, '_blank');
+      
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        toast({
+          title: "PDF Ready",
+          description: "If the PDF didn't open automatically, click the Download button below.",
+          duration: Infinity,
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = url;
+                const tournamentName = currentTournament?.name || 'Tournament';
+                link.download = `${tournamentName} - Results.pdf`;
+                link.click();
+              }}
+            >
+              Download
+            </Button>
+          ),
+        });
+      }
+      
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
-      const pdfBlob = doc.output('blob');
-      setPdfBlobUrl(URL.createObjectURL(pdfBlob));
+      setPdfBlobUrl(url);
+      setShowPdfViewer(true);
     }
-    
-    setShowPdfViewer(true);
   };
 
   const openSummaryPdfViewer = () => {
     const doc = generateSummaryPDF();
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
     
-    if (isMobile) {
-      setSummaryPdfBlobUrl(doc.output('dataurlstring'));
+    if (isMobileDevice()) {
+      const popup = window.open(url, '_blank');
+      
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        toast({
+          title: "PDF Ready",
+          description: "If the PDF didn't open automatically, click the Download button below.",
+          duration: Infinity,
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = url;
+                const tournamentName = currentTournament?.name || 'Tournament';
+                link.download = `${tournamentName} - Summary.pdf`;
+                link.click();
+              }}
+            >
+              Download
+            </Button>
+          ),
+        });
+      }
+      
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } else {
-      const pdfBlob = doc.output('blob');
-      setSummaryPdfBlobUrl(URL.createObjectURL(pdfBlob));
+      setSummaryPdfBlobUrl(url);
+      setShowSummaryPdfViewer(true);
     }
-    
-    setShowSummaryPdfViewer(true);
   };
 
   const handlePdfSave = (isSummary: boolean) => {
@@ -1270,6 +1319,14 @@ export default function Results() {
               </Button>
               <Button
                 variant="outline"
+                onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
+                data-testid="button-open-new-tab-pdf"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in New Tab
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => handlePdfPrint(false)}
                 data-testid="button-print-pdf"
               >
@@ -1315,6 +1372,14 @@ export default function Results() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 Save
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => summaryPdfBlobUrl && window.open(summaryPdfBlobUrl, '_blank')}
+                data-testid="button-open-new-tab-summary-pdf"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in New Tab
               </Button>
               <Button
                 variant="outline"
