@@ -1,7 +1,7 @@
 # Boules Tournament Manager
 
 ## Overview
-Boules Tournament Manager is a web application for managing multiple boules tournaments. It handles team registration, tracks match progress through various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry via Excel imports. The application allows users to create and manage independent tournaments, each with isolated data. The business vision is to provide a comprehensive, user-friendly SaaS platform for boules tournament management with a modern design and efficient workflows.
+Boules Tournament Manager is a web application designed to manage multiple boules tournaments. It facilitates team registration, tracks match progress across various stages (initial rounds, quarter-finals, semi-finals, finals), and supports bulk data entry through Excel imports. The application allows users to create and manage independent tournaments, each with isolated data. The business vision is to provide a comprehensive, user-friendly SaaS platform for boules tournament management with a modern design and efficient workflows.
 
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
@@ -9,159 +9,46 @@ Boules Tournament Manager is a web application for managing multiple boules tour
 
 ## System Architecture
 
-### Frontend
-- **Frameworks**: React 18 with TypeScript, Vite, Wouter, TanStack Query.
-- **UI/UX**: shadcn/ui components (Radix UI base), Tailwind CSS ("new-york" variant), Inter font for UI, JetBrains Mono for numerical data, responsive grid layouts.
-- **State Management**: React Query for server state, React Hook Form with Zod for form state.
+### UI/UX Decisions
+- **Frameworks**: React 18 with TypeScript, Vite, Wouter.
+- **Components**: shadcn/ui (Radix UI base).
+- **Styling**: Tailwind CSS ("new-york" variant).
+- **Typography**: Inter font for UI, JetBrains Mono for numerical data.
+- **Layout**: Responsive grid layouts.
+- **State Management**: TanStack Query for server state, React Hook Form with Zod for form state.
 
-### Backend
-- **Framework**: Express.js with TypeScript and Node.js.
-- **API Design**: RESTful API.
-- **Validation**: Zod schemas.
-
-### Data Storage
-- **ORM & Database**: Drizzle ORM, PostgreSQL via Neon serverless driver.
-- **Data Model**: Includes `Teams`, `Matches`, and `Results` entities with defined fields and relationships.
-    - **Teams**: Unique name, captain details. Division defaults to 'A'.
+### Technical Implementations
+- **Backend**: Express.js with TypeScript and Node.js, RESTful API, Zod for validation.
+- **Data Storage**: PostgreSQL via Neon serverless driver, Drizzle ORM.
+- **Data Model**: Includes `Teams`, `Matches`, and `Results` entities.
+    - **Teams**: Unique name, captain details, division (defaults to 'A').
     - **Matches**: Up to 3 game scores, stage, status, winner. Unique constraint on team pairs.
     - **Results**: Generated from match outcomes, records match info and game statistics.
-- **Match System**: Up to 3 games per match. Matches are marked as "completed" once 1 or more complete game results (both teams' scores) are entered, regardless of `gamesPerMatch` setting. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 for win, 1 for draw, 0 for loss).
+- **Match System**: Matches are "completed" when 1 or more complete game results (both teams' scores) are entered. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 for win, 1 for draw, 0 for loss).
 - **Validation**: Shared Zod schemas for client-server consistency.
-- **Initialization**: Automatic database initialization for unique constraints.
-- **Cascade Deletion**: Enforces data integrity (e.g., deleting a team removes associated matches and results).
+- **Data Integrity**: Automatic database initialization for unique constraints, cascade deletion for related records (e.g., deleting a team removes associated matches and results; deleting a tournament removes all its data).
 
-### Tournament System
-- **Multi-Tournament Support**: Independent tournaments with isolated data.
-- **Tournament Selection**: Dropdown in navigation bar; persists selection via `localStorage` and URL parameters.
-- **Cascade Deletion**: Deleting a tournament removes all associated data.
-- **Configuration**: Name, number of divisions (default 2), games per match (1-5, default 3), stages (e.g., Quarter-finals, Semi-finals, Finals).
+### Feature Specifications
+- **Multi-Tournament Support**: Independent tournaments with isolated data, selectable via navigation bar, persistent selection via `localStorage` and URL.
+- **Tournament Configuration**: Name, number of divisions (default 2), games per match (1-5, default 3), configurable stages.
 - **Tournament Progression**:
     - **Initial Stage**: Round-robin match generation within divisions.
     - **Automatic Stage Advancement**: Generates playoff stages (QF, SF, Finals) when preceding stage is complete.
     - **Seeding**: Traditional playoff pairings based on rankings.
-    - **Team Selection**: Division-aware selection based on tournament configuration:
-        - **Quarter-Finals (8 teams)**: 1 div → top 8; 2 divs → top 4 from each; 3 divs → top 4 from largest, top 2 from others; 4+ divs → top 2 from each of first 4
-        - **Semi-Finals (4 teams)**: 1 div → top 4; 2+ divs → top 2 from each of first 2 divisions
-        - **Finals (2 teams)**: 1 div → top 2; 2+ divs → top 1 from each of first 2 divisions
+    - **Team Selection for Playoffs**: Division-aware selection rules for Quarter-Finals, Semi-Finals, and Finals based on number of divisions.
     - **Ranking Calculation**: Based on latest completed stage results (Points, Score Difference, Score For).
     - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
+- **Teams Management**: Add individually or bulk import via Excel. Inline editing and "Edit All" mode. Division changes restricted if team has matches. Division filtering.
+- **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry.
+- **Results Summary & Reports**: View team statistics and match results. Detailed table filterable by stage. Summary dialog always shows all stages grouped by Stage → Division. PDF reports include tournament name and timestamp.
+- **Read-Only Mode**: Shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls, auto-opens Results Summary. Tournament selector becomes static in this mode.
+- **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
+- **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
 
-### Features
-- **Teams Management**: Add individually or bulk import via Excel. Supports inline editing and "Edit All" mode for bulk updates. Division changes are prevented once a team has any matches. Division filter allows viewing teams from specific divisions.
-- **Matches Management & Reporting**: View, edit, track matches. Generate PDF reports grouped by stage. Edit All mode with keyboard navigation for efficient score entry.
-- **Results Summary & Reports**: View team statistics and match results. The detailed results table can be filtered by stage. The Summary dialog always shows all stages grouped by Stage → Division, providing a complete tournament overview regardless of filter settings. PDF reports include tournament name and timestamp.
-- **Read-Only Mode (View-Only Sharing)**: Generate shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls. Auto-opens Results Summary in read-only mode.
-
-## Recent Changes
-
-### Division Filter on Teams Page (November 2025)
-Added division filtering capability to Teams page for easier team management:
-- Division filter dropdown appears when teams exist, allowing selection of specific divisions or "All Divisions"
-- Filter only shows divisions that currently have teams (cleaner UX, avoids empty options)
-- Selecting a division shows only teams from that division
-- Empty state message appears if filtered division has no teams (with "Show All Divisions" reset button)
-- **PDF Export & Email Integration**: PDF and Email buttons now respect the division filter
-  - PDF export only includes teams from the selected division (or all teams if "All Divisions" is selected)
-  - Email button only includes captain email addresses from teams in the selected division
-  - Context-aware error messages show team counts and division names when filtered teams lack emails
-  - Example: "None of the 5 teams in Division B have captain email addresses"
-- Verified via E2E testing: filter correctly shows/hides divisions, PDF exports filtered teams, Email uses filtered addresses
-
-### Match Deletion Cascade (November 2025)
-Enhanced database integrity for match and results relationship:
-- Added foreign key constraint from `results.matchId` to `matches.id` with `onDelete: "cascade"`
-- Deleting a match now automatically removes all associated results from the database
-- Prevents orphaned result records when matches are deleted
-- Database-level enforcement ensures data consistency
-- Verified via E2E testing: deleting a match reduced results count from 4 to 2
-
-### Initial Stage Summary Shows All Teams (November 2025)
-Enhanced Results Summary to provide complete tournament visibility:
-- Initial stage summary now displays ALL teams from the tournament, even those without matches
-- Teams without matches show zeros for all statistics (0 played, 0 won, 0 points, etc.)
-- Playoff stages (Quarter-Finals, Semi-Finals, Finals) continue to show only teams with results
-- Implementation: fetches all teams and pre-seeds Initial stage map with zeroed stats
-- Sorting logic: teams with results appear first (sorted by points/score difference), teams without results appear after (sorted alphabetically)
-- Provides better tournament overview at start when not all teams have played matches yet
-- Verified via E2E testing: Initial stage displays all teams with correct sorting
-
-### Results Summary Stage Grouping (November 2025)
-Enhanced Results Summary dialog to provide a complete tournament overview:
-- Summary dialog now always shows all stages grouped by Stage → Division, regardless of stage filter setting
-- The detailed results table can be filtered to show specific stages (Initial, Quarter-Finals, Semi-Finals, Finals)
-- The Summary dialog displays all available stages to give users a complete view of the tournament
-- Dialog title updated to "Team Summary Statistics - All Stages" for clarity
-- Summary PDF report also shows all stages with title updated accordingly
-- This separation allows users to filter the detailed view while maintaining a comprehensive summary
-
-### Match Completion Rule Update (November 2025)
-Changed match completion logic to be more flexible and user-friendly:
-- Matches are now marked as "completed" when 1 or more complete game results are entered
-- A "complete game result" means both teams' scores are entered for that game
-- Previously, matches required all games (based on `gamesPerMatch` setting) to be completed
-- New behavior allows matches to be completed with partial game scores (e.g., 1 of 3 games played)
-- Winner determination and points calculation work correctly with partial games
-- Results are automatically generated when match becomes completed
-- Frontend validation ensures both teams' scores must be entered for each game (prevents partial game scores)
-
-### PDF Report Layout Improvements (November 2025)
-Enhanced PDF report generation across Teams, Matches, and Results pages:
-- Data now starts near top of page (y=24-33) instead of halfway down (y=28-37)
-- Added intelligent page break logic to prevent division data from being split across pages
-- Conservative height estimation accounts for text wrapping in table cells
-- Divisions that don't fit on current page automatically start on new page
-- Improved readability and professional appearance of all PDF reports
-- Applied consistently across Teams PDF, Matches PDF, Results PDF, and Summary PDF
-
-### Tournament Selector Read-Only Mode (November 2025)
-Enhanced tournament selector behavior in read-only mode:
-- Tournament selector displays as static, non-interactive element when `?view=readonly` parameter is present
-- No dropdown menu accessible in read-only mode (early return prevents rendering of mutating controls)
-- Users cannot switch tournaments, edit tournament settings, or delete tournaments in read-only mode
-- "View Only" badge indicates read-only status in navigation bar
-- Tournament name and configuration details (divisions, games per match, stages) remain visible but non-editable
-- Implemented via ViewModeContext integration with early return pattern for clean separation of concerns
-- All tournament management operations (create, edit, delete, switch) disabled in read-only mode
-
-### Team Deletion Cascade Warning (November 2025)
-Enhanced team deletion with detailed impact warnings:
-- New API endpoint `/api/teams/:id/deletion-impact` fetches counts of affected matches and results before deletion
-- Delete confirmation dialog now displays exact counts: number of matches and result records to be deleted
-- Clear warning structure: "This action will delete: X matches (where this team plays), Y result records (for both teams in those matches)"
-- Cascade deletion verified: deleting a team removes all matches where team is team1 or team2, plus all results from those matches
-- Improved user safety by showing specific impact before confirming destructive actions
-
-### Keyboard Navigation for Match Scores (November 2025)
-Enhanced data entry workflow in Matches Edit All mode:
-- Removed spinner arrows from number input fields for cleaner interface
-- Arrow key navigation through score fields: Left/Right moves between fields in same row, Up/Down moves to same field in adjacent rows
-- Navigation scoped to division boundaries (doesn't jump between division groups)
-- Field order: Date → Team 1 Game 1-3 → Team 2 Game 1-3
-- Prevents default arrow key behavior to avoid accidental value changes
-- Improves speed and accuracy when entering multiple match scores
-
-### Loading Indicators for Bulk Operations (November 2025)
-Added clear visual feedback during save operations:
-- "Updating - Please Wait" toast notifications display during all bulk operations
-- Teams "Save All" button disables during save, shows "Saving..." text
-- Matches "Save All" button disables during save, shows "Saving..." text
-- Results "Clear All Results" button disables during clear, shows "Clearing..." text
-- Toast messages include operation details (e.g., "Saving 12 team(s)...")
-- Loading state properly managed with finally blocks to prevent stuck buttons
-- Improves user experience by providing clear feedback for operations that may take time
-
-### Mobile PDF Rendering Fix & Dual-Mode Implementation (November 2025)
-Fixed blank PDF issue on mobile devices and implemented dual-mode PDF handling:
-- **Root Cause**: jsPDF `compress: true` option caused PDFs to render as blank pages on mobile devices
-- **Solution**: Removed compression flag from all jsPDF instantiations across the application
-- **Dual-Mode Implementation**: 
-  - **Desktop**: Opens PDF preview dialog with iframe and action buttons (Save, Open in New Tab, Print, Close)
-  - **Mobile**: Directly opens PDF in new tab using `window.open()`, with fallback toast notification if popup is blocked
-- **Mobile Detection**: Added `isMobileDevice()` utility function that checks pointer type, touch capability, and user agent
-- **Enhanced Desktop Experience**: Added "Open in New Tab" button to all PDF preview dialogs for convenient full-screen viewing
-- **Pages Updated**: Teams, Matches, and Results (including both results and summary PDFs)
-- **PDF Naming**: All PDFs include tournament name in filename for better organization
-- Verified via E2E testing: PDFs display correctly on both desktop and mobile, all action buttons work as expected
+### System Design Choices
+- Loading indicators for bulk operations provide visual feedback.
+- Team deletion impact is clearly communicated to the user.
+- Keyboard navigation implemented for efficient match score entry.
 
 ## External Dependencies
 
