@@ -150,6 +150,19 @@ Added clear visual feedback during save operations:
 - Loading state properly managed with finally blocks to prevent stuck buttons
 - Improves user experience by providing clear feedback for operations that may take time
 
+### Mobile PDF Rendering Fix & Dual-Mode Implementation (November 2025)
+Fixed blank PDF issue on mobile devices and implemented dual-mode PDF handling:
+- **Root Cause**: jsPDF `compress: true` option caused PDFs to render as blank pages on mobile devices
+- **Solution**: Removed compression flag from all jsPDF instantiations across the application
+- **Dual-Mode Implementation**: 
+  - **Desktop**: Opens PDF preview dialog with iframe and action buttons (Save, Open in New Tab, Print, Close)
+  - **Mobile**: Directly opens PDF in new tab using `window.open()`, with fallback toast notification if popup is blocked
+- **Mobile Detection**: Added `isMobileDevice()` utility function that checks pointer type, touch capability, and user agent
+- **Enhanced Desktop Experience**: Added "Open in New Tab" button to all PDF preview dialogs for convenient full-screen viewing
+- **Pages Updated**: Teams, Matches, and Results (including both results and summary PDFs)
+- **PDF Naming**: All PDFs include tournament name in filename for better organization
+- Verified via E2E testing: PDFs display correctly on both desktop and mobile, all action buttons work as expected
+
 ## External Dependencies
 
 - **UI Libraries**: Radix UI, Lucide React, class-variance-authority, tailwind-merge, clsx.
