@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -70,6 +77,7 @@ export default function Teams() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -808,6 +816,17 @@ export default function Teams() {
     });
   }, [teams, sortColumn, sortDirection]);
 
+  const filteredGroupedByDivision = useMemo(() => {
+    if (divisionFilter === "all") {
+      return groupedByDivision;
+    }
+    return groupedByDivision.filter(([division]) => division === divisionFilter);
+  }, [groupedByDivision, divisionFilter]);
+
+  const availableDivisions = useMemo(() => {
+    return groupedByDivision.map(([division]) => division);
+  }, [groupedByDivision]);
+
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 ml-1 text-muted-foreground" />;
@@ -1347,6 +1366,31 @@ export default function Teams() {
           </div>
         </div>
 
+        {teams && teams.length > 0 && (
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">Division:</span>
+              <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-division-filter">
+                  <SelectValue placeholder="All Divisions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" data-testid="option-all-divisions">All Divisions</SelectItem>
+                  {availableDivisions.map(division => (
+                    <SelectItem 
+                      key={division} 
+                      value={division}
+                      data-testid={`option-division-${division.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {division !== 'No Division' ? `Division ${division}` : 'No Division'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
         {!teams || teams.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -1370,9 +1414,30 @@ export default function Teams() {
               )}
             </CardContent>
           </Card>
+        ) : filteredGroupedByDivision.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="rounded-full bg-muted p-6 mb-4">
+                <Users className="h-12 w-12 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No teams in this division
+              </h3>
+              <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+                No teams found for the selected division filter
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => setDivisionFilter("all")}
+                data-testid="button-show-all-divisions"
+              >
+                Show All Divisions
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-6">
-            {groupedByDivision.map(([division, divisionTeams]) => (
+            {filteredGroupedByDivision.map(([division, divisionTeams]) => (
               <Card key={division}>
                 <CardHeader>
                   <CardTitle className="text-xl flex items-center gap-2">
