@@ -560,7 +560,7 @@ export default function Results() {
     const bottomMargin = 20;
     
     doc.setFontSize(14);
-    doc.text('Team Summary Statistics - All Stages', 14, 12);
+    doc.text('Team Leaderboard - All Stages', 14, 12);
     
     doc.setFontSize(9);
     doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
@@ -680,9 +680,13 @@ export default function Results() {
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const pageName = isSummary ? 'Leaderboard' : 'Results';
+    const filename = `${tournamentName} - ${pageName}.pdf`;
+    
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${isSummary ? 'summary' : 'results'}-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -739,7 +743,7 @@ export default function Results() {
                 <DialogTrigger asChild>
                   <Button variant="default" data-testid="button-show-summary">
                     <BarChart3 className="mr-2 h-4 w-4" />
-                    Summary
+                    Leaderboard
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -747,7 +751,7 @@ export default function Results() {
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
                         <DialogTitle>
-                          Team Summary Statistics - All Stages
+                          Team Leaderboard - All Stages
                         </DialogTitle>
                         <p className="text-sm text-muted-foreground">
                           {currentTournament?.name} • {new Date().toLocaleString()}
@@ -907,7 +911,7 @@ export default function Results() {
               <div>
                 <h3 className="font-semibold mb-2">Viewing Results</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Summary View:</strong> Click "Summary" to see team rankings with statistics grouped by Stage and Division</li>
+                  <li><strong>Leaderboard View:</strong> Click "Leaderboard" to see team rankings with statistics grouped by Stage and Division</li>
                   <li><strong>Detailed Results:</strong> The main table shows individual game results from all completed matches</li>
                   <li><strong>Stage Filter:</strong> Filter results by tournament stage (Initial, Quarter-Finals, Semi-Finals, Finals)</li>
                 </ul>
@@ -1287,9 +1291,9 @@ export default function Results() {
       <Dialog open={showSummaryPdfViewer} onOpenChange={(open) => !open && closeSummaryPdfViewer()}>
         <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="summary-pdf-viewer-description">
           <DialogHeader>
-            <DialogTitle>Summary Report Preview</DialogTitle>
+            <DialogTitle>Leaderboard Report Preview</DialogTitle>
             <p id="summary-pdf-viewer-description" className="sr-only">
-              Preview the PDF summary report before saving or printing
+              Preview the PDF leaderboard report before saving or printing
             </p>
           </DialogHeader>
           <div className="flex-1 overflow-hidden flex flex-col gap-4">

@@ -34,7 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import * as XLSX from "xlsx";
@@ -914,9 +914,12 @@ export default function Teams() {
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const filename = `${tournamentName} - Teams.pdf`;
+    
     const link = document.createElement('a');
     link.href = url;
-    link.download = `teams-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -955,6 +958,35 @@ export default function Teams() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleEmailCaptains = () => {
+    if (!teams || teams.length === 0) {
+      toast({
+        title: "No teams available",
+        description: "There are no teams to email.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+
+    const emailAddresses = teams
+      .map(team => team.captainEmail?.trim())
+      .filter(email => email && email.length > 0);
+
+    if (emailAddresses.length === 0) {
+      toast({
+        title: "No email addresses",
+        description: "No teams have captain email addresses.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      return;
+    }
+
+    const mailtoLink = `mailto:${emailAddresses.join(';')}`;
+    window.location.href = mailtoLink;
   };
 
   const closePdfViewer = () => {
@@ -1025,6 +1057,15 @@ export default function Teams() {
             >
               <FileDown className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">View PDF</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEmailCaptains}
+              data-testid="button-email-captains"
+            >
+              <Mail className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Email</span>
             </Button>
             {!isReadOnly && (
               <>

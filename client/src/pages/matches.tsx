@@ -1020,18 +1020,16 @@ export default function Matches() {
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
-    // Create download link - browser handles save location based on user's browser settings
-    // Note: Whether the browser shows a save dialog is controlled by browser settings
-    // (e.g., Chrome: "Ask where to save each file before downloading")
-    // By default, most browsers save to Downloads folder without prompting
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const filename = `${tournamentName} - Matches.pdf`;
+    
     const link = document.createElement('a');
     link.href = url;
-    link.download = `matches-report-${new Date().toISOString().split('T')[0]}.pdf`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // Clean up the URL after a short delay
     setTimeout(() => URL.revokeObjectURL(url), 100);
     
     toast({
