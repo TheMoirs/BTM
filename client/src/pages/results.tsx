@@ -732,6 +732,72 @@ export default function Results() {
     });
   };
 
+  const handleExcelSave = (isSummary: boolean) => {
+    const workbook = XLSX.utils.book_new();
+    
+    if (isSummary) {
+      teamSummariesByStageAndDivision.forEach(([stage, divisions]) => {
+        const stageLabel = stageLabels[stage as keyof typeof stageLabels];
+        
+        divisions.forEach(([division, divisionSummaries]) => {
+          const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
+          
+          const excelData = divisionSummaries.map((summary) => ({
+            'Team': summary.teamName,
+            'Played': summary.gamesPlayed,
+            'Won': summary.gamesWon,
+            'Drawn': summary.gamesDrawn,
+            'Lost': summary.gamesLost,
+            'Points': summary.points,
+            'For': summary.scoreFor,
+            'Against': summary.scoreAgainst,
+            'Diff': summary.scoreDifference,
+          }));
+          
+          const worksheet = XLSX.utils.json_to_sheet(excelData);
+          const sheetName = `${stageLabel} - ${divisionLabel}`.substring(0, 31);
+          XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        });
+      });
+    } else {
+      groupedByStageAndDivision.forEach(([stage, divisions]) => {
+        const stageLabel = stageLabels[stage as keyof typeof stageLabels];
+        
+        divisions.forEach(([division, divisionResults]) => {
+          const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
+          
+          const excelData = divisionResults.map((result) => ({
+            'Team': result.teamName,
+            'Match': result.matchInfo,
+            'Date': result.matchDate || '—',
+            'P': result.gamesPlayed,
+            'W': result.gamesWon,
+            'D': result.gamesDrawn,
+            'L': result.gamesLost,
+            'Pts': result.points,
+            'F': result.scoreFor,
+            'A': result.scoreAgainst,
+            'Diff': result.scoreDifference,
+          }));
+          
+          const worksheet = XLSX.utils.json_to_sheet(excelData);
+          const sheetName = `${stageLabel} - ${divisionLabel}`.substring(0, 31);
+          XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        });
+      });
+    }
+    
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const pageName = isSummary ? 'Leaderboard' : 'Results';
+    const filename = `${tournamentName} - ${pageName}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+    
+    toast({
+      title: "Excel file saved",
+      description: "The Excel file has been downloaded to your default downloads folder.",
+    });
+  };
+
   const handlePdfPrint = (isSummary: boolean) => {
     const blobUrl = isSummary ? summaryPdfBlobUrl : pdfBlobUrl;
     if (blobUrl) {
