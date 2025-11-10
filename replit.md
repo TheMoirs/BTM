@@ -41,7 +41,15 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Teams Management**: Add individually or bulk import via Excel. Inline editing and "Edit All" mode. Division changes restricted if team has matches. Division filtering.
 - **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry.
 - **Results Summary & Reports**: View team statistics and match results. Detailed table filterable by stage. Summary dialog always shows all stages grouped by Stage → Division. PDF reports include tournament name and timestamp.
-- **Read-Only Mode**: Shareable URLs (`?view=readonly&tournament={id}`) for public viewing without editing controls, auto-opens Results Summary. Tournament selector becomes static in this mode.
+- **Secure View-Only Mode**: Token-based shareable links for public viewing with server-enforced read-only access.
+    - Each tournament has a unique `viewToken` (cryptographically secure random string).
+    - Share links include token as query parameter: `?token={viewToken}&tournament={id}`.
+    - Token persisted in localStorage to survive SPA navigation and page reloads.
+    - Server-side middleware validates tokens and blocks all write operations (POST/PATCH/DELETE).
+    - Tournament-specific access: tokens only grant access to their associated tournament.
+    - Invalid/missing tokens return 401 errors; cross-tournament access returns 403.
+    - Tokens can be regenerated via `/api/tournaments/:id/regenerate-token` endpoint (invalidates old tokens).
+    - UI automatically detects token presence, hides editing controls, and displays read-only banner.
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
 - **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
 
