@@ -30,7 +30,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Result, Team } from "@shared/schema";
-import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -46,6 +46,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type SortColumn = "matchInfo" | "matchDate" | "teamName" | "gamesPlayed" | "gamesWon" | "gamesLost" | "gamesDrawn" | "points" | "scoreFor" | "scoreAgainst" | "scoreDifference" | "stage";
 type SortDirection = "asc" | "desc";
@@ -1360,14 +1366,27 @@ export default function Results() {
               )}
             </div>
             <div className="flex gap-2 justify-end flex-wrap">
-              <Button
-                variant="outline"
-                onClick={() => handlePdfSave(false)}
-                data-testid="button-save-pdf"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Save
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    data-testid="button-save-dropdown"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handlePdfSave(false)} data-testid="menu-item-save-pdf">
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExcelSave(false)} data-testid="menu-item-save-excel">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
@@ -1416,14 +1435,27 @@ export default function Results() {
               )}
             </div>
             <div className="flex gap-2 justify-end flex-wrap">
-              <Button
-                variant="outline"
-                onClick={() => handlePdfSave(true)}
-                data-testid="button-save-summary-pdf"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Save
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    data-testid="button-save-summary-dropdown"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handlePdfSave(true)} data-testid="menu-item-save-summary-pdf">
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExcelSave(true)} data-testid="menu-item-save-summary-excel">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 onClick={() => summaryPdfBlobUrl && window.open(summaryPdfBlobUrl, '_blank')}

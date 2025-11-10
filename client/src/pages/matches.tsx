@@ -46,7 +46,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -1837,14 +1837,27 @@ export default function Matches() {
                 )}
               </div>
               <div className="flex gap-2 justify-end flex-wrap">
-                <Button
-                  variant="outline"
-                  onClick={handlePdfSave}
-                  data-testid="button-save-pdf"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Save
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      data-testid="button-save-dropdown"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-save-pdf">
+                      <FileDown className="h-4 w-4 mr-2" />
+                      PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-save-excel">
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Excel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   variant="outline"
                   onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
