@@ -41,15 +41,35 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Teams Management**: Add individually or bulk import via Excel. Inline editing and "Edit All" mode. Division changes restricted if team has matches. Division filtering.
 - **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry.
 - **Results Summary & Reports**: View team statistics and match results. Detailed table filterable by stage. Summary dialog always shows all stages grouped by Stage → Division. PDF reports include tournament name and timestamp.
-- **Secure View-Only Mode**: Token-based shareable links for public viewing with server-enforced read-only access.
-    - Each tournament has a unique `viewToken` (cryptographically secure random string).
-    - Share links include token as query parameter: `?token={viewToken}&tournament={id}`.
-    - Token persisted in localStorage to survive SPA navigation and page reloads.
-    - Server-side middleware validates tokens and blocks all write operations (POST/PATCH/DELETE).
-    - Tournament-specific access: tokens only grant access to their associated tournament.
-    - Invalid/missing tokens return 401 errors; cross-tournament access returns 403.
-    - Tokens can be regenerated via `/api/tournaments/:id/regenerate-token` endpoint (invalidates old tokens).
-    - UI automatically detects token presence, hides editing controls, and displays read-only banner.
+- **Dual-Token Security System**: Comprehensive token-based access control with admin and view-only modes.
+    - **Admin Tokens**: Full write access to specific tournament. Required for all modifications (teams, matches, tournament settings, token regeneration).
+    - **View Tokens**: Read-only access to specific tournament. Can view all data but cannot modify anything.
+    - **Default (No Token)**: Read-only access with no tournament-specific restrictions.
+    - Each tournament has two unique tokens (cryptographically secure 32-character random strings):
+        - `adminToken`: Created on tournament creation, never exposed in GET responses except initial creation
+        - `viewToken`: Created on tournament creation, shareable for public viewing
+    - **Token Usage**: Tokens included as query parameter: `?token={adminToken|viewToken}&tournament={id}`
+    - **Token Persistence**: Tokens stored in localStorage to survive SPA navigation and page reloads
+    - **Server-Side Enforcement**:
+        - Middleware validates tokens and sets access level flags (`isAdminAccess`, `isViewOnlyAccess`, `tokenTournamentId`)
+        - All write operations require admin token (403 for view tokens or missing tokens)
+        - All routes verify tournament ownership before allowing access (403 for cross-tournament attempts)
+        - PATCH operations verify both existing resource and new payload belong to token's tournament
+        - Bulk operations derive tournament ID from token, reject mismatched query parameters
+    - **Tournament Management Routes** (require admin token + ownership):
+        - PATCH /api/tournaments/:id
+        - DELETE /api/tournaments/:id
+        - POST /api/tournaments/:id/regenerate-token
+        - DELETE /api/teams (bulk)
+        - DELETE /api/matches (bulk)
+    - **Error Handling**: Invalid tokens return 401; cross-tournament access returns 403; missing resources return 404
+    - **Token Regeneration**: Admin tokens can regenerate view tokens via `/api/tournaments/:id/regenerate-token`
+    - **UI Integration**: Automatically detects token presence, hides editing controls in view-only mode, displays read-only banner
+    - **Security Guarantees**:
+        - Cannot bypass security by removing token
+        - Tokens never exposed in GET responses (except initial tournament creation)
+        - Cross-tournament access completely blocked at all levels
+        - Multi-layer defense: middleware + route handlers enforce isolation
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
 - **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
 
