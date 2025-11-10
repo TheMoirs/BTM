@@ -1041,6 +1041,58 @@ export default function Matches() {
     });
   };
 
+  const handleExcelSave = () => {
+    const workbook = XLSX.utils.book_new();
+    
+    groupedByDivision.forEach(([division, divisionMatches]) => {
+      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
+      
+      const excelData = divisionMatches.map(match => {
+        const team1 = getTeamName(match.team1Id);
+        const team2 = getTeamName(match.team2Id);
+        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const status = statusLabels[match.status as keyof typeof statusLabels];
+        const matchDate = match.matchDate 
+          ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : "-";
+        
+        const t1g1 = match.team1Game1Score !== null ? match.team1Game1Score.toString() : "-";
+        const t1g2 = match.team1Game2Score !== null ? match.team1Game2Score.toString() : "-";
+        const t1g3 = match.team1Game3Score !== null ? match.team1Game3Score.toString() : "-";
+        const t2g1 = match.team2Game1Score !== null ? match.team2Game1Score.toString() : "-";
+        const t2g2 = match.team2Game2Score !== null ? match.team2Game2Score.toString() : "-";
+        const t2g3 = match.team2Game3Score !== null ? match.team2Game3Score.toString() : "-";
+        
+        return {
+          'Stage': stage,
+          'Status': status,
+          'Date': matchDate,
+          'Team 1': team1,
+          'Team 1 - Game 1': t1g1,
+          'Team 1 - Game 2': t1g2,
+          'Team 1 - Game 3': t1g3,
+          'Team 2': team2,
+          'Team 2 - Game 1': t2g1,
+          'Team 2 - Game 2': t2g2,
+          'Team 2 - Game 3': t2g3,
+        };
+      });
+      
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const sheetName = divisionLabel.substring(0, 31);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+    
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const filename = `${tournamentName} - Matches.xlsx`;
+    XLSX.writeFile(workbook, filename);
+    
+    toast({
+      title: "Excel file saved",
+      description: "The Excel file has been downloaded to your default downloads folder.",
+    });
+  };
+
   const handlePdfPrint = () => {
     if (pdfBlobUrl) {
       const printWindow = window.open(pdfBlobUrl, '_blank');
