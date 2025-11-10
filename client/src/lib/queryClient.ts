@@ -1,5 +1,27 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
+
+function getViewToken(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const urlToken = params.get('token');
+  
+  if (urlToken) {
+    return urlToken;
+  }
+  
+  return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
+}
+
+function appendTokenToUrl(url: string): string {
+  const token = getViewToken();
+  if (!token) return url;
+  
+  const urlObj = new URL(url, window.location.origin);
+  urlObj.searchParams.set('token', token);
+  return urlObj.toString();
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -12,7 +34,8 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const urlWithToken = appendTokenToUrl(url);
+  const res = await fetch(urlWithToken, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -29,7 +52,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const urlWithToken = appendTokenToUrl(url);
+    
+    const res = await fetch(urlWithToken, {
       credentials: "include",
     });
 

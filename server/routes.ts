@@ -4,8 +4,11 @@ import { storage } from "./storage";
 import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result } from "@shared/schema";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
+import { validateTokenMiddleware } from "./tokenMiddleware";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use(validateTokenMiddleware);
+
   // Tournament routes
   app.get("/api/tournaments", async (_req, res) => {
     try {
@@ -80,6 +83,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete tournament" });
+    }
+  });
+
+  app.post("/api/tournaments/:id/regenerate-token", async (req, res) => {
+    try {
+      const tournament = await storage.regenerateViewToken(req.params.id);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      res.json({ viewToken: tournament.viewToken });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to regenerate token" });
     }
   });
 

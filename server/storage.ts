@@ -1,6 +1,7 @@
 import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, teams, matches, results, tournaments } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc } from "drizzle-orm";
+import { generateViewToken } from "./tokenUtils";
 
 export interface IStorage {
   // Tournament methods
@@ -10,6 +11,8 @@ export interface IStorage {
   createTournament(tournament: InsertTournament): Promise<Tournament>;
   updateTournament(id: string, tournament: InsertTournament): Promise<Tournament | undefined>;
   deleteTournament(id: string): Promise<boolean>;
+  regenerateViewToken(id: string): Promise<Tournament | undefined>;
+  getTournamentByToken(token: string): Promise<Tournament | undefined>;
   
   getAllTeams(tournamentId?: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
@@ -84,6 +87,27 @@ export class DatabaseStorage implements IStorage {
     // Cascade delete will handle teams, matches, and results
     const result = await db.delete(tournaments).where(eq(tournaments.id, id)).returning();
     return result.length > 0;
+  }
+
+  async regenerateViewToken(id: string): Promise<Tournament | undefined> {
+    const existingTournament = await this.getTournament(id);
+    if (!existingTournament) {
+      return undefined;
+    }
+
+    const newToken = generateViewToken();
+    const [updatedTournament] = await db
+      .update(tournaments)
+      .set({ viewToken: newToken })
+      .where(eq(tournaments.id, id))
+      .returning();
+    
+    return updatedTournament || undefined;
+  }
+
+  async getTournamentByToken(token: string): Promise<Tournament | undefined> {
+    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.viewToken, token));
+    return tournament || undefined;
   }
 
   // Team methods

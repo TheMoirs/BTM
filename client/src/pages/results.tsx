@@ -442,10 +442,31 @@ export default function Results() {
     if (!currentTournament) return;
     
     setIsSharingLink(true);
-    const longUrl = getShareableLink(currentTournament.id);
-    const cacheKey = `share-${currentTournament.id}`;
     
     try {
+      let tournament = currentTournament;
+      
+      if (!tournament.viewToken) {
+        const response = await fetch(`/api/tournaments/${tournament.id}/regenerate-token`, {
+          method: 'POST',
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to generate share token');
+        }
+        
+        const { viewToken } = await response.json();
+        tournament = { ...tournament, viewToken };
+        queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      }
+      
+      const longUrl = getShareableLink(tournament);
+      
+      if (!longUrl) {
+        throw new Error('Failed to generate share link');
+      }
+      
+      const cacheKey = `share-${currentTournament.id}`;
       const { url, isShortened } = await getShareableShortLink(longUrl, cacheKey);
       await navigator.clipboard.writeText(url);
       

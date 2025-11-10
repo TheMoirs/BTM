@@ -1,38 +1,61 @@
-import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import type { Tournament } from '@shared/schema';
 
 interface ViewModeContextType {
   isReadOnly: boolean;
-  getShareableLink: (tournamentId?: string) => string;
+  viewToken: string | null;
+  getShareableLink: (tournament: Tournament) => string | null;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
+const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
+
 export function ViewModeProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   
-  // Check if URL has ?view=readonly parameter
+  // Extract token from URL or localStorage, prioritizing URL
   // Use useMemo to re-evaluate when location changes (for client-side navigation)
-  const isReadOnly = useMemo(() => {
+  const viewToken = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('view') === 'readonly';
-  }, [location]); // Re-evaluate when location changes
-
-  const getShareableLink = (tournamentId?: string) => {
-    const baseUrl = window.location.origin;
-    // Parse current URL to properly handle existing query parameters
-    const url = new URL(window.location.href);
-    // Set or update the view parameter to readonly
-    url.searchParams.set('view', 'readonly');
-    // Include tournament ID if provided
-    if (tournamentId) {
-      url.searchParams.set('tournament', tournamentId);
+    const urlToken = params.get('token');
+    
+    if (urlToken) {
+      return urlToken;
     }
+    
+    return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
+  }, [location]);
+
+  // Store token in localStorage when detected in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    
+    if (urlToken) {
+      localStorage.setItem(VIEW_TOKEN_STORAGE_KEY, urlToken);
+    } else if (!viewToken) {
+      localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
+    }
+  }, [location, viewToken]);
+
+  const isReadOnly = viewToken !== null;
+
+  const getShareableLink = (tournament: Tournament) => {
+    if (!tournament.viewToken) {
+      return null;
+    }
+
+    const baseUrl = window.location.origin;
+    const url = new URL(`${baseUrl}/`);
+    url.searchParams.set('token', tournament.viewToken);
+    url.searchParams.set('tournament', tournament.id);
     return url.toString();
   };
 
   return (
-    <ViewModeContext.Provider value={{ isReadOnly, getShareableLink }}>
+    <ViewModeContext.Provider value={{ isReadOnly, viewToken, getShareableLink }}>
       {children}
     </ViewModeContext.Provider>
   );
