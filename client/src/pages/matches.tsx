@@ -618,26 +618,26 @@ export default function Matches() {
   };
 
   const toggleEditAllMode = () => {
-    if (isEditAllMode) {
-      // Exiting edit all mode - save all changes
-      saveAllEdits();
-    } else {
-      // Entering edit all mode - initialize editing values for all matches
-      const initialValues: Record<string, Partial<EditingMatch>> = {};
-      getFilteredAndSortedMatches.forEach(match => {
-        initialValues[match.id] = {
-          team1Game1Score: match.team1Game1Score !== null ? match.team1Game1Score.toString() : "",
-          team2Game1Score: match.team2Game1Score !== null ? match.team2Game1Score.toString() : "",
-          team1Game2Score: match.team1Game2Score !== null ? match.team1Game2Score.toString() : "",
-          team2Game2Score: match.team2Game2Score !== null ? match.team2Game2Score.toString() : "",
-          team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
-          team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
-          matchDate: match.matchDate || "",
-        };
-      });
-      setAllEditingValues(initialValues);
-      setIsEditAllMode(true);
-    }
+    // Entering edit all mode - initialize editing values for all matches
+    const initialValues: Record<string, Partial<EditingMatch>> = {};
+    getFilteredAndSortedMatches.forEach(match => {
+      initialValues[match.id] = {
+        team1Game1Score: match.team1Game1Score !== null ? match.team1Game1Score.toString() : "",
+        team2Game1Score: match.team2Game1Score !== null ? match.team2Game1Score.toString() : "",
+        team1Game2Score: match.team1Game2Score !== null ? match.team1Game2Score.toString() : "",
+        team2Game2Score: match.team2Game2Score !== null ? match.team2Game2Score.toString() : "",
+        team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
+        team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
+        matchDate: match.matchDate || "",
+      };
+    });
+    setAllEditingValues(initialValues);
+    setIsEditAllMode(true);
+  };
+
+  const cancelEditAllMode = () => {
+    setIsEditAllMode(false);
+    setAllEditingValues({});
   };
 
   const saveAllEdits = async () => {
@@ -725,7 +725,8 @@ export default function Matches() {
 
         successCount++;
       } catch (error) {
-        errors.push(`${matchLabel}: Failed to save changes`);
+        const errorMessage = error instanceof Error ? error.message : "Failed to save changes";
+        errors.push(`${matchLabel}: ${errorMessage}`);
       }
     }
 
@@ -1141,32 +1142,47 @@ export default function Matches() {
           <div className="flex gap-2">
             {!isReadOnly && (
               <>
-                <Button
-                  variant={isEditAllMode ? "default" : "outline"}
-                  onClick={toggleEditAllMode}
-                  disabled={isSaving}
-                  data-testid="button-edit-all"
-                >
-                  {isEditAllMode ? (
-                    <>
+                {isEditAllMode ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={cancelEditAllMode}
+                      disabled={isSaving}
+                      data-testid="button-cancel-edit-all"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={saveAllEdits}
+                      disabled={isSaving}
+                      data-testid="button-save-all"
+                    >
                       <Check className="h-4 w-4 mr-2" />
                       {isSaving ? "Saving..." : "Save All"}
-                    </>
-                  ) : (
-                    <>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={toggleEditAllMode}
+                      data-testid="button-edit-all"
+                    >
                       <Users className="h-4 w-4 mr-2" />
                       Edit All
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleGenerateMatches}
-                  data-testid="button-generate-matches"
-                >
-                  <Shuffle className="h-4 w-4 mr-2" />
-                  Generate Matches
-                </Button>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleGenerateMatches}
+                      data-testid="button-generate-matches"
+                    >
+                      <Shuffle className="h-4 w-4 mr-2" />
+                      Generate Matches
+                    </Button>
+                  </>
+                )}
               </>
             )}
             <Button
