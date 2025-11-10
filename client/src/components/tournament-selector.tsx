@@ -61,6 +61,28 @@ export function TournamentSelector() {
     queryKey: ["/api/tournaments"],
   });
 
+  // Query to get counts for tournament deletion warning
+  const { data: deletionCounts } = useQuery<{ teams: number; matches: number }>({
+    queryKey: ["/api/tournaments", deletingTournament?.id, "deletion-counts"],
+    queryFn: async () => {
+      if (!deletingTournament) return { teams: 0, matches: 0 };
+      
+      const [teamsRes, matchesRes] = await Promise.all([
+        fetch(`/api/teams?tournamentId=${deletingTournament.id}`),
+        fetch(`/api/matches?tournamentId=${deletingTournament.id}`)
+      ]);
+      
+      const teams = await teamsRes.json();
+      const matches = await matchesRes.json();
+      
+      return {
+        teams: teams.length,
+        matches: matches.length
+      };
+    },
+    enabled: !!deletingTournament,
+  });
+
   const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials, reset: resetCredentials } = useMutation<any, Error, string>({
     mutationFn: async (tournamentId: string) => {
       const response = await apiRequest("GET", `/api/tournaments/${tournamentId}/admin-credentials`);
@@ -725,9 +747,29 @@ export function TournamentSelector() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Tournament</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{deletingTournament?.name}"? This will permanently delete all teams,
-              matches, and results associated with this tournament. This action cannot be undone.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Are you sure you want to delete <span className="font-semibold">"{deletingTournament?.name}"</span>?
+                </p>
+                
+                {deletionCounts ? (
+                  <div className="rounded-md bg-muted p-3 space-y-1 text-sm">
+                    <p className="font-medium text-foreground">This will permanently delete:</p>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                      <li>{deletionCounts.teams} {deletionCounts.teams === 1 ? 'team' : 'teams'}</li>
+                      <li>{deletionCounts.matches} {deletionCounts.matches === 1 ? 'match' : 'matches'}</li>
+                      <li>All results and tournament data</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading tournament data...</p>
+                )}
+                
+                <p className="text-destructive font-medium">
+                  This action cannot be undone.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -736,6 +778,7 @@ export function TournamentSelector() {
               onClick={() => deletingTournament && handleDeleteTournament(deletingTournament)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete"
+              disabled={!deletionCounts}
             >
               Delete Tournament
             </AlertDialogAction>
