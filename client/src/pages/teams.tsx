@@ -1242,16 +1242,17 @@ export default function Teams() {
                           <span className="hidden sm:inline">Add Team</span>
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[500px]" aria-describedby="team-form-description">
-                <DialogHeader>
+                      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col" aria-describedby="team-form-description">
+                <DialogHeader className="flex-shrink-0">
                   <DialogTitle>Register New Team</DialogTitle>
                   <p id="team-form-description" className="sr-only">
                     Enter team name and captain contact information to register a new team
                   </p>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="space-y-4">
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6 overflow-hidden flex-1">
+                    <div className="overflow-y-auto flex-1 -mx-6 px-6">
+                      <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="name"
@@ -1396,8 +1397,9 @@ export default function Teams() {
                         />
                       </div>
                     </div>
+                    </div>
 
-                    <div className="flex gap-2 pt-4">
+                    <div className="flex gap-2 pt-4 flex-shrink-0">
                       <Button
                         type="button"
                         variant="outline"
