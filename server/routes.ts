@@ -10,34 +10,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(validateTokenMiddleware);
 
   // Tournament routes
-  app.get("/api/tournaments", async (_req, res) => {
+  app.get("/api/tournaments", async (req: any, res) => {
     try {
-      const tournaments = await storage.getAllTournaments();
-      res.json(tournaments);
+      // If accessing via view token, only return the associated tournament
+      if (req.isViewOnlyAccess && req.viewOnlyTournamentId) {
+        const tournament = await storage.getTournament(req.viewOnlyTournamentId);
+        if (!tournament) {
+          return res.status(404).json({ error: "Tournament not found" });
+        }
+        // Strip viewToken from response for view-only clients
+        const { viewToken, ...tournamentWithoutToken } = tournament;
+        res.json([tournamentWithoutToken]);
+      } else {
+        const tournaments = await storage.getAllTournaments();
+        res.json(tournaments);
+      }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tournaments" });
     }
   });
 
-  app.get("/api/tournaments/latest", async (_req, res) => {
+  app.get("/api/tournaments/latest", async (req: any, res) => {
     try {
-      const tournament = await storage.getLatestTournament();
-      if (!tournament) {
-        return res.status(404).json({ error: "No tournament found" });
+      // If accessing via view token, return the associated tournament instead of latest
+      if (req.isViewOnlyAccess && req.viewOnlyTournamentId) {
+        const tournament = await storage.getTournament(req.viewOnlyTournamentId);
+        if (!tournament) {
+          return res.status(404).json({ error: "Tournament not found" });
+        }
+        const { viewToken, ...tournamentWithoutToken } = tournament;
+        res.json(tournamentWithoutToken);
+      } else {
+        const tournament = await storage.getLatestTournament();
+        if (!tournament) {
+          return res.status(404).json({ error: "No tournament found" });
+        }
+        res.json(tournament);
       }
-      res.json(tournament);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch latest tournament" });
     }
   });
 
-  app.get("/api/tournaments/:id", async (req, res) => {
+  app.get("/api/tournaments/:id", async (req: any, res) => {
     try {
+      // Enforce tournament-specific access for view-only mode
+      if (req.isViewOnlyAccess && req.params.id !== req.viewOnlyTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      
       const tournament = await storage.getTournament(req.params.id);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
-      res.json(tournament);
+      // Strip viewToken from response for view-only clients
+      if (req.isViewOnlyAccess) {
+        const { viewToken, ...tournamentWithoutToken } = tournament;
+        res.json(tournamentWithoutToken);
+      } else {
+        res.json(tournament);
+      }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tournament" });
     }
@@ -99,9 +131,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Team routes
-  app.get("/api/teams", async (req, res) => {
+  app.get("/api/teams", async (req: any, res) => {
     try {
-      const tournamentId = req.query.tournamentId as string | undefined;
+      let tournamentId = req.query.tournamentId as string | undefined;
+      
+      // Enforce tournament-specific access for view-only mode
+      if (req.isViewOnlyAccess) {
+        if (tournamentId && tournamentId !== req.viewOnlyTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Default to the token's tournament if no tournamentId specified
+        tournamentId = req.viewOnlyTournamentId;
+      }
+      
       const teams = await storage.getAllTeams(tournamentId);
       res.json(teams);
     } catch (error) {
@@ -183,9 +225,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/matches", async (req, res) => {
+  app.get("/api/matches", async (req: any, res) => {
     try {
-      const tournamentId = req.query.tournamentId as string | undefined;
+      let tournamentId = req.query.tournamentId as string | undefined;
+      
+      // Enforce tournament-specific access for view-only mode
+      if (req.isViewOnlyAccess) {
+        if (tournamentId && tournamentId !== req.viewOnlyTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Default to the token's tournament if no tournamentId specified
+        tournamentId = req.viewOnlyTournamentId;
+      }
+      
       const matches = await storage.getAllMatches(tournamentId);
       res.json(matches);
     } catch (error) {
@@ -849,9 +901,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/results", async (req, res) => {
+  app.get("/api/results", async (req: any, res) => {
     try {
-      const tournamentId = req.query.tournamentId as string | undefined;
+      let tournamentId = req.query.tournamentId as string | undefined;
+      
+      // Enforce tournament-specific access for view-only mode
+      if (req.isViewOnlyAccess) {
+        if (tournamentId && tournamentId !== req.viewOnlyTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Default to the token's tournament if no tournamentId specified
+        tournamentId = req.viewOnlyTournamentId;
+      }
+      
       const results = await storage.getAllResults(tournamentId);
       res.json(results);
     } catch (error) {

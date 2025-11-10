@@ -30,11 +30,8 @@ export async function validateTokenMiddleware(
 
   const method = req.method.toUpperCase();
   if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
-    const isRegenerateToken = req.path.endsWith('/regenerate-token');
-    if (!isRegenerateToken) {
-      res.status(403).json({ error: "Write operations are not allowed in view-only mode" });
-      return;
-    }
+    res.status(403).json({ error: "Write operations are not allowed in view-only mode" });
+    return;
   }
 
   const requestedTournamentId = req.query.tournamentId as string | undefined 
