@@ -37,6 +37,7 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -764,7 +765,7 @@ export function TournamentSelector() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Admin URL</label>
+                  <label className="text-sm font-medium">Admin URL (Full Access)</label>
                   <Button
                     size="sm"
                     variant="outline"
@@ -784,10 +785,11 @@ export function TournamentSelector() {
                     )}
                   </Button>
                 </div>
-                <Input
+                <Textarea
                   value={adminCredentials.adminUrl}
                   readOnly
-                  className="font-mono text-xs"
+                  className="font-mono text-xs resize-none"
+                  rows={2}
                   data-testid="input-admin-url"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -797,7 +799,7 @@ export function TournamentSelector() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">View-Only URL</label>
+                  <label className="text-sm font-medium">View-Only URL (Read Access)</label>
                   <Button
                     size="sm"
                     variant="outline"
@@ -817,10 +819,11 @@ export function TournamentSelector() {
                     )}
                   </Button>
                 </div>
-                <Input
+                <Textarea
                   value={adminCredentials.viewUrl}
                   readOnly
-                  className="font-mono text-xs"
+                  className="font-mono text-xs resize-none"
+                  rows={2}
                   data-testid="input-view-url"
                 />
                 <p className="text-xs text-muted-foreground">
