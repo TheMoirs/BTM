@@ -1026,10 +1026,13 @@ export default function Teams() {
     setIsSharingLink(true);
     
     try {
-      let shareToken = viewToken;
+      let shareToken: string;
       
-      // If no token in context (user is admin), regenerate the view token
-      if (!shareToken) {
+      // If we're in read-only mode, we already have a view token
+      if (isReadOnly) {
+        shareToken = viewToken!;
+      } else {
+        // We're in admin mode, need to regenerate the view token
         const params = new URLSearchParams(window.location.search);
         const adminToken = params.get('token');
         
@@ -1050,7 +1053,7 @@ export default function Teams() {
         queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       }
       
-      const longUrl = getShareableLink(currentTournament, shareToken || undefined);
+      const longUrl = getShareableLink(currentTournament, shareToken);
       
       if (!longUrl) {
         throw new Error('Failed to generate share link');
