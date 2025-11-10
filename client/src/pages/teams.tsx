@@ -948,6 +948,38 @@ export default function Teams() {
     }
   };
 
+  const handleExcelSave = () => {
+    if (!filteredGroupedByDivision) return;
+    
+    const exportData: any[] = [];
+    filteredGroupedByDivision.forEach(([division, divisionTeams]) => {
+      divisionTeams.forEach(team => {
+        exportData.push({
+          Division: division,
+          "Team Name": team.name,
+          "Captain Name": team.captainName || "",
+          "Captain Phone": team.captainPhone || "",
+          "Captain Email": team.captainEmail || "",
+          "Home Piste": team.homePiste || "",
+          "Other Players": team.otherPlayers || "",
+        });
+      });
+    });
+    
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
+    
+    const tournamentName = currentTournament?.name || 'Tournament';
+    const filename = `${tournamentName} - Teams.xlsx`;
+    XLSX.writeFile(workbook, filename);
+    
+    toast({
+      title: "Excel saved",
+      description: "The Excel file has been downloaded to your default downloads folder.",
+    });
+  };
+
   const handlePdfSave = () => {
     const doc = generatePDFDocument();
     const pdfBlob = doc.output('blob');
