@@ -6,6 +6,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 ## User Preferences
 - Preferred communication style: Simple, everyday language.
 - All warnings and errors displayed in toasts should be "sticky" (never auto-dismiss) to ensure users see important messages.
+- Mobile-responsive navigation with three-row layout for better visibility on small screens.
 
 ## System Architecture
 
@@ -14,7 +15,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Components**: shadcn/ui (Radix UI base).
 - **Styling**: Tailwind CSS ("new-york" variant).
 - **Typography**: Inter font for UI, JetBrains Mono for numerical data.
-- **Layout**: Responsive grid layouts.
+- **Layout**: Responsive grid layouts. Mobile-optimized navigation with three-row stacked layout.
 - **State Management**: TanStack Query for server state, React Hook Form with Zod for form state.
 
 ### Technical Implementations
@@ -95,7 +96,9 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Master admin endpoint includes audit logging for all credential retrievals
         - Master admin can retrieve shareable URLs to distribute to tournament organizers
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
+- **Tournament Deletion Warning**: Shows counts of teams and matches that will be deleted, with disabled submit button until counts load.
 - **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
+- **Mobile Optimization**: Navigation uses three-row responsive layout (title row, tournament selector row, nav items row) to ensure all content is visible on mobile screens.
 
 ### System Design Choices
 - Loading indicators for bulk operations provide visual feedback.
