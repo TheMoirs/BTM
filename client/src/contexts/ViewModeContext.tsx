@@ -5,7 +5,7 @@ import type { Tournament } from '@shared/schema';
 interface ViewModeContextType {
   isReadOnly: boolean;
   viewToken: string | null;
-  getShareableLink: (tournament: Tournament) => string | null;
+  getShareableLink: (tournament: Tournament, token?: string) => string | null;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
@@ -42,14 +42,17 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
 
   const isReadOnly = viewToken !== null;
 
-  const getShareableLink = (tournament: Tournament) => {
-    if (!tournament.viewToken) {
+  const getShareableLink = (tournament: Tournament, token?: string) => {
+    // Use provided token, or fall back to stored viewToken, or tournament.viewToken
+    const shareToken = token || viewToken || tournament.viewToken;
+    
+    if (!shareToken) {
       return null;
     }
 
     const baseUrl = window.location.origin;
     const url = new URL(`${baseUrl}/`);
-    url.searchParams.set('token', tournament.viewToken);
+    url.searchParams.set('token', shareToken);
     url.searchParams.set('tournament', tournament.id);
     return url.toString();
   };

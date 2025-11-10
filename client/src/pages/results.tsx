@@ -77,7 +77,7 @@ type TeamSummary = {
 
 export default function Results() {
   const { currentTournament } = useTournament();
-  const { isReadOnly, getShareableLink } = useViewMode();
+  const { isReadOnly, viewToken, getShareableLink } = useViewMode();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
@@ -444,10 +444,18 @@ export default function Results() {
     setIsSharingLink(true);
     
     try {
-      let tournament = currentTournament;
+      let shareToken = viewToken;
       
-      if (!tournament.viewToken) {
-        const response = await fetch(`/api/tournaments/${tournament.id}/regenerate-token`, {
+      // If no token in context (user is admin), regenerate the view token
+      if (!shareToken) {
+        const params = new URLSearchParams(window.location.search);
+        const adminToken = params.get('token');
+        
+        const url = adminToken 
+          ? `/api/tournaments/${currentTournament.id}/regenerate-token?token=${adminToken}`
+          : `/api/tournaments/${currentTournament.id}/regenerate-token`;
+        
+        const response = await fetch(url, {
           method: 'POST',
         });
         
@@ -455,12 +463,12 @@ export default function Results() {
           throw new Error('Failed to generate share token');
         }
         
-        const { viewToken } = await response.json();
-        tournament = { ...tournament, viewToken };
+        const { viewToken: newToken } = await response.json();
+        shareToken = newToken;
         queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       }
       
-      const longUrl = getShareableLink(tournament);
+      const longUrl = getShareableLink(currentTournament, shareToken || undefined);
       
       if (!longUrl) {
         throw new Error('Failed to generate share link');
