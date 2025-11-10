@@ -57,13 +57,19 @@ export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boole
 
 export async function shortenUrl(longUrl: string): Promise<string | null> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
     const response = await fetch('https://urlfy.org/api/v1/shorten', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ url: longUrl }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       console.error('URL shortening failed:', response.statusText);
@@ -73,7 +79,31 @@ export async function shortenUrl(longUrl: string): Promise<string | null> {
     const data = await response.json();
     return data.shortUrl || null;
   } catch (error) {
-    console.error('Error shortening URL:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('URL shortening timeout');
+    } else {
+      console.error('Error shortening URL:', error);
+    }
     return null;
   }
+}
+
+const urlCache = new Map<string, string>();
+
+export async function getShareableShortLink(
+  longUrl: string,
+  cacheKey: string
+): Promise<{ url: string; isShortened: boolean }> {
+  if (urlCache.has(cacheKey)) {
+    return { url: urlCache.get(cacheKey)!, isShortened: true };
+  }
+  
+  const shortUrl = await shortenUrl(longUrl);
+  
+  if (shortUrl) {
+    urlCache.set(cacheKey, shortUrl);
+    return { url: shortUrl, isShortened: true };
+  }
+  
+  return { url: longUrl, isShortened: false };
 }

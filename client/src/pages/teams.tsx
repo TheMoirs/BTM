@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, getShareableShortLink } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +81,7 @@ export default function Teams() {
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [isSharingLink, setIsSharingLink] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTournamentRef = useRef<string | null>(null);
   const { toast } = useToast();
@@ -982,19 +983,33 @@ export default function Teams() {
   };
 
   const handleCopyShareLink = async () => {
-    const shareLink = getShareableLink(currentTournament?.id);
+    if (!currentTournament) return;
+    
+    setIsSharingLink(true);
+    const longUrl = getShareableLink(currentTournament.id);
+    const cacheKey = `share-${currentTournament.id}`;
+    
     try {
-      await navigator.clipboard.writeText(shareLink);
+      const { url, isShortened } = await getShareableShortLink(longUrl, cacheKey);
+      await navigator.clipboard.writeText(url);
+      
       toast({
         title: "Link copied",
-        description: "Shareable view-only link has been copied to your clipboard.",
+        description: isShortened 
+          ? `Short link copied: ${url}` 
+          : "Link copied to clipboard (shortening unavailable)",
+        duration: 5000,
       });
     } catch (error) {
+      console.error("Failed to copy link:", error);
       toast({
-        title: "Failed to copy",
-        description: "Please copy the link manually from your browser's address bar.",
+        title: "Error",
+        description: "Failed to copy link to clipboard.",
         variant: "destructive",
+        duration: 5000,
       });
+    } finally {
+      setIsSharingLink(false);
     }
   };
 
@@ -1339,10 +1354,11 @@ export default function Teams() {
                       variant="outline"
                       size="sm"
                       onClick={handleCopyShareLink}
-                      data-testid="button-copy-share-link"
+                      disabled={isSharingLink}
+                      data-testid="button-share-view"
                     >
                       <Share2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Copy Share Link</span>
+                      <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share View"}</span>
                     </Button>
                   </>
                 )}

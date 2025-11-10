@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, getShareableShortLink } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +81,7 @@ export default function Results() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [summaryPdfBlobUrl, setSummaryPdfBlobUrl] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
+  const [isSharingLink, setIsSharingLink] = useState(false);
   const { toast } = useToast();
 
   const { data: results, isLoading } = useQuery<Result[]>({
@@ -430,23 +431,35 @@ export default function Results() {
     }
   };
 
-  const handleCopyShareLink = () => {
-    const shareLink = getShareableLink(currentTournament?.id);
-    navigator.clipboard.writeText(shareLink).then(() => {
+  const handleCopyShareLink = async () => {
+    if (!currentTournament) return;
+    
+    setIsSharingLink(true);
+    const longUrl = getShareableLink(currentTournament.id);
+    const cacheKey = `share-${currentTournament.id}`;
+    
+    try {
+      const { url, isShortened } = await getShareableShortLink(longUrl, cacheKey);
+      await navigator.clipboard.writeText(url);
+      
       toast({
         title: "Link copied",
-        description: "Shareable link copied to clipboard. Anyone with this link can view results in read-only mode.",
-        duration: Infinity,
+        description: isShortened 
+          ? `Short link copied: ${url}` 
+          : "Link copied to clipboard (shortening unavailable)",
+        duration: 5000,
       });
-    }).catch((error) => {
+    } catch (error) {
       console.error("Failed to copy link:", error);
       toast({
         title: "Error",
         description: "Failed to copy link to clipboard.",
         variant: "destructive",
-        duration: Infinity,
+        duration: 5000,
       });
-    });
+    } finally {
+      setIsSharingLink(false);
+    }
   };
 
   const availableStages = useMemo(() => {
@@ -903,10 +916,11 @@ export default function Results() {
                   <Button
                     variant="outline"
                     onClick={handleCopyShareLink}
-                    data-testid="button-copy-share-link"
+                    disabled={isSharingLink}
+                    data-testid="button-share-view"
                   >
                     <Share2 className="mr-2 h-4 w-4" />
-                    Copy Share Link
+                    {isSharingLink ? "Creating link..." : "Share View"}
                   </Button>
                   <Button
                     variant="destructive"
