@@ -1,15 +1,49 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, Lock, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 export function Navigation() {
   const [location] = useLocation();
-  const { isReadOnly, viewToken } = useViewMode();
+  const { isReadOnly, isMasterAdmin, viewToken, loginMasterAdmin, logoutMasterAdmin } = useViewMode();
   const { currentTournament } = useTournament();
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const { toast } = useToast();
+
+  const handleMasterLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    
+    const success = await loginMasterAdmin(password);
+    
+    if (!success) {
+      toast({
+        title: "Login failed",
+        description: "Invalid master admin password",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      setIsLoggingIn(false);
+    }
+    // If successful, page will reload with new token
+  };
 
   const navItems = [
     { path: "/", label: "Teams", icon: Users },
@@ -36,7 +70,12 @@ export function Navigation() {
             <TournamentSelector />
             {currentTournament && (
               <>
-                {isReadOnly ? (
+                {isMasterAdmin ? (
+                  <Badge variant="default" className="gap-1.5 bg-primary" data-testid="badge-master-admin">
+                    <Shield className="h-3 w-3" />
+                    Master Admin
+                  </Badge>
+                ) : isReadOnly ? (
                   <Badge variant="secondary" className="gap-1.5" data-testid="badge-view-only">
                     <Eye className="h-3 w-3" />
                     View Only
@@ -77,6 +116,68 @@ export function Navigation() {
                 );
               })}
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isMasterAdmin ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={logoutMasterAdmin}
+                data-testid="button-master-admin-logout"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            ) : (
+              <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="button-master-admin-login"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Master Admin
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Master Admin Login</DialogTitle>
+                    <DialogDescription>
+                      Enter the master admin password to manage all tournaments
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleMasterLogin} className="space-y-4">
+                    <Input
+                      type="password"
+                      placeholder="Master password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isLoggingIn}
+                      autoFocus
+                      data-testid="input-master-admin-password"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowLoginDialog(false)}
+                        disabled={isLoggingIn}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={isLoggingIn || !password}
+                        data-testid="button-submit-master-admin"
+                      >
+                        {isLoggingIn ? "Logging in..." : "Login"}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
       </div>

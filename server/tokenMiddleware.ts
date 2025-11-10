@@ -4,6 +4,7 @@ import { storage } from "./storage";
 export interface TokenRequest extends Request {
   isViewOnlyAccess?: boolean;
   isAdminAccess?: boolean;
+  isMasterAdmin?: boolean;
   tokenTournamentId?: string;
 }
 
@@ -13,6 +14,16 @@ export async function validateTokenMiddleware(
   next: NextFunction
 ): Promise<void> {
   const token = req.query.token as string | undefined;
+
+  // Check for master admin session
+  if (token && token.startsWith('master_')) {
+    req.isMasterAdmin = true;
+    req.isAdminAccess = true;
+    req.isViewOnlyAccess = false;
+    // Master admin has access to all tournaments, no restriction
+    next();
+    return;
+  }
 
   if (!token) {
     // No token = default read-only access (except tournament creation for initial setup)

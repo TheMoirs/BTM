@@ -7,13 +7,42 @@ import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Master admin authentication endpoint (before token middleware)
+  app.post("/api/auth/master-admin", async (req, res) => {
+    try {
+      const { password } = req.body;
+      const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
+      
+      if (!masterPassword) {
+        return res.status(503).json({ error: "Master admin not configured" });
+      }
+      
+      if (password === masterPassword) {
+        // Generate a session token for master admin
+        const sessionToken = `master_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        res.json({ success: true, sessionToken });
+      } else {
+        res.status(401).json({ error: "Invalid password" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
   app.use(validateTokenMiddleware);
 
   // Tournament routes
   app.get("/api/tournaments", async (req: any, res) => {
     try {
+      // Master admin gets all tournaments
+      if (req.isMasterAdmin) {
+        const tournaments = await storage.getAllTournaments();
+        // Strip sensitive tokens from all tournaments
+        const tournamentsWithoutTokens = tournaments.map(({ adminToken, viewToken, ...tournament }) => tournament);
+        res.json(tournamentsWithoutTokens);
+      }
       // If accessing with a token, only return the associated tournament
-      if (req.tokenTournamentId) {
+      else if (req.tokenTournamentId) {
         const tournament = await storage.getTournament(req.tokenTournamentId);
         if (!tournament) {
           return res.status(404).json({ error: "Tournament not found" });
@@ -99,8 +128,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.isAdminAccess) {
         return res.status(403).json({ error: "Access denied: admin token required" });
       }
-      // Verify tournament ownership
-      if (req.params.id !== req.tokenTournamentId) {
+      // Master admin can update any tournament, otherwise verify tournament ownership
+      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       const validatedData = insertTournamentSchema.parse(req.body);
@@ -124,8 +153,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.isAdminAccess) {
         return res.status(403).json({ error: "Access denied: admin token required" });
       }
-      // Verify tournament ownership
-      if (req.params.id !== req.tokenTournamentId) {
+      // Master admin can delete any tournament, otherwise verify tournament ownership
+      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       const deleted = await storage.deleteTournament(req.params.id);
@@ -144,8 +173,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!req.isAdminAccess) {
         return res.status(403).json({ error: "Access denied: admin token required" });
       }
-      // Verify tournament ownership
-      if (req.params.id !== req.tokenTournamentId) {
+      // Master admin can regenerate tokens for any tournament, otherwise verify tournament ownership
+      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       const tournament = await storage.regenerateViewToken(req.params.id);

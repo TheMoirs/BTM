@@ -47,7 +47,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament } = useTournament();
-  const { isReadOnly } = useViewMode();
+  const { isReadOnly, isMasterAdmin } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
