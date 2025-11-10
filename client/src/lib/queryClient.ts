@@ -1,6 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
+const MASTER_ADMIN_TOKEN_KEY = 'boules_master_admin_token';
 
 function getViewToken(): string | null {
   const params = new URLSearchParams(window.location.search);
@@ -10,7 +11,8 @@ function getViewToken(): string | null {
     return urlToken;
   }
   
-  return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
+  // Check both regular view tokens and master admin tokens
+  return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
 }
 
 function appendTokenToUrl(url: string): string {
