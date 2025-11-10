@@ -93,8 +93,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/tournaments/:id", async (req, res) => {
+  app.patch("/api/tournaments/:id", async (req: any, res) => {
     try {
+      // Require admin access for tournament updates
+      if (!req.isAdminAccess) {
+        return res.status(403).json({ error: "Access denied: admin token required" });
+      }
+      // Verify tournament ownership
+      if (req.params.id !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.updateTournament(req.params.id, validatedData);
       if (!tournament) {
@@ -110,8 +118,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tournaments/:id", async (req, res) => {
+  app.delete("/api/tournaments/:id", async (req: any, res) => {
     try {
+      // Require admin access for tournament deletion
+      if (!req.isAdminAccess) {
+        return res.status(403).json({ error: "Access denied: admin token required" });
+      }
+      // Verify tournament ownership
+      if (req.params.id !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const deleted = await storage.deleteTournament(req.params.id);
       if (!deleted) {
         return res.status(404).json({ error: "Tournament not found" });
@@ -122,8 +138,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments/:id/regenerate-token", async (req, res) => {
+  app.post("/api/tournaments/:id/regenerate-token", async (req: any, res) => {
     try {
+      // Require admin access for token regeneration
+      if (!req.isAdminAccess) {
+        return res.status(403).json({ error: "Access denied: admin token required" });
+      }
+      // Verify tournament ownership
+      if (req.params.id !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const tournament = await storage.regenerateViewToken(req.params.id);
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
@@ -258,9 +282,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/teams", async (req, res) => {
+  app.delete("/api/teams", async (req: any, res) => {
     try {
-      const tournamentId = req.query.tournamentId as string | undefined;
+      // Require admin access for bulk team deletion
+      if (!req.isAdminAccess) {
+        return res.status(403).json({ error: "Access denied: admin token required" });
+      }
+      // Use token's tournament ID and reject mismatched query params
+      const queryTournamentId = req.query.tournamentId as string | undefined;
+      if (queryTournamentId && queryTournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      // Default to token's tournament if no query param provided
+      const tournamentId = req.tokenTournamentId;
       await storage.deleteAllTeams(tournamentId);
       res.status(204).send();
     } catch (error) {
@@ -1012,9 +1046,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/matches", async (req, res) => {
+  app.delete("/api/matches", async (req: any, res) => {
     try {
-      const tournamentId = req.query.tournamentId as string | undefined;
+      // Require admin access for bulk match deletion
+      if (!req.isAdminAccess) {
+        return res.status(403).json({ error: "Access denied: admin token required" });
+      }
+      // Use token's tournament ID and reject mismatched query params
+      const queryTournamentId = req.query.tournamentId as string | undefined;
+      if (queryTournamentId && queryTournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      // Default to token's tournament if no query param provided
+      const tournamentId = req.tokenTournamentId;
       await storage.deleteAllMatches(tournamentId);
       res.status(204).send();
     } catch (error) {
