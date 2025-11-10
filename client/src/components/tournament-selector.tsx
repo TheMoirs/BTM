@@ -60,7 +60,7 @@ export function TournamentSelector() {
     queryKey: ["/api/tournaments"],
   });
 
-  const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials } = useMutation<any, Error, string>({
+  const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials, reset: resetCredentials } = useMutation<any, Error, string>({
     mutationFn: async (tournamentId: string) => {
       return await apiRequest("GET", `/api/tournaments/${tournamentId}/admin-credentials`);
     },
@@ -144,6 +144,7 @@ export function TournamentSelector() {
   };
 
   const handleViewAdminCredentials = (tournament: Tournament) => {
+    resetCredentials(); // Clear previous credentials
     setViewingCredentials(tournament);
     fetchAdminCredentials(tournament.id);
   };
@@ -740,7 +741,12 @@ export function TournamentSelector() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!viewingCredentials} onOpenChange={(open) => !open && setViewingCredentials(null)}>
+      <Dialog open={!!viewingCredentials} onOpenChange={(open) => {
+        if (!open) {
+          setViewingCredentials(null);
+          resetCredentials();
+        }
+      }}>
         <DialogContent className="max-w-2xl" data-testid="dialog-admin-credentials">
           <DialogHeader>
             <DialogTitle>Admin Credentials - {viewingCredentials?.name}</DialogTitle>
