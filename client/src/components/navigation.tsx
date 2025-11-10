@@ -1,13 +1,15 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useTournament } from "@/contexts/TournamentContext";
 
 export function Navigation() {
   const [location] = useLocation();
-  const { isReadOnly } = useViewMode();
+  const { isReadOnly, viewToken } = useViewMode();
+  const { currentTournament } = useTournament();
 
   const navItems = [
     { path: "/", label: "Teams", icon: Users },
@@ -32,11 +34,20 @@ export function Navigation() {
               Boules Tournament Manager
             </h1>
             <TournamentSelector />
-            {isReadOnly && (
-              <Badge variant="secondary" className="gap-1.5" data-testid="badge-view-only">
-                <Eye className="h-3 w-3" />
-                View Only
-              </Badge>
+            {currentTournament && (
+              <>
+                {isReadOnly ? (
+                  <Badge variant="secondary" className="gap-1.5" data-testid="badge-view-only">
+                    <Eye className="h-3 w-3" />
+                    View Only
+                  </Badge>
+                ) : viewToken ? (
+                  <Badge variant="default" className="gap-1.5 bg-primary" data-testid="badge-admin">
+                    <Shield className="h-3 w-3" />
+                    Admin Access
+                  </Badge>
+                ) : null}
+              </>
             )}
             <div className="flex gap-1">
               {navItems.map((item) => {
