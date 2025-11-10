@@ -53,6 +53,10 @@ Boules Tournament Manager is a web application designed to manage multiple boule
             - URLs are designed to be distributed to tournament organizers and viewers
             - Includes audit logging for security
             - Protected by strict master admin verification
+        - Access verification endpoint GET `/api/auth/check-access`:
+            - Returns current token's access level (master admin, admin, or view-only)
+            - Used by frontend to determine UI permissions
+            - Enables proper access control without exposing token validation logic
     - **Admin Tokens**: Full write access to specific tournament. Required for all modifications (teams, matches, tournament settings, token regeneration).
     - **View Tokens**: Read-only access to specific tournament. Can view all data but cannot modify anything.
     - **Default (No Token)**: Read-only access with no tournament-specific restrictions.

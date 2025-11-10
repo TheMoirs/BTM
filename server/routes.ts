@@ -196,20 +196,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`[AUDIT] Master admin retrieved admin credentials for tournament ${req.params.id} (${tournament.name})`);
-      console.log(`[DEBUG] Admin token: ${tournament.adminToken?.substring(0, 10)}...`);
-      console.log(`[DEBUG] View token: ${tournament.viewToken?.substring(0, 10)}...`);
-      console.log(`[DEBUG] Tokens are same: ${tournament.adminToken === tournament.viewToken}`);
       
-      // Return ONLY formatted URLs - never expose raw tokens to frontend
-      // This ensures tokens remain secure even if master session is compromised
-      const response = {
+      res.json({
         tournamentId: tournament.id,
         tournamentName: tournament.name,
         adminUrl: `${req.protocol}://${req.get('host')}/?token=${tournament.adminToken}&tournament=${tournament.id}`,
         viewUrl: `${req.protocol}://${req.get('host')}/?token=${tournament.viewToken}&tournament=${tournament.id}`
-      };
-      console.log(`[DEBUG] Response URLs same: ${response.adminUrl === response.viewUrl}`);
-      res.json(response);
+      });
     } catch (error) {
       console.error(`[ERROR] Failed to retrieve admin credentials:`, error);
       res.status(500).json({ error: "Failed to retrieve admin credentials" });

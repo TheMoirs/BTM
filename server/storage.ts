@@ -127,23 +127,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTournamentByToken(token: string): Promise<{ tournament: Tournament; isAdmin: boolean } | undefined> {
-    console.log(`[DEBUG] Checking token: ${token.substring(0, 10)}...`);
-    
     // Check if it's an admin token first
     const [adminTournament] = await db.select().from(tournaments).where(eq(tournaments.adminToken, token));
     if (adminTournament) {
-      console.log(`[DEBUG] Token matched as ADMIN token for tournament ${adminTournament.id}`);
       return { tournament: adminTournament, isAdmin: true };
     }
     
     // Check if it's a view token
     const [viewTournament] = await db.select().from(tournaments).where(eq(tournaments.viewToken, token));
     if (viewTournament) {
-      console.log(`[DEBUG] Token matched as VIEW token for tournament ${viewTournament.id}`);
       return { tournament: viewTournament, isAdmin: false };
     }
     
-    console.log(`[DEBUG] Token not found in any tournament`);
     return undefined;
   }
 

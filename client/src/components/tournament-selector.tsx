@@ -64,13 +64,7 @@ export function TournamentSelector() {
   const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials, reset: resetCredentials } = useMutation<any, Error, string>({
     mutationFn: async (tournamentId: string) => {
       const response = await apiRequest("GET", `/api/tournaments/${tournamentId}/admin-credentials`);
-      const data = await response.json();
-      console.log('Admin credentials received:', {
-        adminUrl: data.adminUrl,
-        viewUrl: data.viewUrl,
-        areSame: data.adminUrl === data.viewUrl
-      });
-      return data;
+      return await response.json();
     },
     onError: (error) => {
       toast({
