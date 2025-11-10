@@ -49,8 +49,8 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Bypasses all tournament-specific access restrictions
         - UI shows "Master Admin" badge in navigation
         - Special endpoint GET `/api/tournaments/:id/admin-credentials` (master admin only):
-            - Returns formatted admin and view URLs (never raw tokens)
-            - Tokens remain server-side only, not exposed to frontend
+            - Returns shareable admin and view URLs containing tokens
+            - URLs are designed to be distributed to tournament organizers and viewers
             - Includes audit logging for security
             - Protected by strict master admin verification
     - **Admin Tokens**: Full write access to specific tournament. Required for all modifications (teams, matches, tournament settings, token regeneration).
@@ -84,12 +84,12 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Can switch between any tournament without restrictions
     - **Security Guarantees**:
         - Cannot bypass security by removing token
-        - Raw admin/view tokens never exposed to frontend (even for master admin)
-        - Master admin endpoint returns only formatted URLs, not raw tokens
+        - Each token grants access to only one specific tournament
         - Cross-tournament access completely blocked at all levels
         - Multi-layer defense: middleware + route handlers enforce isolation
-        - Master admin endpoint includes audit logging
-        - Tokens stored server-side with cryptographic security
+        - Master admin sessions use cryptographically secure tokens with 24h expiration
+        - Master admin endpoint includes audit logging for all credential retrievals
+        - Master admin can retrieve shareable URLs to distribute to tournament organizers
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
 - **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
 
