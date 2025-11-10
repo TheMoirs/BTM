@@ -171,6 +171,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check current token's access level
+  app.get("/api/auth/check-access", async (req: any, res) => {
+    res.json({
+      isMasterAdmin: req.isMasterAdmin || false,
+      isAdminAccess: req.isAdminAccess || false,
+      isViewOnlyAccess: req.isViewOnlyAccess || false,
+      tournamentId: req.tokenTournamentId || null
+    });
+  });
+
   // Master admin only: retrieve admin credentials for a tournament
   app.get("/api/tournaments/:id/admin-credentials", async (req: any, res) => {
     try {

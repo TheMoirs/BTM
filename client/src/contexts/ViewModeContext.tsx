@@ -1,6 +1,7 @@
-import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import type { Tournament } from '@shared/schema';
+import { useQuery } from '@tanstack/react-query';
 
 interface ViewModeContextType {
   isReadOnly: boolean;
@@ -52,8 +53,20 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     }
   }, [location, viewToken]);
 
-  const isMasterAdmin = viewToken?.startsWith('master_') ?? false;
-  const isReadOnly = viewToken !== null && !isMasterAdmin;
+  // Query the server to check actual access level
+  const { data: accessLevel } = useQuery<{
+    isMasterAdmin: boolean;
+    isAdminAccess: boolean;
+    isViewOnlyAccess: boolean;
+    tournamentId: string | null;
+  }>({
+    queryKey: ['/api/auth/check-access'],
+    enabled: true,
+  });
+
+  const isMasterAdmin = accessLevel?.isMasterAdmin ?? false;
+  // isReadOnly should be true ONLY if we have view-only access (not admin or master admin)
+  const isReadOnly = accessLevel?.isViewOnlyAccess ?? (viewToken !== null && !viewToken.startsWith('master_'));
 
   const loginMasterAdmin = async (password: string): Promise<boolean> => {
     try {
