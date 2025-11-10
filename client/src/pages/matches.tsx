@@ -1119,10 +1119,10 @@ export default function Matches() {
             <Button
               variant="outline"
               onClick={openPdfViewer}
-              data-testid="button-view-pdf"
+              data-testid="button-download"
             >
               <FileDown className="h-4 w-4 mr-2" />
-              View PDF Report
+              Download
             </Button>
             {!isReadOnly && (
               <>
@@ -1293,7 +1293,7 @@ export default function Matches() {
                 <div>
                   <h3 className="font-semibold mb-2">Other Actions</h3>
                   <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>View PDF Report:</strong> Generate a printable match schedule and results</li>
+                    <li><strong>Download:</strong> Generate and download a match schedule and results report (PDF or Excel)</li>
                     <li><strong>Clear All Data:</strong> Delete all matches from the tournament</li>
                     <li><strong>Delete Match:</strong> Click the trash icon to remove a specific match</li>
                   </ul>

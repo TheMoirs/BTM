@@ -1096,10 +1096,10 @@ export default function Teams() {
               variant="outline"
               size="sm"
               onClick={openPdfViewer}
-              data-testid="button-view-pdf"
+              data-testid="button-download"
             >
               <FileDown className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">View PDF</span>
+              <span className="hidden sm:inline">Download</span>
             </Button>
             <Button
               variant="outline"
@@ -1375,7 +1375,7 @@ export default function Teams() {
                 <div>
                   <h3 className="font-semibold mb-2">Other Actions</h3>
                   <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>View PDF:</strong> Generate a printable PDF report of all registered teams</li>
+                    <li><strong>Download:</strong> Generate and download a printable PDF or Excel report of all registered teams</li>
                     <li><strong>Clear All Data:</strong> Delete all teams from the tournament (warning: this cannot be undone)</li>
                     <li><strong>Delete Team:</strong> Click the trash icon next to a team to remove them</li>
                   </ul>

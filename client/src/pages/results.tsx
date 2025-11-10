@@ -790,10 +790,10 @@ export default function Results() {
                           variant="outline"
                           size="sm"
                           onClick={openSummaryPdfViewer}
-                          data-testid="button-summary-view-pdf"
+                          data-testid="button-summary-download"
                         >
                           <FileDown className="mr-2 h-4 w-4" />
-                          View PDF
+                          Download
                         </Button>
                       </div>
                     </div>
@@ -893,10 +893,10 @@ export default function Results() {
               <Button
                 variant="outline"
                 onClick={openPdfViewer}
-                data-testid="button-view-pdf"
+                data-testid="button-download"
               >
                 <FileDown className="mr-2 h-4 w-4" />
-                View PDF
+                Download
               </Button>
               {!isReadOnly && (
                 <>
@@ -954,8 +954,8 @@ export default function Results() {
               <div>
                 <h3 className="font-semibold mb-2">Other Actions</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>View PDF:</strong> Generate a printable results report</li>
-                  <li><strong>Copy Share Link:</strong> Get a read-only link to share results with others</li>
+                  <li><strong>Download:</strong> Generate and download a results report (PDF or Excel)</li>
+                  <li><strong>Share View:</strong> Get a short link to share results with others in read-only mode</li>
                   <li><strong>Clear All Results:</strong> Delete all results (warning: this cannot be undone)</li>
                 </ul>
               </div>
