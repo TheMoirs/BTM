@@ -41,9 +41,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2, Pencil } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament } = useTournament();
@@ -51,10 +52,26 @@ export function TournamentSelector() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
+  const [viewingCredentials, setViewingCredentials] = useState<Tournament | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: tournaments } = useQuery<Tournament[]>({
     queryKey: ["/api/tournaments"],
+  });
+
+  const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials } = useMutation<any, Error, string>({
+    mutationFn: async (tournamentId: string) => {
+      return await apiRequest("GET", `/api/tournaments/${tournamentId}/admin-credentials`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch admin credentials",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
   });
 
   const form = useForm<InsertTournament>({
@@ -120,6 +137,30 @@ export function TournamentSelector() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to delete tournament",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
+  };
+
+  const handleViewAdminCredentials = (tournament: Tournament) => {
+    setViewingCredentials(tournament);
+    fetchAdminCredentials(tournament.id);
+  };
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+      toast({
+        title: "Copied to clipboard",
+        description: `${field} has been copied.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
         variant: "destructive",
         duration: Infinity,
       });
@@ -331,6 +372,20 @@ export function TournamentSelector() {
                 </div>
               </div>
               <div className="flex gap-1 flex-shrink-0">
+                {isMasterAdmin && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewAdminCredentials(tournament);
+                    }}
+                    data-testid={`button-admin-url-${tournament.id}`}
+                  >
+                    <Link2 className="h-3 w-3" />
+                  </Button>
+                )}
                 <Button
                   size="icon"
                   variant="ghost"
@@ -684,6 +739,96 @@ export function TournamentSelector() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewingCredentials} onOpenChange={(open) => !open && setViewingCredentials(null)}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-admin-credentials">
+          <DialogHeader>
+            <DialogTitle>Admin Credentials - {viewingCredentials?.name}</DialogTitle>
+          </DialogHeader>
+          {isFetchingCredentials ? (
+            <div className="py-8 text-center text-muted-foreground">Loading credentials...</div>
+          ) : adminCredentials ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Admin URL</label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(adminCredentials.adminUrl, "Admin URL")}
+                    data-testid="button-copy-admin-url"
+                  >
+                    {copiedField === "Admin URL" ? (
+                      <>
+                        <Check className="h-3 w-3 mr-2" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 mr-2" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Input
+                  value={adminCredentials.adminUrl}
+                  readOnly
+                  className="font-mono text-xs"
+                  data-testid="input-admin-url"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Share this URL with tournament administrators. They will have full control over this tournament.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">View-Only URL</label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(adminCredentials.viewUrl, "View-Only URL")}
+                    data-testid="button-copy-view-url"
+                  >
+                    {copiedField === "View-Only URL" ? (
+                      <>
+                        <Check className="h-3 w-3 mr-2" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 mr-2" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Input
+                  value={adminCredentials.viewUrl}
+                  readOnly
+                  className="font-mono text-xs"
+                  data-testid="input-view-url"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Share this URL with viewers. They can see tournament data but cannot make changes.
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setViewingCredentials(null)}
+                  className="flex-1"
+                  data-testid="button-close-credentials"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

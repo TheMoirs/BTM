@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
+import { masterAdminSessions } from "./masterAdminSessions";
 
 export interface TokenRequest extends Request {
   isViewOnlyAccess?: boolean;
@@ -17,12 +18,18 @@ export async function validateTokenMiddleware(
 
   // Check for master admin session
   if (token && token.startsWith('master_')) {
-    req.isMasterAdmin = true;
-    req.isAdminAccess = true;
-    req.isViewOnlyAccess = false;
-    // Master admin has access to all tournaments, no restriction
-    next();
-    return;
+    if (masterAdminSessions.validateSession(token)) {
+      req.isMasterAdmin = true;
+      req.isAdminAccess = true;
+      req.isViewOnlyAccess = false;
+      // Master admin has access to all tournaments, no restriction
+      next();
+      return;
+    } else {
+      // Invalid or expired master admin token
+      res.status(401).json({ error: "Invalid or expired master admin session" });
+      return;
+    }
   }
 
   if (!token) {

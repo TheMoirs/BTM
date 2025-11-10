@@ -41,22 +41,34 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Teams Management**: Add individually or bulk import via Excel. Inline editing and "Edit All" mode. Division changes restricted if team has matches. Division filtering.
 - **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry.
 - **Results Summary & Reports**: View team statistics and match results. Detailed table filterable by stage. Summary dialog always shows all stages grouped by Stage → Division. PDF reports include tournament name and timestamp.
-- **Dual-Token Security System**: Comprehensive token-based access control with admin and view-only modes.
+- **Three-Tier Security System**: Comprehensive access control with Master Admin, Admin tokens, and View tokens.
+    - **Master Admin**: Password-based authentication using `MASTER_ADMIN_PASSWORD` environment variable.
+        - Full control over ALL tournaments (view, edit, delete any tournament)
+        - Can retrieve admin URLs for any tournament via dedicated endpoint
+        - Session-based authentication with `master_` prefixed tokens
+        - Bypasses all tournament-specific access restrictions
+        - UI shows "Master Admin" badge in navigation
+        - Special endpoint GET `/api/tournaments/:id/admin-credentials` (master admin only):
+            - Returns formatted admin and view URLs (never raw tokens)
+            - Tokens remain server-side only, not exposed to frontend
+            - Includes audit logging for security
+            - Protected by strict master admin verification
     - **Admin Tokens**: Full write access to specific tournament. Required for all modifications (teams, matches, tournament settings, token regeneration).
     - **View Tokens**: Read-only access to specific tournament. Can view all data but cannot modify anything.
     - **Default (No Token)**: Read-only access with no tournament-specific restrictions.
     - Each tournament has two unique tokens (cryptographically secure 32-character random strings):
-        - `adminToken`: Created on tournament creation, never exposed in GET responses except initial creation
+        - `adminToken`: Created on tournament creation, retrievable only by master admin
         - `viewToken`: Created on tournament creation, shareable for public viewing
-    - **Token Usage**: Tokens included as query parameter: `?token={adminToken|viewToken}&tournament={id}`
+    - **Token Usage**: Tokens included as query parameter: `?token={adminToken|viewToken|master_session}&tournament={id}`
     - **Token Persistence**: Tokens stored in localStorage to survive SPA navigation and page reloads
     - **Server-Side Enforcement**:
-        - Middleware validates tokens and sets access level flags (`isAdminAccess`, `isViewOnlyAccess`, `tokenTournamentId`)
-        - All write operations require admin token (403 for view tokens or missing tokens)
+        - Middleware validates tokens and sets access level flags (`isAdminAccess`, `isViewOnlyAccess`, `isMasterAdmin`, `tokenTournamentId`)
+        - All write operations require admin token or master admin (403 for view tokens or missing tokens)
         - All routes verify tournament ownership before allowing access (403 for cross-tournament attempts)
+        - Master admin bypasses tournament ownership checks
         - PATCH operations verify both existing resource and new payload belong to token's tournament
         - Bulk operations derive tournament ID from token, reject mismatched query parameters
-    - **Tournament Management Routes** (require admin token + ownership):
+    - **Tournament Management Routes** (require admin token + ownership OR master admin):
         - PATCH /api/tournaments/:id
         - DELETE /api/tournaments/:id
         - POST /api/tournaments/:id/regenerate-token
@@ -64,12 +76,20 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - DELETE /api/matches (bulk)
     - **Error Handling**: Invalid tokens return 401; cross-tournament access returns 403; missing resources return 404
     - **Token Regeneration**: Admin tokens can regenerate view tokens via `/api/tournaments/:id/regenerate-token`
-    - **UI Integration**: Automatically detects token presence, hides editing controls in view-only mode, displays read-only banner
+    - **UI Integration**: Automatically detects token presence, hides editing controls in view-only mode, displays access level badges (Master Admin, Admin Access, View Only)
+    - **Master Admin Features**:
+        - Login/logout UI in navigation bar
+        - Link icon button next to each tournament in selector (master admin only)
+        - Dialog displaying both admin and view URLs with copy buttons
+        - Can switch between any tournament without restrictions
     - **Security Guarantees**:
         - Cannot bypass security by removing token
-        - Tokens never exposed in GET responses (except initial tournament creation)
+        - Raw admin/view tokens never exposed to frontend (even for master admin)
+        - Master admin endpoint returns only formatted URLs, not raw tokens
         - Cross-tournament access completely blocked at all levels
         - Multi-layer defense: middleware + route handlers enforce isolation
+        - Master admin endpoint includes audit logging
+        - Tokens stored server-side with cryptographic security
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
 - **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
 

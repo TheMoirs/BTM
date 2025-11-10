@@ -5,6 +5,7 @@ import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTour
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
+import { masterAdminSessions } from "./masterAdminSessions";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Master admin authentication endpoint (before token middleware)
@@ -14,17 +15,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
       
       if (!masterPassword) {
+        console.error("[SECURITY] Master admin attempted but MASTER_ADMIN_PASSWORD not configured");
         return res.status(503).json({ error: "Master admin not configured" });
       }
       
       if (password === masterPassword) {
-        // Generate a session token for master admin
-        const sessionToken = `master_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const sessionToken = masterAdminSessions.createSession();
+        console.log(`[AUDIT] Master admin login successful - active sessions: ${masterAdminSessions.getActiveSessionCount()}`);
         res.json({ success: true, sessionToken });
       } else {
+        console.warn("[SECURITY] Failed master admin login attempt - invalid password");
         res.status(401).json({ error: "Invalid password" });
       }
     } catch (error) {
+      console.error("[ERROR] Master admin authentication error:", error);
       res.status(500).json({ error: "Authentication failed" });
     }
   });
@@ -164,6 +168,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete tournament" });
+    }
+  });
+
+  // Master admin only: retrieve admin credentials for a tournament
+  app.get("/api/tournaments/:id/admin-credentials", async (req: any, res) => {
+    try {
+      // CRITICAL: Only master admins can access this endpoint
+      if (!req.isMasterAdmin) {
+        console.warn(`[SECURITY] Unauthorized attempt to access admin credentials for tournament ${req.params.id}`);
+        return res.status(403).json({ error: "Access denied: master admin access required" });
+      }
+
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      console.log(`[AUDIT] Master admin retrieved admin credentials for tournament ${req.params.id} (${tournament.name})`);
+      
+      // Return ONLY formatted URLs - never expose raw tokens to frontend
+      // This ensures tokens remain secure even if master session is compromised
+      res.json({
+        tournamentId: tournament.id,
+        tournamentName: tournament.name,
+        adminUrl: `${req.protocol}://${req.get('host')}/?token=${tournament.adminToken}&tournament=${tournament.id}`,
+        viewUrl: `${req.protocol}://${req.get('host')}/?token=${tournament.viewToken}&tournament=${tournament.id}`
+      });
+    } catch (error) {
+      console.error(`[ERROR] Failed to retrieve admin credentials:`, error);
+      res.status(500).json({ error: "Failed to retrieve admin credentials" });
     }
   });
 
