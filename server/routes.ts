@@ -12,18 +12,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tournament routes
   app.get("/api/tournaments", async (req: any, res) => {
     try {
-      // If accessing via view token, only return the associated tournament
-      if (req.isViewOnlyAccess && req.viewOnlyTournamentId) {
-        const tournament = await storage.getTournament(req.viewOnlyTournamentId);
+      // If accessing with a token, only return the associated tournament
+      if (req.tokenTournamentId) {
+        const tournament = await storage.getTournament(req.tokenTournamentId);
         if (!tournament) {
           return res.status(404).json({ error: "Tournament not found" });
         }
-        // Strip viewToken from response for view-only clients
-        const { viewToken, ...tournamentWithoutToken } = tournament;
-        res.json([tournamentWithoutToken]);
+        // Strip sensitive tokens from response
+        const { viewToken, adminToken, ...tournamentWithoutTokens } = tournament;
+        res.json([tournamentWithoutTokens]);
       } else {
         const tournaments = await storage.getAllTournaments();
-        res.json(tournaments);
+        // Strip sensitive tokens from all tournaments
+        const tournamentsWithoutTokens = tournaments.map(({ adminToken, viewToken, ...tournament }) => tournament);
+        res.json(tournamentsWithoutTokens);
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tournaments" });
@@ -32,20 +34,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tournaments/latest", async (req: any, res) => {
     try {
-      // If accessing via view token, return the associated tournament instead of latest
-      if (req.isViewOnlyAccess && req.viewOnlyTournamentId) {
-        const tournament = await storage.getTournament(req.viewOnlyTournamentId);
+      // If accessing with a token, return the associated tournament instead of latest
+      if (req.tokenTournamentId) {
+        const tournament = await storage.getTournament(req.tokenTournamentId);
         if (!tournament) {
           return res.status(404).json({ error: "Tournament not found" });
         }
-        const { viewToken, ...tournamentWithoutToken } = tournament;
-        res.json(tournamentWithoutToken);
+        const { viewToken, adminToken, ...tournamentWithoutTokens } = tournament;
+        res.json(tournamentWithoutTokens);
       } else {
         const tournament = await storage.getLatestTournament();
         if (!tournament) {
           return res.status(404).json({ error: "No tournament found" });
         }
-        res.json(tournament);
+        // Strip sensitive tokens from response
+        const { adminToken, viewToken, ...tournamentWithoutTokens } = tournament;
+        res.json(tournamentWithoutTokens);
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch latest tournament" });
@@ -54,8 +58,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tournaments/:id", async (req: any, res) => {
     try {
-      // Enforce tournament-specific access for view-only mode
-      if (req.isViewOnlyAccess && req.params.id !== req.viewOnlyTournamentId) {
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId && req.params.id !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       
@@ -63,10 +67,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!tournament) {
         return res.status(404).json({ error: "Tournament not found" });
       }
-      // Strip viewToken from response for view-only clients
-      if (req.isViewOnlyAccess) {
-        const { viewToken, ...tournamentWithoutToken } = tournament;
-        res.json(tournamentWithoutToken);
+      // Strip sensitive tokens from response when accessed with any token
+      if (req.tokenTournamentId) {
+        const { viewToken, adminToken, ...tournamentWithoutTokens } = tournament;
+        res.json(tournamentWithoutTokens);
       } else {
         res.json(tournament);
       }
@@ -135,13 +139,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let tournamentId = req.query.tournamentId as string | undefined;
       
-      // Enforce tournament-specific access for view-only mode
-      if (req.isViewOnlyAccess) {
-        if (tournamentId && tournamentId !== req.viewOnlyTournamentId) {
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId) {
+        if (tournamentId && tournamentId !== req.tokenTournamentId) {
           return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
         }
         // Default to the token's tournament if no tournamentId specified
-        tournamentId = req.viewOnlyTournamentId;
+        tournamentId = req.tokenTournamentId;
       }
       
       const teams = await storage.getAllTeams(tournamentId);
@@ -151,11 +155,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/teams/:id", async (req, res) => {
+  app.get("/api/teams/:id", async (req: any, res) => {
     try {
       const team = await storage.getTeam(req.params.id);
       if (!team) {
         return res.status(404).json({ error: "Team not found" });
+      }
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       res.json(team);
     } catch (error) {
@@ -163,9 +171,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/teams", async (req, res) => {
+  app.post("/api/teams", async (req: any, res) => {
     try {
       const validatedData = insertTeamSchema.parse(req.body);
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId && validatedData.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const team = await storage.createTeam(validatedData);
       res.status(201).json(team);
     } catch (error) {
@@ -177,9 +189,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/teams/:id", async (req, res) => {
+  app.patch("/api/teams/:id", async (req: any, res) => {
     try {
+      // Load existing team first
+      const existing = await storage.getTeam(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      // Verify existing tournament ownership
+      if (req.tokenTournamentId && existing.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const validatedData = insertTeamSchema.parse(req.body);
+      // Also verify new tournament in payload
+      if (req.tokenTournamentId && validatedData.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const team = await storage.updateTeam(req.params.id, validatedData);
       if (!team) {
         return res.status(404).json({ error: "Team not found" });
@@ -194,8 +219,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/teams/:id/deletion-impact", async (req, res) => {
+  app.get("/api/teams/:id/deletion-impact", async (req: any, res) => {
     try {
+      // Load team first to verify ownership
+      const team = await storage.getTeam(req.params.id);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      // Verify tournament ownership
+      if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const impact = await storage.getTeamDeletionImpact(req.params.id);
       res.json(impact);
     } catch (error) {
@@ -203,8 +237,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/teams/:id", async (req, res) => {
+  app.delete("/api/teams/:id", async (req: any, res) => {
     try {
+      // Load team first to verify ownership
+      const team = await storage.getTeam(req.params.id);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      // Verify tournament ownership before deleting
+      if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const deleted = await storage.deleteTeam(req.params.id);
       if (!deleted) {
         return res.status(404).json({ error: "Team not found" });
@@ -229,13 +272,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let tournamentId = req.query.tournamentId as string | undefined;
       
-      // Enforce tournament-specific access for view-only mode
-      if (req.isViewOnlyAccess) {
-        if (tournamentId && tournamentId !== req.viewOnlyTournamentId) {
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId) {
+        if (tournamentId && tournamentId !== req.tokenTournamentId) {
           return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
         }
         // Default to the token's tournament if no tournamentId specified
-        tournamentId = req.viewOnlyTournamentId;
+        tournamentId = req.tokenTournamentId;
       }
       
       const matches = await storage.getAllMatches(tournamentId);
@@ -245,11 +288,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/matches/:id", async (req, res) => {
+  app.get("/api/matches/:id", async (req: any, res) => {
     try {
       const match = await storage.getMatch(req.params.id);
       if (!match) {
         return res.status(404).json({ error: "Match not found" });
+      }
+      // Verify tournament ownership
+      if (req.tokenTournamentId && match.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       res.json(match);
     } catch (error) {
@@ -257,9 +304,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/matches", async (req, res) => {
+  app.post("/api/matches", async (req: any, res) => {
     try {
       const validatedData = insertMatchSchema.parse(req.body);
+      // Verify tournament in payload
+      if (req.tokenTournamentId && validatedData.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const match = await storage.createMatch(validatedData);
       res.status(201).json(match);
     } catch (error) {
@@ -875,8 +926,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/matches/:id/score", async (req, res) => {
+  app.patch("/api/matches/:id/score", async (req: any, res) => {
     try {
+      // Load existing match first
+      const existing = await storage.getMatch(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      // Verify tournament ownership before updating
+      if (req.tokenTournamentId && existing.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const validatedData = updateMatchScoreSchema.parse(req.body);
       const match = await storage.updateMatchScore(
         req.params.id,
@@ -905,13 +965,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let tournamentId = req.query.tournamentId as string | undefined;
       
-      // Enforce tournament-specific access for view-only mode
-      if (req.isViewOnlyAccess) {
-        if (tournamentId && tournamentId !== req.viewOnlyTournamentId) {
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId) {
+        if (tournamentId && tournamentId !== req.tokenTournamentId) {
           return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
         }
         // Default to the token's tournament if no tournamentId specified
-        tournamentId = req.viewOnlyTournamentId;
+        tournamentId = req.tokenTournamentId;
       }
       
       const results = await storage.getAllResults(tournamentId);
@@ -931,8 +991,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/matches/:id", async (req, res) => {
+  app.delete("/api/matches/:id", async (req: any, res) => {
     try {
+      // Load match first to verify ownership
+      const match = await storage.getMatch(req.params.id);
+      if (!match) {
+        return res.status(404).json({ error: "Match not found" });
+      }
+      // Verify tournament ownership before deleting
+      if (req.tokenTournamentId && match.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
       const deleted = await storage.deleteMatch(req.params.id);
       if (!deleted) {
         return res.status(404).json({ error: "Match not found" });

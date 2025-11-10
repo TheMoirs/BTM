@@ -12,7 +12,8 @@ export interface IStorage {
   updateTournament(id: string, tournament: InsertTournament): Promise<Tournament | undefined>;
   deleteTournament(id: string): Promise<boolean>;
   regenerateViewToken(id: string): Promise<Tournament | undefined>;
-  getTournamentByToken(token: string): Promise<Tournament | undefined>;
+  regenerateAdminToken(id: string): Promise<Tournament | undefined>;
+  getTournamentByToken(token: string): Promise<{ tournament: Tournament; isAdmin: boolean } | undefined>;
   
   getAllTeams(tournamentId?: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
@@ -64,7 +65,11 @@ export class DatabaseStorage implements IStorage {
   async createTournament(insertTournament: InsertTournament): Promise<Tournament> {
     const [tournament] = await db
       .insert(tournaments)
-      .values(insertTournament)
+      .values({
+        ...insertTournament,
+        adminToken: generateViewToken(),
+        viewToken: generateViewToken(),
+      })
       .returning();
     return tournament;
   }
@@ -105,9 +110,36 @@ export class DatabaseStorage implements IStorage {
     return updatedTournament || undefined;
   }
 
-  async getTournamentByToken(token: string): Promise<Tournament | undefined> {
-    const [tournament] = await db.select().from(tournaments).where(eq(tournaments.viewToken, token));
-    return tournament || undefined;
+  async regenerateAdminToken(id: string): Promise<Tournament | undefined> {
+    const existingTournament = await this.getTournament(id);
+    if (!existingTournament) {
+      return undefined;
+    }
+
+    const newToken = generateViewToken();
+    const [updatedTournament] = await db
+      .update(tournaments)
+      .set({ adminToken: newToken })
+      .where(eq(tournaments.id, id))
+      .returning();
+    
+    return updatedTournament || undefined;
+  }
+
+  async getTournamentByToken(token: string): Promise<{ tournament: Tournament; isAdmin: boolean } | undefined> {
+    // Check if it's an admin token first
+    const [adminTournament] = await db.select().from(tournaments).where(eq(tournaments.adminToken, token));
+    if (adminTournament) {
+      return { tournament: adminTournament, isAdmin: true };
+    }
+    
+    // Check if it's a view token
+    const [viewTournament] = await db.select().from(tournaments).where(eq(tournaments.viewToken, token));
+    if (viewTournament) {
+      return { tournament: viewTournament, isAdmin: false };
+    }
+    
+    return undefined;
   }
 
   // Team methods

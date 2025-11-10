@@ -3,7 +3,8 @@ import { storage } from "./storage";
 
 export interface TokenRequest extends Request {
   isViewOnlyAccess?: boolean;
-  viewOnlyTournamentId?: string;
+  isAdminAccess?: boolean;
+  tokenTournamentId?: string;
 }
 
 export async function validateTokenMiddleware(
@@ -14,34 +15,49 @@ export async function validateTokenMiddleware(
   const token = req.query.token as string | undefined;
 
   if (!token) {
+    // No token = default read-only access (except tournament creation for initial setup)
+    req.isViewOnlyAccess = true;
+    const method = req.method.toUpperCase();
+    const isCreatingTournament = method === "POST" && req.path === "/api/tournaments";
+    
+    if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
+      // Allow POST /api/tournaments without token (initial tournament creation)
+      if (!isCreatingTournament) {
+        res.status(403).json({ error: "Write operations require admin access" });
+        return;
+      }
+    }
     next();
     return;
   }
 
-  const tournament = await storage.getTournamentByToken(token);
+  const result = await storage.getTournamentByToken(token);
   
-  if (!tournament) {
-    res.status(401).json({ error: "Invalid view token" });
+  if (!result) {
+    res.status(401).json({ error: "Invalid token" });
     return;
   }
 
-  req.isViewOnlyAccess = true;
-  req.viewOnlyTournamentId = tournament.id;
+  const { tournament, isAdmin } = result;
+  req.tokenTournamentId = tournament.id;
 
-  const method = req.method.toUpperCase();
-  if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
-    res.status(403).json({ error: "Write operations are not allowed in view-only mode" });
-    return;
+  if (isAdmin) {
+    // Admin token = full access to this tournament only
+    req.isAdminAccess = true;
+    req.isViewOnlyAccess = false;
+  } else {
+    // View token = read-only access to this tournament only
+    req.isViewOnlyAccess = true;
+    req.isAdminAccess = false;
+    
+    const method = req.method.toUpperCase();
+    if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
+      res.status(403).json({ error: "Write operations are not allowed in view-only mode" });
+      return;
+    }
   }
 
-  const requestedTournamentId = req.query.tournamentId as string | undefined 
-    || req.params.id 
-    || req.body?.tournamentId;
-
-  if (requestedTournamentId && requestedTournamentId !== tournament.id) {
-    res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
-    return;
-  }
-
+  // Tournament-specific access will be enforced at the route handler level
+  // where we can properly identify the resource's tournament
   next();
 }

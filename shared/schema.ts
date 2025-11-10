@@ -12,11 +12,12 @@ export const tournaments = pgTable("tournaments", {
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
+  adminToken: varchar("admin_token", { length: 32 }).unique(),
   viewToken: varchar("view_token", { length: 32 }).unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, viewToken: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),
   gamesPerMatch: z.number().int().min(1, "Must have at least 1 game").max(5, "Maximum 5 games per match").default(3),
