@@ -54,3 +54,26 @@ export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boole
     return false;
   }
 }
+
+export async function shortenUrl(longUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch('https://urlfy.org/api/v1/shorten', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: longUrl }),
+    });
+    
+    if (!response.ok) {
+      console.error('URL shortening failed:', response.statusText);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.shortUrl || null;
+  } catch (error) {
+    console.error('Error shortening URL:', error);
+    return null;
+  }
+}
