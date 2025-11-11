@@ -469,8 +469,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function selectTopTeams(
     rankings: Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }>,
     numberOfDivisions: number,
-    targetCount: 8 | 4 | 2
+    targetCount: 8 | 4 | 2,
+    fromPlayoffStage: boolean = false
   ): Team[] {
+    // If selecting from playoff stage, always use overall rankings (divisions no longer matter)
+    if (fromPlayoffStage) {
+      return rankings.slice(0, targetCount).map(r => r.team);
+    }
+
+    // Otherwise, use division-based selection (for initial stage)
     // Group rankings by division
     const divisionRankings = new Map<string, typeof rankings>();
     rankings.forEach(rank => {
@@ -732,7 +739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stageToGenerate = "semi-finals";
         const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
         const rankings = calculateTeamRankings(quarterResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4, true);
 
         if (topTeams.length < 4) {
           return res.status(400).json({ 
@@ -800,7 +807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stageToGenerate = "finals";
         const semiResults = await storage.getResultsByStage(tournamentId, "semi-finals");
         const rankings = calculateTeamRankings(semiResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2, true);
 
         if (topTeams.length < 2) {
           return res.status(400).json({ 
@@ -868,7 +875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stageToGenerate = "finals";
         const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
         const rankings = calculateTeamRankings(quarterResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
+        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2, true);
 
         if (topTeams.length < 2) {
           return res.status(400).json({ 
@@ -956,7 +963,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Get rankings from source stage
             const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
             const rankings = calculateTeamRankings(sourceResults, teams);
-            const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, targetCount);
+            // Use playoff logic if source is a playoff stage (not initial)
+            const isFromPlayoff = sourceStage !== "initial";
+            const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, targetCount, isFromPlayoff);
 
             if (topTeams.length >= targetCount) {
               // Create expected pairings based on current rankings
