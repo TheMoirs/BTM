@@ -42,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import * as XLSX from "xlsx";
@@ -71,6 +71,25 @@ type SortDirection = "asc" | "desc";
 interface EditingTeam extends Partial<InsertTeam> {
   id?: string;
   isNew?: boolean;
+}
+
+// Helper function to format phone number for WhatsApp
+function formatPhoneForWhatsApp(phone: string): string {
+  // Remove all non-digit characters (including +, spaces, dashes, etc.)
+  // WhatsApp expects only digits in the wa.me URL
+  return phone.replace(/\D/g, '');
+}
+
+// Helper function to create WhatsApp URL
+function getWhatsAppUrl(phone: string): string {
+  const formatted = formatPhoneForWhatsApp(phone);
+  return `https://wa.me/${formatted}`;
+}
+
+// Helper function to create mailto URL with tournament subject
+function getMailtoUrl(email: string, tournamentName: string): string {
+  const subject = encodeURIComponent(`Re: ${tournamentName}`);
+  return `mailto:${email}?subject=${subject}`;
 }
 
 export default function Teams() {
@@ -1726,8 +1745,19 @@ export default function Teams() {
                               className="h-8"
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
+                          ) : team.captainPhone ? (
+                            <a
+                              href={getWhatsAppUrl(team.captainPhone)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-foreground hover:text-green-600 transition-colors"
+                              data-testid={`link-whatsapp-${team.id}`}
+                            >
+                              <MessageCircle className="h-4 w-4 text-green-600" />
+                              <span data-testid={`text-captain-phone-${team.id}`}>{team.captainPhone}</span>
+                            </a>
                           ) : (
-                            <span data-testid={`text-captain-phone-${team.id}`}>{team.captainPhone}</span>
+                            <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -1739,8 +1769,17 @@ export default function Teams() {
                               className="h-8"
                               data-testid={`input-edit-captain-email-${team.id}`}
                             />
+                          ) : team.captainEmail ? (
+                            <a
+                              href={getMailtoUrl(team.captainEmail, currentTournament?.name || "Tournament")}
+                              className="flex items-center gap-1.5 text-foreground hover:text-primary transition-colors"
+                              data-testid={`link-email-${team.id}`}
+                            >
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                              <span data-testid={`text-captain-email-${team.id}`}>{team.captainEmail}</span>
+                            </a>
                           ) : (
-                            <span data-testid={`text-captain-email-${team.id}`}>{team.captainEmail}</span>
+                            <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
                         <TableCell>
