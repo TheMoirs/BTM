@@ -894,26 +894,15 @@ export default function Results() {
                           {currentTournament?.name} • {new Date().toLocaleString()}
                         </p>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowSummary(false)}
-                          data-testid="button-close-summary"
-                          aria-label="Close summary"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={openSummaryPdfViewer}
-                          data-testid="button-summary-download"
-                        >
-                          <FileDown className="mr-2 h-4 w-4" />
-                          Download
-                        </Button>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={openSummaryPdfViewer}
+                        data-testid="button-summary-download"
+                      >
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Download
+                      </Button>
                     </div>
                   </DialogHeader>
                   <div className="space-y-8">

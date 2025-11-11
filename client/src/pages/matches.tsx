@@ -110,6 +110,7 @@ export default function Matches() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const { toast } = useToast();
@@ -247,6 +248,11 @@ export default function Matches() {
       });
       return;
     }
+    
+    toast({
+      title: "Updating",
+      description: "Please wait while I update the system",
+    });
     
     try {
       const res = await apiRequest("POST", "/api/matches/generate", { 
@@ -647,8 +653,8 @@ export default function Matches() {
 
     setIsSaving(true);
     toast({
-      title: "Updating - Please Wait",
-      description: `Saving ${matchesToUpdate.length} match${matchesToUpdate.length > 1 ? 'es' : ''}...`,
+      title: "Updating",
+      description: "Please wait while I update the system",
     });
 
     let successCount = 0;
@@ -795,7 +801,8 @@ export default function Matches() {
     let filtered = matches.filter(match => {
       const stageMatch = stageFilter === "all" || match.stage === stageFilter;
       const divisionMatch = divisionFilter === "all" || match.division === divisionFilter;
-      return stageMatch && divisionMatch;
+      const statusMatch = statusFilter === "all" || match.status === statusFilter;
+      return stageMatch && divisionMatch && statusMatch;
     });
 
     // Sort matches with secondary sort by team1 name
@@ -839,7 +846,7 @@ export default function Matches() {
     });
 
     return sorted;
-  }, [matches, sortColumn, sortDirection, stageFilter, divisionFilter, teams]);
+  }, [matches, sortColumn, sortDirection, stageFilter, divisionFilter, statusFilter, teams]);
 
   const groupedByDivision = useMemo(() => {
     const groups = new Map<string, Match[]>();
@@ -1411,6 +1418,20 @@ export default function Matches() {
                           Division {div}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Status:</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
