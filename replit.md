@@ -66,6 +66,13 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - `viewToken`: Created on tournament creation, shareable for public viewing
     - **Token Usage**: Tokens included as query parameter: `?token={adminToken|viewToken|master_session}&tournament={id}`
     - **Token Persistence**: Tokens stored in localStorage to survive SPA navigation and page reloads
+    - **Tournament Locking**: When accessing via admin/view token URL, tournament selection is automatically locked to prevent 403 errors:
+        - TournamentProvider queries `/api/auth/check-access` to get token's associated tournament ID
+        - Tournament selection prioritizes locked tournament (highest priority in selection logic)
+        - selectTournament function blocks switching to different tournaments when locked
+        - UI displays "Locked to access link" indicator in tournament selector
+        - Tournament dropdown hidden when locked (displays as read-only)
+        - Prevents token/tournament mismatch that caused 403 errors during match editing
     - **Server-Side Enforcement**:
         - Middleware validates tokens and sets access level flags (`isAdminAccess`, `isViewOnlyAccess`, `isMasterAdmin`, `tokenTournamentId`)
         - All write operations require admin token or master admin (403 for view tokens or missing tokens)
