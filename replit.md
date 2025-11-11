@@ -73,12 +73,13 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Master admin bypasses tournament ownership checks
         - PATCH operations verify both existing resource and new payload belong to token's tournament
         - Bulk operations derive tournament ID from token, reject mismatched query parameters
-    - **Tournament Management Routes** (require admin token + ownership OR master admin):
-        - PATCH /api/tournaments/:id
-        - DELETE /api/tournaments/:id
-        - POST /api/tournaments/:id/regenerate-token
-        - DELETE /api/teams (bulk)
-        - DELETE /api/matches (bulk)
+    - **Tournament Management Routes**:
+        - POST /api/tournaments - Requires master admin ONLY (tournament creation)
+        - PATCH /api/tournaments/:id - Requires admin token + ownership OR master admin
+        - DELETE /api/tournaments/:id - Requires admin token + ownership OR master admin
+        - POST /api/tournaments/:id/regenerate-token - Requires admin token + ownership OR master admin
+        - DELETE /api/teams (bulk) - Requires admin token + ownership OR master admin
+        - DELETE /api/matches (bulk) - Requires admin token + ownership OR master admin
     - **Error Handling**: Invalid tokens return 401; cross-tournament access returns 403; missing resources return 404
     - **Token Regeneration**: Admin tokens can regenerate view tokens via `/api/tournaments/:id/regenerate-token`
     - **UI Integration**: Automatically detects token presence, hides editing controls in view-only mode, displays access level badges (Master Admin, Admin Access, View Only)
