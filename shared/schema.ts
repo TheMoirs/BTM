@@ -12,8 +12,8 @@ export const tournaments = pgTable("tournaments", {
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
-  adminToken: varchar("admin_token", { length: 32 }).unique(),
-  viewToken: varchar("view_token", { length: 32 }).unique(),
+  adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
+  viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
