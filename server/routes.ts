@@ -112,8 +112,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tournaments", async (req, res) => {
+  app.post("/api/tournaments", async (req: any, res) => {
     try {
+      // CRITICAL: Only master admins can create tournaments
+      if (!req.isMasterAdmin) {
+        console.warn("[SECURITY] Unauthorized attempt to create tournament");
+        return res.status(403).json({ error: "Access denied: master admin access required" });
+      }
+      
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.createTournament(validatedData);
       res.status(201).json(tournament);

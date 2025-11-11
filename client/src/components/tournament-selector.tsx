@@ -201,6 +201,16 @@ export function TournamentSelector() {
   };
 
   if (!currentTournament) {
+    // Only master admin can create tournaments
+    if (!isMasterAdmin) {
+      return (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-muted text-muted-foreground" data-testid="tournament-display-empty">
+          <Trophy className="h-4 w-4" />
+          <span className="text-sm">No tournament selected</span>
+        </div>
+      );
+    }
+    
     return (
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogTrigger asChild>
@@ -396,8 +406,8 @@ export function TournamentSelector() {
                   <span className="text-xs text-muted-foreground">{getTournamentDetails(tournament)}</span>
                 </div>
               </div>
-              <div className="flex gap-1 flex-shrink-0">
-                {isMasterAdmin && (
+              {isMasterAdmin && (
+                <div className="flex gap-1 flex-shrink-0">
                   <Button
                     size="icon"
                     variant="ghost"
@@ -410,47 +420,51 @@ export function TournamentSelector() {
                   >
                     <Link2 className="h-3 w-3" />
                   </Button>
-                )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingTournament(tournament);
-                    form.reset({
-                      name: tournament.name,
-                      numberOfDivisions: tournament.numberOfDivisions,
-                      gamesPerMatch: tournament.gamesPerMatch,
-                      hasQuarterFinals: tournament.hasQuarterFinals,
-                      hasSemiFinals: tournament.hasSemiFinals,
-                      hasFinals: tournament.hasFinals,
-                    });
-                  }}
-                  data-testid={`button-edit-tournament-${tournament.id}`}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeletingTournament(tournament);
-                  }}
-                  data-testid={`button-delete-tournament-${tournament.id}`}
-                >
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTournament(tournament);
+                      form.reset({
+                        name: tournament.name,
+                        numberOfDivisions: tournament.numberOfDivisions,
+                        gamesPerMatch: tournament.gamesPerMatch,
+                        hasQuarterFinals: tournament.hasQuarterFinals,
+                        hasSemiFinals: tournament.hasSemiFinals,
+                        hasFinals: tournament.hasFinals,
+                      });
+                    }}
+                    data-testid={`button-edit-tournament-${tournament.id}`}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingTournament(tournament);
+                    }}
+                    data-testid={`button-delete-tournament-${tournament.id}`}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+              )}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setIsCreateOpen(true)} data-testid="button-create-new-tournament">
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Tournament
-          </DropdownMenuItem>
+          {isMasterAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsCreateOpen(true)} data-testid="button-create-new-tournament">
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Tournament
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
