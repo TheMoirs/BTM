@@ -1132,7 +1132,8 @@ export default function Teams() {
       return;
     }
 
-    const mailtoLink = `mailto:${emailAddresses.join(';')}`;
+    const subject = encodeURIComponent(`Re: ${currentTournament?.name || "Tournament"}`);
+    const mailtoLink = `mailto:${emailAddresses.join(';')}?subject=${subject}`;
     window.location.href = mailtoLink;
   };
 
