@@ -302,13 +302,6 @@ export default function Teams() {
     }
   };
 
-  const capitalizeWords = (text: string): string => {
-    return text
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -460,8 +453,8 @@ export default function Teams() {
             
             const teamData: InsertTeam = {
               tournamentId: currentTournamentRef.current,
-              name: capitalizeWords(String(name).trim()),
-              captainName: capitalizeWords(String(captainName).trim()),
+              name: String(name).trim(),
+              captainName: String(captainName).trim(),
               captainPhone: String(captainPhone).trim(),
               captainEmail: captainEmail && String(captainEmail).trim() !== "" 
                 ? String(captainEmail).trim() 
@@ -473,7 +466,7 @@ export default function Teams() {
                 ? String(homePiste).trim() 
                 : null,
               otherPlayers: otherPlayers && String(otherPlayers).trim() !== ""
-                ? String(otherPlayers).split(/[,\n]/).map(p => capitalizeWords(p.trim())).filter(p => p)
+                ? String(otherPlayers).split(/[,\n]/).map(p => p.trim()).filter(p => p)
                 : null,
             };
 
@@ -554,20 +547,20 @@ export default function Teams() {
       return;
     }
     
-    const capitalizedData: InsertTeam = {
+    const teamData: InsertTeam = {
       tournamentId: currentTournament.id,
-      name: capitalizeWords(data.name.trim()),
-      captainName: capitalizeWords(data.captainName.trim()),
+      name: data.name.trim(),
+      captainName: data.captainName.trim(),
       captainPhone: data.captainPhone.trim(),
       captainEmail: data.captainEmail?.trim() || null,
       division: data.division?.trim().toUpperCase() || "A",
       homePiste: data.homePiste?.trim() || null,
       otherPlayers: data.otherPlayers && data.otherPlayers.length > 0 
-        ? data.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
+        ? data.otherPlayers.map(p => p.trim()).filter(p => p)
         : null,
     };
     
-    createMutation.mutate(capitalizedData);
+    createMutation.mutate(teamData);
   };
 
   const startEditing = (team: Team) => {
@@ -599,20 +592,20 @@ export default function Teams() {
       return;
     }
     
-    const capitalizedData: InsertTeam = {
+    const teamData: InsertTeam = {
       tournamentId: currentTournament.id,
-      name: capitalizeWords(editingValues.name?.trim() || ""),
-      captainName: capitalizeWords(editingValues.captainName?.trim() || ""),
+      name: editingValues.name?.trim() || "",
+      captainName: editingValues.captainName?.trim() || "",
       captainPhone: editingValues.captainPhone?.trim() || "",
       captainEmail: editingValues.captainEmail?.trim() || null,
       division: editingValues.division?.trim().toUpperCase() || "A",
       homePiste: editingValues.homePiste?.trim() || null,
       otherPlayers: editingValues.otherPlayers && editingValues.otherPlayers.length > 0
-        ? editingValues.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
+        ? editingValues.otherPlayers.map(p => p.trim()).filter(p => p)
         : null,
     };
     
-    updateMutation.mutate({ id: teamId, data: capitalizedData });
+    updateMutation.mutate({ id: teamId, data: teamData });
   };
 
   const updateEditingValue = (field: keyof InsertTeam, value: string | string[]) => {
@@ -722,25 +715,25 @@ export default function Teams() {
           continue;
         }
 
-        const capitalizedData: InsertTeam = {
+        const finalTeamData: InsertTeam = {
           tournamentId: currentTournament.id,
-          name: capitalizeWords(teamData.name.trim()),
-          captainName: capitalizeWords(teamData.captainName.trim()),
+          name: teamData.name.trim(),
+          captainName: teamData.captainName.trim(),
           captainPhone: teamData.captainPhone.trim(),
           captainEmail: teamData.captainEmail?.trim() || null,
           division: teamData.division?.trim().toUpperCase() || "A",
           homePiste: teamData.homePiste?.trim() || null,
           otherPlayers: teamData.otherPlayers && Array.isArray(teamData.otherPlayers) && teamData.otherPlayers.length > 0
-            ? teamData.otherPlayers.map(p => capitalizeWords(p.trim())).filter(p => p)
+            ? teamData.otherPlayers.map(p => p.trim()).filter(p => p)
             : null,
         };
 
         if (teamData.isNew) {
           // Create new team
-          await apiRequest("POST", "/api/teams", capitalizedData);
+          await apiRequest("POST", "/api/teams", finalTeamData);
         } else {
           // Update existing team
-          await apiRequest("PATCH", `/api/teams/${teamData.id}`, capitalizedData);
+          await apiRequest("PATCH", `/api/teams/${teamData.id}`, finalTeamData);
         }
         
         successCount++;
