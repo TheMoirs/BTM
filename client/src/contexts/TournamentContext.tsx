@@ -2,10 +2,12 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Tournament, InsertTournament } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 interface TournamentContextType {
   currentTournament: Tournament | null;
   isLoading: boolean;
+  lockedTournamentId: string | null;
   selectTournament: (tournament: Tournament) => void;
   createTournament: (data: InsertTournament) => Promise<Tournament>;
   updateTournament: (id: string, data: InsertTournament) => Promise<Tournament>;
@@ -18,10 +20,22 @@ const TOURNAMENT_STORAGE_KEY = 'boules-selected-tournament-id';
 
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const [currentTournament, setCurrentTournament] = useState<Tournament | null>(null);
+  const { toast } = useToast();
 
   const { data: tournaments, isLoading } = useQuery<Tournament[]>({
     queryKey: ["/api/tournaments"],
   });
+
+  const { data: accessInfo } = useQuery<{
+    isMasterAdmin: boolean;
+    isAdminAccess: boolean;
+    isViewOnlyAccess: boolean;
+    tournamentId: string | null;
+  }>({
+    queryKey: ["/api/auth/check-access"],
+  });
+
+  const lockedTournamentId = accessInfo?.tournamentId || null;
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertTournament) => {
@@ -65,9 +79,19 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   });
 
   // Set the tournament on initial load or after deletion
-  // Priority: 1) URL parameter, 2) localStorage, 3) latest tournament
+  // Priority: 1) Token-locked tournament (if token is present), 2) URL parameter, 3) localStorage, 4) latest tournament
   useEffect(() => {
     if (tournaments && tournaments.length > 0) {
+      // PRIORITY 0: If user has a token-locked tournament, enforce it
+      if (lockedTournamentId) {
+        const lockedTournament = tournaments.find(t => t.id === lockedTournamentId);
+        if (lockedTournament && lockedTournament.id !== currentTournament?.id) {
+          setCurrentTournament(lockedTournament);
+          localStorage.setItem(TOURNAMENT_STORAGE_KEY, lockedTournament.id);
+          return;
+        }
+      }
+      
       // Check if URL has a tournament ID parameter (from shareable link)
       const params = new URLSearchParams(window.location.search);
       const tournamentIdFromUrl = params.get('tournament');
@@ -110,9 +134,20 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(TOURNAMENT_STORAGE_KEY);
       }
     }
-  }, [tournaments, currentTournament]);
+  }, [tournaments, currentTournament, lockedTournamentId]);
 
   const selectTournament = (tournament: Tournament) => {
+    // Prevent switching if token locks to a specific tournament
+    if (lockedTournamentId && tournament.id !== lockedTournamentId) {
+      toast({
+        variant: "destructive",
+        title: "Tournament locked",
+        description: "You are viewing this tournament with an access link. You cannot switch to other tournaments while using this link.",
+        duration: Infinity,
+      });
+      return;
+    }
+    
     setCurrentTournament(tournament);
     // Save to localStorage to persist selection across page refreshes
     localStorage.setItem(TOURNAMENT_STORAGE_KEY, tournament.id);
@@ -139,6 +174,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       value={{
         currentTournament,
         isLoading,
+        lockedTournamentId,
         selectTournament,
         createTournament,
         updateTournament,
