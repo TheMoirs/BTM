@@ -217,8 +217,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tournaments/:id/regenerate-token", async (req: any, res) => {
     try {
-      // Require admin access for token regeneration
-      if (!req.isAdminAccess) {
+      // Require admin access or master admin for token regeneration
+      if (!req.isAdminAccess && !req.isMasterAdmin) {
         return res.status(403).json({ error: "Access denied: admin token required" });
       }
       // Master admin can regenerate tokens for any tournament, otherwise verify tournament ownership

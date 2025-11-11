@@ -80,6 +80,7 @@ export default function Results() {
   const { isReadOnly, viewToken, getShareableLink } = useViewMode();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -113,16 +114,13 @@ export default function Results() {
     enabled: !!currentTournament,
   });
 
-  // Auto-open Summary dialog in read-only mode
-  // Add a small delay to ensure page is fully rendered, especially on mobile
+  // Auto-open Summary dialog once in read-only mode when results exist
   useEffect(() => {
-    if (isReadOnly && results && results.length > 0) {
-      const timer = setTimeout(() => {
-        setShowSummary(true);
-      }, 500);
-      return () => clearTimeout(timer);
+    if (isReadOnly && results && results.length > 0 && !hasAutoOpened) {
+      setShowSummary(true);
+      setHasAutoOpened(true);
     }
-  }, [isReadOnly, results]);
+  }, [isReadOnly, results, hasAutoOpened]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
