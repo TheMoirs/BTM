@@ -76,8 +76,36 @@ interface EditingTeam extends Partial<InsertTeam> {
 // Helper function to format phone number for WhatsApp
 function formatPhoneForWhatsApp(phone: string): string {
   // Remove all non-digit characters (including +, spaces, dashes, etc.)
-  // WhatsApp expects only digits in the wa.me URL
-  return phone.replace(/\D/g, '');
+  let digitsOnly = phone.replace(/\D/g, '');
+  
+  // If empty, return as is
+  if (!digitsOnly) return digitsOnly;
+  
+  // Check if it starts with 00 (international dialing prefix)
+  // This means it already has a country code, just strip the 00
+  if (digitsOnly.startsWith('00')) {
+    return digitsOnly.substring(2);
+  }
+  
+  // Check if it starts with single 0 (UK national format)
+  if (digitsOnly.startsWith('0')) {
+    // Remove leading 0 and add UK country code (44)
+    return '44' + digitsOnly.substring(1);
+  }
+  
+  // If it's a short number (less than 10 digits) and doesn't start with a country code,
+  // assume it's a UK number without the leading 0
+  if (digitsOnly.length < 10) {
+    return '44' + digitsOnly;
+  }
+  
+  // If it's 10 digits and starts with 7 (UK mobile without 0), add 44
+  if (digitsOnly.length === 10 && digitsOnly.startsWith('7')) {
+    return '44' + digitsOnly;
+  }
+  
+  // Otherwise, assume it already has a country code
+  return digitsOnly;
 }
 
 // Helper function to create WhatsApp URL
