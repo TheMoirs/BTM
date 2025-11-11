@@ -449,20 +449,11 @@ export default function Results() {
         shareToken = viewToken!;
       } else {
         // We're in admin mode, need to regenerate the view token
-        const params = new URLSearchParams(window.location.search);
-        const adminToken = params.get('token');
-        
-        const url = adminToken 
-          ? `/api/tournaments/${currentTournament.id}/regenerate-token?token=${adminToken}`
-          : `/api/tournaments/${currentTournament.id}/regenerate-token`;
-        
-        const response = await fetch(url, {
-          method: 'POST',
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to generate share token');
-        }
+        // Use apiRequest which automatically includes the correct token (admin or master admin)
+        const response = await apiRequest(
+          'POST',
+          `/api/tournaments/${currentTournament.id}/regenerate-token`
+        );
         
         const { viewToken: newToken } = await response.json();
         shareToken = newToken;
