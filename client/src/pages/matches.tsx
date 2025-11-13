@@ -113,14 +113,16 @@ export default function Matches() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [showFindEditDialog, setShowFindEditDialog] = useState(false);
+  const [teamSearchQuery, setTeamSearchQuery] = useState("");
+  const [isFindEditMode, setIsFindEditMode] = useState(false);
   const { toast } = useToast();
 
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams", currentTournament?.id],
     queryFn: async () => {
       if (!currentTournament) return [];
-      const response = await fetch(`/api/teams?tournamentId=${currentTournament.id}`);
-      if (!response.ok) throw new Error("Failed to fetch teams");
+      const response = await apiRequest("GET", `/api/teams?tournamentId=${currentTournament.id}`);
       return response.json();
     },
     enabled: !!currentTournament,
@@ -130,8 +132,7 @@ export default function Matches() {
     queryKey: ["/api/matches", currentTournament?.id],
     queryFn: async () => {
       if (!currentTournament) return [];
-      const response = await fetch(`/api/matches?tournamentId=${currentTournament.id}`);
-      if (!response.ok) throw new Error("Failed to fetch matches");
+      const response = await apiRequest("GET", `/api/matches?tournamentId=${currentTournament.id}`);
       return response.json();
     },
     enabled: !!currentTournament,
@@ -646,6 +647,71 @@ export default function Matches() {
     setAllEditingValues({});
   };
 
+  const handleFindEditTeam = () => {
+    if (!teamSearchQuery.trim()) {
+      toast({
+        title: "No search term",
+        description: "Please enter a team name to search for.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Close the dialog
+    setShowFindEditDialog(false);
+    
+    // Filter matches directly by team search query (before setting state)
+    const query = teamSearchQuery.toLowerCase().trim();
+    const filteredMatches = (matches || []).filter(match => {
+      const team1Name = getTeamName(match.team1Id).toLowerCase();
+      const team2Name = getTeamName(match.team2Id).toLowerCase();
+      return team1Name.includes(query) || team2Name.includes(query);
+    });
+    
+    if (filteredMatches.length === 0) {
+      toast({
+        title: "No matches found",
+        description: `No matches found for team "${teamSearchQuery}".`,
+        variant: "destructive",
+        duration: 5000,
+      });
+      return;
+    }
+    
+    // Initialize editing values for filtered matches
+    const initialValues: Record<string, Partial<EditingMatch>> = {};
+    filteredMatches.forEach(match => {
+      initialValues[match.id] = {
+        team1Game1Score: match.team1Game1Score !== null ? match.team1Game1Score.toString() : "",
+        team2Game1Score: match.team2Game1Score !== null ? match.team2Game1Score.toString() : "",
+        team1Game2Score: match.team1Game2Score !== null ? match.team1Game2Score.toString() : "",
+        team2Game2Score: match.team2Game2Score !== null ? match.team2Game2Score.toString() : "",
+        team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
+        team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
+        matchDate: match.matchDate || "",
+      };
+    });
+    setAllEditingValues(initialValues);
+    
+    // Enter find & edit mode (after initializing values)
+    setIsFindEditMode(true);
+    setIsEditAllMode(true);
+    
+    toast({
+      title: "Find & Edit",
+      description: `Found ${filteredMatches.length} match${filteredMatches.length > 1 ? 'es' : ''} for "${teamSearchQuery}".`,
+      duration: 3000,
+    });
+  };
+
+  const cancelFindEditMode = () => {
+    setIsFindEditMode(false);
+    setTeamSearchQuery("");
+    setIsEditAllMode(false);
+    setAllEditingValues({});
+  };
+
   const saveAllEdits = async () => {
     const matchesToUpdate = getFilteredAndSortedMatches.filter(match => 
       allEditingValues[match.id] !== undefined
@@ -750,8 +816,14 @@ export default function Matches() {
         title: "Matches updated",
         description: `Successfully updated ${successCount} match${successCount > 1 ? 'es' : ''}.`,
       });
-      setIsEditAllMode(false);
-      setAllEditingValues({});
+      if (isFindEditMode) {
+        // Exit Find & Edit mode completely
+        cancelFindEditMode();
+      } else {
+        // Exit regular Edit All mode
+        setIsEditAllMode(false);
+        setAllEditingValues({});
+      }
     } else if (successCount > 0 && errors.length > 0) {
       // Some succeeded, some failed - show partial success and stay in edit mode
       toast({
@@ -802,7 +874,17 @@ export default function Matches() {
       const stageMatch = stageFilter === "all" || match.stage === stageFilter;
       const divisionMatch = divisionFilter === "all" || match.division === divisionFilter;
       const statusMatch = statusFilter === "all" || match.status === statusFilter;
-      return stageMatch && divisionMatch && statusMatch;
+      
+      // Team search filter (when in Find & Edit mode)
+      let teamMatch = true;
+      if (isFindEditMode && teamSearchQuery.trim()) {
+        const query = teamSearchQuery.toLowerCase().trim();
+        const team1Name = getTeamName(match.team1Id).toLowerCase();
+        const team2Name = getTeamName(match.team2Id).toLowerCase();
+        teamMatch = team1Name.includes(query) || team2Name.includes(query);
+      }
+      
+      return stageMatch && divisionMatch && statusMatch && teamMatch;
     });
 
     // Sort matches with secondary sort by team1 name
@@ -846,7 +928,7 @@ export default function Matches() {
     });
 
     return sorted;
-  }, [matches, sortColumn, sortDirection, stageFilter, divisionFilter, statusFilter, teams]);
+  }, [matches, sortColumn, sortDirection, stageFilter, divisionFilter, statusFilter, teams, isFindEditMode, teamSearchQuery]);
 
   const groupedByDivision = useMemo(() => {
     const groups = new Map<string, Match[]>();
@@ -1153,7 +1235,7 @@ export default function Matches() {
                   <>
                     <Button
                       variant="outline"
-                      onClick={cancelEditAllMode}
+                      onClick={isFindEditMode ? cancelFindEditMode : cancelEditAllMode}
                       disabled={isSaving}
                       data-testid="button-cancel-edit-all"
                     >
@@ -1172,6 +1254,14 @@ export default function Matches() {
                   </>
                 ) : (
                   <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowFindEditDialog(true)}
+                      data-testid="button-find-edit"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Find & Edit
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={toggleEditAllMode}
@@ -1811,6 +1901,52 @@ export default function Matches() {
             ))}
           </div>
         )}
+
+        <Dialog open={showFindEditDialog} onOpenChange={setShowFindEditDialog}>
+          <DialogContent aria-describedby="find-edit-description">
+            <DialogHeader>
+              <DialogTitle>Find & Edit Team Matches</DialogTitle>
+              <p id="find-edit-description" className="text-sm text-muted-foreground">
+                Search for a team name to view and edit all matches involving that team
+              </p>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="team-search" className="text-sm font-medium">
+                  Team Name
+                </label>
+                <Input
+                  id="team-search"
+                  placeholder="Enter team name..."
+                  value={teamSearchQuery}
+                  onChange={(e) => setTeamSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleFindEditTeam()}
+                  data-testid="input-team-search"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  Searches for matches where either Team 1 or Team 2 matches your search
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFindEditDialog(false)}
+                  data-testid="button-cancel-find-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={handleFindEditTeam}
+                  data-testid="button-start-find-edit"
+                >
+                  Find & Edit
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={!!deletingMatch} onOpenChange={(open) => !open && setDeletingMatch(null)}>
           <AlertDialogContent>

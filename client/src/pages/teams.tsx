@@ -154,8 +154,7 @@ export default function Teams() {
     queryKey: ["/api/teams", currentTournament?.id],
     queryFn: async () => {
       if (!currentTournament) return [];
-      const response = await fetch(`/api/teams?tournamentId=${currentTournament.id}`);
-      if (!response.ok) throw new Error("Failed to fetch teams");
+      const response = await apiRequest("GET", `/api/teams?tournamentId=${currentTournament.id}`);
       return response.json();
     },
     enabled: !!currentTournament,
@@ -241,8 +240,7 @@ export default function Teams() {
 
   const handleDeleteClick = async (team: Team) => {
     try {
-      const response = await fetch(`/api/teams/${team.id}/deletion-impact`);
-      if (!response.ok) throw new Error("Failed to fetch deletion impact");
+      const response = await apiRequest("GET", `/api/teams/${team.id}/deletion-impact`);
       const impact = await response.json();
       setDeletionImpact(impact);
       setDeletingTeam(team);
@@ -1073,23 +1071,14 @@ export default function Teams() {
         shareToken = viewToken!;
       } else {
         // We're in admin mode, need to regenerate the view token
-        const params = new URLSearchParams(window.location.search);
-        const adminToken = params.get('token');
+        // Use apiRequest which automatically includes the correct token (admin or master admin)
+        const response = await apiRequest(
+          'POST',
+          `/api/tournaments/${currentTournament.id}/regenerate-token`
+        );
         
-        const url = adminToken 
-          ? `/api/tournaments/${currentTournament.id}/regenerate-token?token=${adminToken}`
-          : `/api/tournaments/${currentTournament.id}/regenerate-token`;
-        
-        const response = await fetch(url, {
-          method: 'POST',
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to generate share token');
-        }
-        
-        const { viewToken: newToken } = await response.json();
-        shareToken = newToken;
+        const data = await response.json();
+        shareToken = data.viewToken;
         queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       }
       

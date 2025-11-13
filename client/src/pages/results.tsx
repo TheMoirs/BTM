@@ -96,8 +96,7 @@ export default function Results() {
     queryKey: ["/api/results", currentTournament?.id],
     queryFn: async () => {
       if (!currentTournament) return [];
-      const response = await fetch(`/api/results?tournamentId=${currentTournament.id}`);
-      if (!response.ok) throw new Error("Failed to fetch results");
+      const response = await apiRequest("GET", `/api/results?tournamentId=${currentTournament.id}`);
       return response.json();
     },
     enabled: !!currentTournament,
@@ -107,8 +106,7 @@ export default function Results() {
     queryKey: ["/api/teams", currentTournament?.id],
     queryFn: async () => {
       if (!currentTournament) return [];
-      const response = await fetch(`/api/teams?tournamentId=${currentTournament.id}`);
-      if (!response.ok) throw new Error("Failed to fetch teams");
+      const response = await apiRequest("GET", `/api/teams?tournamentId=${currentTournament.id}`);
       return response.json();
     },
     enabled: !!currentTournament,
@@ -455,12 +453,17 @@ export default function Results() {
           `/api/tournaments/${currentTournament.id}/regenerate-token`
         );
         
-        const { viewToken: newToken } = await response.json();
-        shareToken = newToken;
+        const data = await response.json();
+        shareToken = data.viewToken;
         queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
       }
       
-      const longUrl = getShareableLink(currentTournament, shareToken);
+      // Generate a link to the leaderboard page instead of the root page
+      const baseUrl = window.location.origin;
+      const urlObj = new URL(`${baseUrl}/leaderboard`);
+      urlObj.searchParams.set('token', shareToken);
+      urlObj.searchParams.set('tournament', currentTournament.id);
+      const longUrl = urlObj.toString();
       
       if (!longUrl) {
         throw new Error('Failed to generate share link');
@@ -1000,10 +1003,10 @@ export default function Results() {
                     variant="outline"
                     onClick={handleCopyShareLink}
                     disabled={isSharingLink}
-                    data-testid="button-share-view"
+                    data-testid="button-share-leaderboard"
                   >
                     <Share2 className="mr-2 h-4 w-4" />
-                    {isSharingLink ? "Creating link..." : "Share View"}
+                    {isSharingLink ? "Creating link..." : "Share Leaderboard"}
                   </Button>
                   <Button
                     variant="destructive"
@@ -1052,7 +1055,7 @@ export default function Results() {
                 <h3 className="font-semibold mb-2">Other Actions</h3>
                 <ul className="list-disc pl-5 space-y-1">
                   <li><strong>Download:</strong> Generate and download a results report (PDF or Excel)</li>
-                  <li><strong>Share View:</strong> Get a short link to share results with others in read-only mode</li>
+                  <li><strong>Share Leaderboard:</strong> Get a short link to share the leaderboard with others in read-only mode</li>
                   <li><strong>Clear All Results:</strong> Delete all results (warning: this cannot be undone)</li>
                 </ul>
               </div>
