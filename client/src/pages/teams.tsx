@@ -1149,16 +1149,29 @@ export default function Teams() {
     }
 
     const subject = encodeURIComponent(`Re: ${currentTournament?.name || "Tournament"}`);
+    // Use semicolon separator for Outlook compatibility
     const mailtoLink = `mailto:${emailAddresses.join(';')}?subject=${subject}`;
     
-    // Create a temporary anchor element and click it (more reliable than window.location.href)
-    const anchor = document.createElement('a');
-    anchor.href = mailtoLink;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    console.log('Opening email client with:', mailtoLink);
+    
+    // Try direct window.open first (most reliable for mailto on Windows/Outlook)
+    try {
+      window.open(mailtoLink, '_self');
+      
+      toast({
+        title: "Opening email client",
+        description: `Preparing email to ${emailAddresses.length} captain${emailAddresses.length === 1 ? '' : 's'}`,
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Failed to open email client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to open email client. Please check your default email application settings.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    }
   };
 
   const closePdfViewer = () => {
