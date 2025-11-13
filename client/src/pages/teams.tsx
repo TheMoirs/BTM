@@ -1149,25 +1149,42 @@ export default function Teams() {
     }
 
     const subject = encodeURIComponent(`Re: ${currentTournament?.name || "Tournament"}`);
-    // Use semicolon separator for Outlook compatibility
-    const mailtoLink = `mailto:${emailAddresses.join(';')}?subject=${subject}`;
     
-    console.log('Opening email client with:', mailtoLink);
-    
-    // Try direct window.open first (most reliable for mailto on Windows/Outlook)
-    try {
-      window.open(mailtoLink, '_self');
-      
+    // For large numbers of recipients, warn about potential issues
+    if (emailAddresses.length > 50) {
       toast({
-        title: "Opening email client",
-        description: `Preparing email to ${emailAddresses.length} captain${emailAddresses.length === 1 ? '' : 's'}`,
-        duration: 3000,
+        title: "Too many recipients",
+        description: "Your email client may not support this many recipients. Consider sending in smaller batches.",
+        variant: "destructive",
+        duration: Infinity,
       });
+      return;
+    }
+    
+    // Use BCC instead of TO for privacy and to avoid email client limits
+    // Use semicolon separator for Outlook/Windows compatibility
+    const mailtoLink = `mailto:?bcc=${emailAddresses.join(';')}&subject=${subject}`;
+    
+    console.log('Opening email client with BCC recipients:', emailAddresses.length, 'teams');
+    console.log('mailto link length:', mailtoLink.length, 'characters');
+    
+    // Use window.location.href - the most reliable cross-platform method for mailto
+    try {
+      window.location.href = mailtoLink;
+      
+      // Show confirmation after a brief delay (so it appears after the email client opens)
+      setTimeout(() => {
+        toast({
+          title: "Email client opened",
+          description: `${emailAddresses.length} captain${emailAddresses.length === 1 ? '' : 's'} added to BCC. Check your email application.`,
+          duration: 5000,
+        });
+      }, 500);
     } catch (error) {
       console.error('Failed to open email client:', error);
       toast({
-        title: "Error",
-        description: "Failed to open email client. Please check your default email application settings.",
+        title: "Error opening email client",
+        description: "Failed to open your default email application. Please check your system settings.",
         variant: "destructive",
         duration: Infinity,
       });
