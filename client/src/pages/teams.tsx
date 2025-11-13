@@ -1077,6 +1077,11 @@ export default function Teams() {
           `/api/tournaments/${currentTournament.id}/regenerate-token`
         );
         
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to regenerate view token');
+        }
+        
         const data = await response.json();
         shareToken = data.viewToken;
         queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
@@ -1101,11 +1106,12 @@ export default function Teams() {
       });
     } catch (error) {
       console.error("Failed to copy link:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to copy link to clipboard.";
       toast({
         title: "Error",
-        description: "Failed to copy link to clipboard.",
+        description: errorMessage,
         variant: "destructive",
-        duration: 5000,
+        duration: Infinity,
       });
     } finally {
       setIsSharingLink(false);
