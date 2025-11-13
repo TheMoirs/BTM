@@ -73,6 +73,7 @@ type TeamSummary = {
   scoreFor: number;
   scoreAgainst: number;
   scoreDifference: number;
+  position: number | null; // Position in the leaderboard (null if no games played)
 };
 
 export default function Results() {
@@ -251,6 +252,7 @@ export default function Results() {
           scoreFor: 0,
           scoreAgainst: 0,
           scoreDifference: 0,
+          position: null,
         });
       }
 
@@ -300,6 +302,7 @@ export default function Results() {
           scoreFor: 0,
           scoreAgainst: 0,
           scoreDifference: 0,
+          position: null,
         });
       });
       
@@ -329,6 +332,7 @@ export default function Results() {
             scoreFor: 0,
             scoreAgainst: 0,
             scoreDifference: 0,
+            position: null,
           });
         }
 
@@ -383,6 +387,42 @@ export default function Results() {
           divisionGroups.set(division, []);
         }
         divisionGroups.get(division)!.push(summary);
+      });
+
+      // Calculate positions for each division
+      divisionGroups.forEach((divisionTeams) => {
+        // Separate ranked teams (with games played) from unranked teams
+        const rankedTeams = divisionTeams.filter(t => t.gamesPlayed > 0);
+        
+        // Calculate positions for ranked teams using competition ranking (1,1,3)
+        let currentPosition = 1;
+        let teamsAtCurrentRank = 0;
+        let lastPoints: number | null = null;
+        let lastScoreDifference: number | null = null;
+        
+        rankedTeams.forEach((team) => {
+          // Check if this team has same points AND score difference as previous team
+          const isTied = lastPoints !== null && 
+                        lastScoreDifference !== null &&
+                        team.points === lastPoints && 
+                        team.scoreDifference === lastScoreDifference;
+          
+          if (!isTied) {
+            // New rank: current position + number of teams at previous rank
+            currentPosition += teamsAtCurrentRank;
+            teamsAtCurrentRank = 1;
+          } else {
+            // Same rank as previous team (tie)
+            teamsAtCurrentRank++;
+          }
+          
+          team.position = currentPosition;
+          lastPoints = team.points;
+          lastScoreDifference = team.scoreDifference;
+        });
+        
+        // Unranked teams keep position = null (already initialized)
+        // They are already sorted alphabetically and appended after ranked teams
       });
 
       const sortedDivisions = Array.from(divisionGroups.entries()).sort(([a], [b]) => {
@@ -647,6 +687,7 @@ export default function Results() {
         startY += 5;
         
         const tableData = divisionSummaries.map((summary) => [
+          summary.position !== null ? summary.position.toString() : '',
           summary.teamName,
           summary.gamesPlayed.toString(),
           summary.gamesWon.toString(),
@@ -659,7 +700,7 @@ export default function Results() {
         ]);
         
         autoTable(doc, {
-          head: [['Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
+          head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
           body: tableData,
           startY: startY,
           styles: {
@@ -672,8 +713,8 @@ export default function Results() {
             fontStyle: 'bold',
           },
           columnStyles: {
-            0: { cellWidth: 70 },
-            1: { cellWidth: 22, halign: 'center' },
+            0: { cellWidth: 18, halign: 'center' },
+            1: { cellWidth: 60 },
             2: { cellWidth: 22, halign: 'center' },
             3: { cellWidth: 22, halign: 'center' },
             4: { cellWidth: 22, halign: 'center' },
@@ -681,6 +722,7 @@ export default function Results() {
             6: { cellWidth: 22, halign: 'center' },
             7: { cellWidth: 22, halign: 'center' },
             8: { cellWidth: 22, halign: 'center' },
+            9: { cellWidth: 22, halign: 'center' },
           },
         });
         
@@ -773,6 +815,7 @@ export default function Results() {
           const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
           
           const excelData = divisionSummaries.map((summary) => ({
+            'Position': summary.position !== null ? summary.position : '',
             'Team': summary.teamName,
             'Played': summary.gamesPlayed,
             'Won': summary.gamesWon,
@@ -928,6 +971,7 @@ export default function Results() {
                             <Table>
                             <TableHeader>
                               <TableRow>
+                                <TableHead className="text-center w-20">Position</TableHead>
                                 <TableHead>Team</TableHead>
                                 <TableHead className="text-center">Played</TableHead>
                                 <TableHead className="text-center">Won</TableHead>
@@ -942,6 +986,9 @@ export default function Results() {
                             <TableBody>
                               {divisionSummaries.map((summary) => (
                                 <TableRow key={summary.teamName} data-testid={`row-summary-${summary.teamName}`}>
+                                  <TableCell className="text-center" data-testid={`text-position-${summary.teamName}`}>
+                                    <span className="font-mono font-semibold">{summary.position !== null ? summary.position : ''}</span>
+                                  </TableCell>
                                   <TableCell className="font-medium" data-testid={`text-team-${summary.teamName}`}>
                                     {summary.teamName}
                                   </TableCell>
