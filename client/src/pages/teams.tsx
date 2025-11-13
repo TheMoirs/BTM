@@ -1161,11 +1161,10 @@ export default function Teams() {
       return;
     }
     
-    // Use BCC instead of TO for privacy and to avoid email client limits
     // Use semicolon separator for Outlook/Windows compatibility
-    const mailtoLink = `mailto:?bcc=${emailAddresses.join(';')}&subject=${subject}`;
+    const mailtoLink = `mailto:${emailAddresses.join(';')}?subject=${subject}`;
     
-    console.log('Opening email client with BCC recipients:', emailAddresses.length, 'teams');
+    console.log('Opening email client with recipients:', emailAddresses.length, 'teams');
     console.log('mailto link length:', mailtoLink.length, 'characters');
     
     // Use window.location.href - the most reliable cross-platform method for mailto
@@ -1176,7 +1175,7 @@ export default function Teams() {
       setTimeout(() => {
         toast({
           title: "Email client opened",
-          description: `${emailAddresses.length} captain${emailAddresses.length === 1 ? '' : 's'} added to BCC. Check your email application.`,
+          description: `${emailAddresses.length} captain${emailAddresses.length === 1 ? '' : 's'} added to recipients. Check your email application.`,
           duration: 5000,
         });
       }, 500);
