@@ -1150,7 +1150,15 @@ export default function Teams() {
 
     const subject = encodeURIComponent(`Re: ${currentTournament?.name || "Tournament"}`);
     const mailtoLink = `mailto:${emailAddresses.join(';')}?subject=${subject}`;
-    window.location.href = mailtoLink;
+    
+    // Create a temporary anchor element and click it (more reliable than window.location.href)
+    const anchor = document.createElement('a');
+    anchor.href = mailtoLink;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   };
 
   const closePdfViewer = () => {
