@@ -12,24 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Result, Team } from "@shared/schema";
+import { calculateTeamSummariesByStageAndDivision } from "@/lib/leaderboard";
 
 const stageLabels = {
   initial: "Initial",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
-};
-
-type TeamSummary = {
-  teamName: string;
-  gamesPlayed: number;
-  gamesWon: number;
-  gamesDrawn: number;
-  gamesLost: number;
-  points: number;
-  scoreFor: number;
-  scoreAgainst: number;
-  scoreDifference: number;
 };
 
 export default function Leaderboard() {
@@ -56,119 +45,7 @@ export default function Leaderboard() {
   });
 
   const teamSummariesByStageAndDivision = useMemo(() => {
-    // Group results by stage and team (use all results, not filtered)
-    const stageGroups = new Map<string, Map<string, (TeamSummary & { division: string | null })>>();
-
-    // Add Initial stage with all teams if teams data is available
-    if (teams && teams.length > 0) {
-      const initialTeamMap = new Map<string, TeamSummary & { division: string | null }>();
-      
-      // Initialize all teams with zero stats
-      teams.forEach(team => {
-        initialTeamMap.set(team.name, {
-          teamName: team.name,
-          division: team.division,
-          gamesPlayed: 0,
-          gamesWon: 0,
-          gamesDrawn: 0,
-          gamesLost: 0,
-          points: 0,
-          scoreFor: 0,
-          scoreAgainst: 0,
-          scoreDifference: 0,
-        });
-      });
-      
-      stageGroups.set('initial', initialTeamMap);
-    }
-
-    // Process results and update team stats
-    if (results && results.length > 0) {
-      results.forEach(result => {
-        const stage = result.stage;
-        
-        if (!stageGroups.has(stage)) {
-          stageGroups.set(stage, new Map<string, TeamSummary & { division: string | null }>());
-        }
-        
-        const teamMap = stageGroups.get(stage)!;
-        
-        if (!teamMap.has(result.teamName)) {
-          teamMap.set(result.teamName, {
-            teamName: result.teamName,
-            division: result.division,
-            gamesPlayed: 0,
-            gamesWon: 0,
-            gamesDrawn: 0,
-            gamesLost: 0,
-            points: 0,
-            scoreFor: 0,
-            scoreAgainst: 0,
-            scoreDifference: 0,
-          });
-        }
-
-        const summary = teamMap.get(result.teamName)!;
-        if (result.division && !summary.division) {
-          summary.division = result.division;
-        }
-        summary.gamesPlayed += result.gamesPlayed;
-        summary.gamesWon += result.gamesWon;
-        summary.gamesLost += result.gamesLost;
-        summary.gamesDrawn += result.gamesDrawn;
-        summary.points += result.points;
-        summary.scoreFor += result.scoreFor;
-        summary.scoreAgainst += result.scoreAgainst;
-        summary.scoreDifference += result.scoreDifference;
-      });
-    }
-
-    // If no stages exist, return empty array
-    if (stageGroups.size === 0) return [];
-
-    // Sort stages in tournament progression order
-    const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals'];
-    const sortedStages = Array.from(stageGroups.entries()).sort(([a], [b]) => {
-      return stageOrder.indexOf(a) - stageOrder.indexOf(b);
-    });
-
-    // For each stage, group teams by division
-    return sortedStages.map(([stage, teamMap]) => {
-      const allSummaries = Array.from(teamMap.values());
-      
-      // Separate teams with results from teams without results
-      const teamsWithResults = allSummaries.filter(s => s.gamesPlayed > 0);
-      const teamsWithoutResults = allSummaries.filter(s => s.gamesPlayed === 0);
-      
-      // Sort teams with results by points and score difference
-      teamsWithResults.sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        return b.scoreDifference - a.scoreDifference;
-      });
-      
-      // Sort teams without results alphabetically
-      teamsWithoutResults.sort((a, b) => a.teamName.localeCompare(b.teamName));
-      
-      // Combine: teams with results first, then teams without results
-      const summaries = [...teamsWithResults, ...teamsWithoutResults];
-
-      const divisionGroups = new Map<string, (TeamSummary & { division: string | null })[]>();
-      summaries.forEach(summary => {
-        const division = summary.division || 'No Division';
-        if (!divisionGroups.has(division)) {
-          divisionGroups.set(division, []);
-        }
-        divisionGroups.get(division)!.push(summary);
-      });
-
-      const sortedDivisions = Array.from(divisionGroups.entries()).sort(([a], [b]) => {
-        if (a === 'No Division') return 1;
-        if (b === 'No Division') return -1;
-        return a.localeCompare(b);
-      });
-
-      return [stage, sortedDivisions] as [string, [string, (TeamSummary & { division: string | null })[]][]];
-    });
+    return calculateTeamSummariesByStageAndDivision(results, teams);
   }, [results, teams]);
 
   // Show loading state while tournaments are being loaded, tournament is being resolved, or data is being fetched
@@ -242,6 +119,7 @@ export default function Leaderboard() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-20 text-center">Position</TableHead>
                             <TableHead>Team</TableHead>
                             <TableHead className="text-center">Played</TableHead>
                             <TableHead className="text-center">Won</TableHead>
@@ -256,6 +134,11 @@ export default function Leaderboard() {
                         <TableBody>
                           {divisionSummaries.map((summary) => (
                             <TableRow key={summary.teamName} data-testid={`row-summary-${summary.teamName}`}>
+                              <TableCell className="text-center" data-testid={`text-position-${summary.teamName}`}>
+                                <span className="font-mono font-semibold">
+                                  {summary.position !== null ? summary.position : ''}
+                                </span>
+                              </TableCell>
                               <TableCell className="font-medium" data-testid={`text-team-${summary.teamName}`}>
                                 {summary.teamName}
                               </TableCell>

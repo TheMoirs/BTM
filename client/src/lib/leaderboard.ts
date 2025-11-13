@@ -123,7 +123,8 @@ export function calculateTeamSummariesByStageAndDivision(
       if (!divisionGroups.has(division)) {
         divisionGroups.set(division, []);
       }
-      divisionGroups.get(division)!.push(summary);
+      // Deep clone the summary to avoid mutation issues across divisions
+      divisionGroups.get(division)!.push({ ...summary });
     });
 
     // Calculate positions for each division
