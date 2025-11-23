@@ -1603,7 +1603,7 @@ export default function Matches() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[140px]">
+                    <TableHead className="w-[100px] max-md:w-16 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("stage")}
@@ -1613,7 +1613,7 @@ export default function Matches() {
                         <SortIcon column="stage" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[120px]">
+                    <TableHead className="w-[100px] max-md:w-16 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("status")}
@@ -1623,7 +1623,7 @@ export default function Matches() {
                         <SortIcon column="status" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[120px]">
+                    <TableHead className="w-[90px] max-md:w-16 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("matchDate")}
@@ -1633,7 +1633,7 @@ export default function Matches() {
                         <SortIcon column="matchDate" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("team1")}
@@ -1643,10 +1643,10 @@ export default function Matches() {
                         <SortIcon column="team1" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[70px] text-center">Game 1</TableHead>
-                    <TableHead className="w-[70px] text-center">Game 2</TableHead>
-                    <TableHead className="w-[70px] text-center">Game 3</TableHead>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G2</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G3</TableHead>
+                    <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("team2")}
@@ -1656,11 +1656,11 @@ export default function Matches() {
                         <SortIcon column="team2" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[70px] text-center">Game 1</TableHead>
-                    <TableHead className="w-[70px] text-center">Game 2</TableHead>
-                    <TableHead className="w-[70px] text-center">Game 3</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G2</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G3</TableHead>
                     {!isReadOnly && (
-                      <TableHead className="w-[120px] text-right">Actions</TableHead>
+                      <TableHead className="w-20 max-md:w-16 text-right text-sm max-sm:text-xs">Actions</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
