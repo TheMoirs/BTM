@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Result, Team } from "@shared/schema";
+import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision } from "@/lib/leaderboard";
 
 const stageLabels = {
@@ -21,8 +22,15 @@ const stageLabels = {
   finals: "Finals",
 };
 
+const statusLabels = {
+  scheduled: "Scheduled",
+  "in-progress": "In Progress",
+  completed: "Completed",
+};
+
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
+  const [showMatchResults, setShowMatchResults] = useState(false);
 
   const { data: results, isLoading: resultsLoading } = useQuery<Result[]>({
     queryKey: ["/api/results", currentTournament?.id],
@@ -44,12 +52,68 @@ export default function Leaderboard() {
     enabled: !!currentTournament,
   });
 
+  const { data: matches, isLoading: matchesLoading } = useQuery<Match[]>({
+    queryKey: ["/api/matches", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await apiRequest("GET", `/api/matches?tournamentId=${currentTournament.id}`);
+      return response.json();
+    },
+    enabled: !!currentTournament,
+  });
+
+  const getTeamName = (teamId: string): string => {
+    return teams?.find((t) => t.id === teamId)?.name || "Unknown Team";
+  };
+
   const teamSummariesByStageAndDivision = useMemo(() => {
     return calculateTeamSummariesByStageAndDivision(results, teams);
   }, [results, teams]);
 
+  const groupedMatchesByDivision = useMemo(() => {
+    if (!matches) return [];
+
+    const groups = new Map<string, Match[]>();
+    
+    matches.forEach(match => {
+      const division = match.division || 'No Division';
+      if (!groups.has(division)) {
+        groups.set(division, []);
+      }
+      groups.get(division)!.push(match);
+    });
+    
+    // Sort matches: completed first, then in-progress, then scheduled
+    // Within each status, sort by date (latest first)
+    const statusOrder: Record<string, number> = {
+      'completed': 0,
+      'in-progress': 1,
+      'scheduled': 2
+    };
+
+    Array.from(groups.values()).forEach(divisionMatches => {
+      divisionMatches.sort((a, b) => {
+        // Primary sort: by status
+        const statusDiff = (statusOrder[a.status] || 999) - (statusOrder[b.status] || 999);
+        if (statusDiff !== 0) return statusDiff;
+        
+        // Secondary sort: by date (latest first)
+        const aDate = a.matchDate ? new Date(a.matchDate).getTime() : 0;
+        const bDate = b.matchDate ? new Date(b.matchDate).getTime() : 0;
+        return bDate - aDate;
+      });
+    });
+    
+    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
+    return Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'No Division') return 1;
+      if (b === 'No Division') return -1;
+      return a.localeCompare(b);
+    });
+  }, [matches]);
+
   // Show loading state while tournaments are being loaded, tournament is being resolved, or data is being fetched
-  if (tournamentsLoading || resultsLoading || teamsLoading) {
+  if (tournamentsLoading || resultsLoading || teamsLoading || matchesLoading) {
     return (
       <div className="container mx-auto py-12 text-center">
         <div className="space-y-4">
@@ -83,12 +147,31 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {teamSummariesByStageAndDivision.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No leaderboard data available yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-8">
+      <div className="flex gap-2">
+        <Button
+          variant={!showMatchResults ? "default" : "outline"}
+          onClick={() => setShowMatchResults(false)}
+          data-testid="button-show-leaderboard"
+        >
+          Team Leaderboard
+        </Button>
+        <Button
+          variant={showMatchResults ? "default" : "outline"}
+          onClick={() => setShowMatchResults(true)}
+          data-testid="button-show-matches"
+        >
+          Show Match Results
+        </Button>
+      </div>
+
+      {!showMatchResults ? (
+        <>
+          {teamSummariesByStageAndDivision.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No leaderboard data available yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
           {teamSummariesByStageAndDivision.map(([stage, divisions]) => (
             <div key={stage} className="space-y-4">
               <div className="flex items-center gap-2">
@@ -183,7 +266,127 @@ export default function Leaderboard() {
               ))}
             </div>
           ))}
-        </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {groupedMatchesByDivision.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No matches available yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {groupedMatchesByDivision.map(([division, divisionMatches]) => (
+                <div key={division}>
+                  <div className="mb-3">
+                    <h3 className="text-base font-semibold flex items-center gap-2">
+                      {division !== 'No Division' && (
+                        <Badge variant="outline" className="px-2 py-1" data-testid={`badge-division-${division}`}>
+                          Division {division}
+                        </Badge>
+                      )}
+                      {division === 'No Division' && (
+                        <span>No Division Assigned</span>
+                      )}
+                      <span className="text-muted-foreground text-sm font-normal">
+                        ({divisionMatches.length} {divisionMatches.length === 1 ? 'match' : 'matches'})
+                      </span>
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Stage</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Team 1</TableHead>
+                            <TableHead className="text-center">G1</TableHead>
+                            <TableHead className="text-center">G2</TableHead>
+                            <TableHead className="text-center">G3</TableHead>
+                            <TableHead>Team 2</TableHead>
+                            <TableHead className="text-center">G1</TableHead>
+                            <TableHead className="text-center">G2</TableHead>
+                            <TableHead className="text-center">G3</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {divisionMatches.map((match) => (
+                            <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
+                              <TableCell className="font-medium" data-testid={`text-stage-${match.id}`}>
+                                {stageLabels[match.stage as keyof typeof stageLabels]}
+                              </TableCell>
+                              <TableCell data-testid={`text-status-${match.id}`}>
+                                <Badge
+                                  variant={
+                                    match.status === 'completed'
+                                      ? 'default'
+                                      : match.status === 'in-progress'
+                                      ? 'secondary'
+                                      : 'outline'
+                                  }
+                                >
+                                  {statusLabels[match.status as keyof typeof statusLabels]}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm" data-testid={`text-date-${match.id}`}>
+                                {match.matchDate
+                                  ? new Date(match.matchDate).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                  : '-'}
+                              </TableCell>
+                              <TableCell className="font-medium" data-testid={`text-team1-${match.id}`}>
+                                {getTeamName(match.team1Id)}
+                              </TableCell>
+                              <TableCell className="text-center" data-testid={`text-team1-g1-${match.id}`}>
+                                <span className="font-mono">
+                                  {match.team1Game1Score !== null ? match.team1Game1Score : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-center" data-testid={`text-team1-g2-${match.id}`}>
+                                <span className="font-mono">
+                                  {match.team1Game2Score !== null ? match.team1Game2Score : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-center" data-testid={`text-team1-g3-${match.id}`}>
+                                <span className="font-mono">
+                                  {match.team1Game3Score !== null ? match.team1Game3Score : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="font-medium" data-testid={`text-team2-${match.id}`}>
+                                {getTeamName(match.team2Id)}
+                              </TableCell>
+                              <TableCell className="text-center" data-testid={`text-team2-g1-${match.id}`}>
+                                <span className="font-mono">
+                                  {match.team2Game1Score !== null ? match.team2Game1Score : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-center" data-testid={`text-team2-g2-${match.id}`}>
+                                <span className="font-mono">
+                                  {match.team2Game2Score !== null ? match.team2Game2Score : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-center" data-testid={`text-team2-g3-${match.id}`}>
+                                <span className="font-mono">
+                                  {match.team2Game3Score !== null ? match.team2Game3Score : '-'}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
