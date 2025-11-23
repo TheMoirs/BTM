@@ -130,15 +130,18 @@ export class DatabaseStorage implements IStorage {
     // Check if it's an admin token first
     const [adminTournament] = await db.select().from(tournaments).where(eq(tournaments.adminToken, token));
     if (adminTournament) {
+      console.log(`[TOKEN_DEBUG] Admin token found for tournament ${adminTournament.id}`);
       return { tournament: adminTournament, isAdmin: true };
     }
     
     // Check if it's a view token
     const [viewTournament] = await db.select().from(tournaments).where(eq(tournaments.viewToken, token));
     if (viewTournament) {
+      console.log(`[TOKEN_DEBUG] View token found for tournament ${viewTournament.id}`);
       return { tournament: viewTournament, isAdmin: false };
     }
     
+    console.log(`[TOKEN_DEBUG] No tournament found for token: ${token?.substring(0, 8)}...`);
     return undefined;
   }
 

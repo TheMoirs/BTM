@@ -19,10 +19,17 @@ const MASTER_ADMIN_TOKEN_KEY = 'boules_master_admin_token';
 
 export function ViewModeProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const [mounted, setMounted] = useState(false);
+  
+  // Ensure component is mounted before accessing window
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Extract token from URL or localStorage, prioritizing URL
-  // Use useMemo to re-evaluate when location changes (for client-side navigation)
   const viewToken = useMemo(() => {
+    if (!mounted) return null;
+    
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get('token');
     
@@ -31,7 +38,7 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     }
     
     return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
-  }, [location]);
+  }, [location, mounted]);
 
   // Store token in localStorage when detected in URL
   useEffect(() => {
