@@ -446,6 +446,7 @@ export default function Results() {
           head: [['Team', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
           body: tableData,
           startY: startY,
+          margin: { top: 25, bottom: 10, left: 14, right: 14 },
           styles: {
             fontSize: 8,
             cellPadding: 1.5,
@@ -470,10 +471,10 @@ export default function Results() {
           },
           didDrawPage: function (data) {
             if (!isFirstPageForDivision) {
-              // Repeat division header on new pages
+              // Draw division header in the margin area on continuation pages
               doc.setFontSize(11);
               doc.setFont('helvetica', 'bold');
-              doc.text(divisionLabel, 14, 20);
+              doc.text(divisionLabel, 14, 22);
               doc.setFont('helvetica', 'normal');
             }
             isFirstPageForDivision = false;
@@ -553,6 +554,7 @@ export default function Results() {
           head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
           body: tableData,
           startY: startY,
+          margin: { top: 25, bottom: 10, left: 14, right: 14 },
           styles: {
             fontSize: 10,
             cellPadding: 3,
@@ -576,10 +578,10 @@ export default function Results() {
           },
           didDrawPage: function (data) {
             if (!isFirstPageForDivision) {
-              // Repeat division header on new pages
+              // Draw division header in the margin area on continuation pages
               doc.setFontSize(11);
               doc.setFont('helvetica', 'bold');
-              doc.text(divisionLabel, 14, 20);
+              doc.text(divisionLabel, 14, 22);
               doc.setFont('helvetica', 'normal');
             }
             isFirstPageForDivision = false;

@@ -1049,6 +1049,7 @@ export default function Matches() {
         ]],
         body: tableData,
         startY: startY,
+        margin: { top: 25, bottom: 10, left: 14, right: 14 },
         styles: { 
           fontSize: 8, 
           cellPadding: 1.5,
@@ -1075,10 +1076,10 @@ export default function Matches() {
         },
         didDrawPage: function (data) {
           if (!isFirstPageForDivision) {
-            // Repeat division header on new pages
+            // Draw division header in the margin area on continuation pages
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
-            doc.text(divisionLabel, 14, 20);
+            doc.text(divisionLabel, 14, 22);
             doc.setFont('helvetica', 'normal');
           }
           isFirstPageForDivision = false;

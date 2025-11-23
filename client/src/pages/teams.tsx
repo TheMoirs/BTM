@@ -932,6 +932,7 @@ export default function Teams() {
         head: [['Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
         body: tableData,
         startY: startY,
+        margin: { top: 25, bottom: 10, left: 14, right: 14 },
         styles: {
           fontSize: 9,
           cellPadding: 2,
@@ -951,10 +952,10 @@ export default function Teams() {
         },
         didDrawPage: function (data) {
           if (!isFirstPageForDivision) {
-            // Repeat division header on new pages
+            // Draw division header in the margin area on continuation pages
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
-            doc.text(divisionLabel, 14, 20);
+            doc.text(divisionLabel, 14, 22);
             doc.setFont('helvetica', 'normal');
           }
           isFirstPageForDivision = false;
