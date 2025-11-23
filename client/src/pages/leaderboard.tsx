@@ -93,8 +93,12 @@ export default function Leaderboard() {
 
     Array.from(groups.values()).forEach(divisionMatches => {
       divisionMatches.sort((a, b) => {
-        // Primary sort: by status
-        const statusDiff = (statusOrder[a.status] || 999) - (statusOrder[b.status] || 999);
+        // Primary sort: by status (normalize to lowercase for case-insensitive comparison)
+        const aStatusNormalized = (a.status || '').toLowerCase().trim();
+        const bStatusNormalized = (b.status || '').toLowerCase().trim();
+        const aStatusOrder = statusOrder[aStatusNormalized] ?? 999;
+        const bStatusOrder = statusOrder[bStatusNormalized] ?? 999;
+        const statusDiff = aStatusOrder - bStatusOrder;
         if (statusDiff !== 0) return statusDiff;
         
         // Secondary sort: by date (latest first)
