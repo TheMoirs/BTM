@@ -890,7 +890,7 @@ export default function Teams() {
     const bottomMargin = 20;
     
     doc.setFontSize(14);
-    doc.text('Teams Report', 14, 12);
+    doc.text('Boules Tournament Manager - Teams Report', 14, 12);
     
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 18);
@@ -927,6 +927,7 @@ export default function Teams() {
         team.otherPlayers && team.otherPlayers.length > 0 ? team.otherPlayers.join(', ') : '—',
       ]);
       
+      let isFirstPageForDivision = true;
       autoTable(doc, {
         head: [['Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
         body: tableData,
@@ -948,6 +949,16 @@ export default function Teams() {
           4: { cellWidth: 50 },
           5: { cellWidth: 50 },
         },
+        didDrawPage: function (data) {
+          if (!isFirstPageForDivision) {
+            // Repeat division header on new pages
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text(divisionLabel, 14, 20);
+            doc.setFont('helvetica', 'normal');
+          }
+          isFirstPageForDivision = false;
+        }
       });
       
       // @ts-ignore - autoTable adds finalY to doc

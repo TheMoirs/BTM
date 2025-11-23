@@ -969,7 +969,7 @@ export default function Matches() {
     
     // Add title
     doc.setFontSize(14);
-    doc.text("Boules Tournament - Matches Report", 14, 12);
+    doc.text(`Boules Tournament Manager - Matches Report`, 14, 12);
     
     // Add generation date
     doc.setFontSize(9);
@@ -1032,6 +1032,7 @@ export default function Matches() {
       });
       
       // Add table with columns matching on-screen form (no division column since grouped)
+      let isFirstPageForDivision = true;
       autoTable(doc, {
         head: [[
           'Stage',
@@ -1072,6 +1073,16 @@ export default function Matches() {
           9: { cellWidth: 12, halign: 'center' },  // Team 2 Game 2
           10: { cellWidth: 12, halign: 'center' }  // Team 2 Game 3
         },
+        didDrawPage: function (data) {
+          if (!isFirstPageForDivision) {
+            // Repeat division header on new pages
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text(divisionLabel, 14, 20);
+            doc.setFont('helvetica', 'normal');
+          }
+          isFirstPageForDivision = false;
+        }
       });
       
       // @ts-ignore - autoTable adds finalY to doc

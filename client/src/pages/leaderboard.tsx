@@ -202,56 +202,56 @@ export default function Leaderboard() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-20 text-center">Position</TableHead>
-                            <TableHead>Team</TableHead>
-                            <TableHead className="text-center">Played</TableHead>
-                            <TableHead className="text-center">Won</TableHead>
-                            <TableHead className="text-center">Drawn</TableHead>
-                            <TableHead className="text-center">Lost</TableHead>
-                            <TableHead className="text-center">Points</TableHead>
-                            <TableHead className="text-center">Score For</TableHead>
-                            <TableHead className="text-center">Score Against</TableHead>
-                            <TableHead className="text-center">Score Difference</TableHead>
+                            <TableHead className="w-12 max-sm:w-10 text-center text-sm max-sm:text-xs">Position</TableHead>
+                            <TableHead className="text-sm max-sm:text-xs">Team</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Played</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Won</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">Score For</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">Score Against</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {divisionSummaries.map((summary) => (
                             <TableRow key={summary.teamName} data-testid={`row-summary-${summary.teamName}`}>
-                              <TableCell className="text-center" data-testid={`text-position-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-position-${summary.teamName}`}>
                                 <span className="font-mono font-semibold">
                                   {summary.position !== null ? summary.position : ''}
                                 </span>
                               </TableCell>
-                              <TableCell className="font-medium" data-testid={`text-team-${summary.teamName}`}>
+                              <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team-${summary.teamName}`}>
                                 {summary.teamName}
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-played-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-played-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesPlayed}</span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-won-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-won-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesWon}</span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-drawn-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-drawn-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesDrawn}</span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-lost-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-lost-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesLost}</span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-points-${summary.teamName}`}>
-                                <Badge variant="default" className="font-mono">
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-points-${summary.teamName}`}>
+                                <Badge variant="default" className="font-mono text-xs">
                                   {summary.points}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-score-for-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-score-for-${summary.teamName}`}>
                                 <span className="font-mono">{summary.scoreFor}</span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-score-against-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-score-against-${summary.teamName}`}>
                                 <span className="font-mono">{summary.scoreAgainst}</span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-score-difference-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-score-difference-${summary.teamName}`}>
                                 <Badge 
                                   variant={summary.scoreDifference > 0 ? "default" : summary.scoreDifference < 0 ? "destructive" : "secondary"}
-                                  className="font-mono"
+                                  className="font-mono text-xs"
                                 >
                                   {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
                                 </Badge>
@@ -299,26 +299,26 @@ export default function Leaderboard() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Stage</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Team 1</TableHead>
-                            <TableHead className="text-center">G1</TableHead>
-                            <TableHead className="text-center">G2</TableHead>
-                            <TableHead className="text-center">G3</TableHead>
-                            <TableHead>Team 2</TableHead>
-                            <TableHead className="text-center">G1</TableHead>
-                            <TableHead className="text-center">G2</TableHead>
-                            <TableHead className="text-center">G3</TableHead>
+                            <TableHead className="text-sm max-sm:text-xs">Stage</TableHead>
+                            <TableHead className="text-sm max-sm:text-xs">Status</TableHead>
+                            <TableHead className="text-sm max-sm:text-xs">Date</TableHead>
+                            <TableHead className="text-sm max-sm:text-xs">Team 1</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G2</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G3</TableHead>
+                            <TableHead className="text-sm max-sm:text-xs">Team 2</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G2</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G3</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {divisionMatches.map((match) => (
                             <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
-                              <TableCell className="font-medium" data-testid={`text-stage-${match.id}`}>
+                              <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-stage-${match.id}`}>
                                 {stageLabels[match.stage as keyof typeof stageLabels]}
                               </TableCell>
-                              <TableCell data-testid={`text-status-${match.id}`}>
+                              <TableCell className="text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-status-${match.id}`}>
                                 <Badge
                                   variant={
                                     match.status === 'completed'
@@ -327,11 +327,12 @@ export default function Leaderboard() {
                                       ? 'secondary'
                                       : 'outline'
                                   }
+                                  className="text-xs"
                                 >
                                   {statusLabels[match.status as keyof typeof statusLabels]}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-sm" data-testid={`text-date-${match.id}`}>
+                              <TableCell className="text-xs max-sm:text-[0.625rem] py-2 max-sm:py-1 px-1" data-testid={`text-date-${match.id}`}>
                                 {match.matchDate
                                   ? new Date(match.matchDate).toLocaleDateString('en-US', {
                                       month: 'short',
@@ -340,38 +341,38 @@ export default function Leaderboard() {
                                     })
                                   : '-'}
                               </TableCell>
-                              <TableCell className="font-medium" data-testid={`text-team1-${match.id}`}>
+                              <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team1-${match.id}`}>
                                 {getTeamName(match.team1Id)}
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-team1-g1-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team1-g1-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team1Game1Score !== null ? match.team1Game1Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-team1-g2-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team1-g2-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team1Game2Score !== null ? match.team1Game2Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-team1-g3-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team1-g3-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team1Game3Score !== null ? match.team1Game3Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="font-medium" data-testid={`text-team2-${match.id}`}>
+                              <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team2-${match.id}`}>
                                 {getTeamName(match.team2Id)}
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-team2-g1-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team2-g1-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team2Game1Score !== null ? match.team2Game1Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-team2-g2-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team2-g2-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team2Game2Score !== null ? match.team2Game2Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center" data-testid={`text-team2-g3-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team2-g3-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team2Game3Score !== null ? match.team2Game3Score : '-'}
                                 </span>

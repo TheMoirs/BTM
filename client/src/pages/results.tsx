@@ -383,7 +383,7 @@ export default function Results() {
     const bottomMargin = 20;
     
     doc.setFontSize(14);
-    doc.text('Match Results Report', 14, 12);
+    doc.text('Boules Tournament Manager - Match Results Report', 14, 12);
     
     doc.setFontSize(9);
     doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
@@ -441,6 +441,7 @@ export default function Results() {
           result.scoreDifference.toString(),
         ]);
         
+        let isFirstPageForDivision = true;
         autoTable(doc, {
           head: [['Team', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
           body: tableData,
@@ -467,6 +468,16 @@ export default function Results() {
             9: { cellWidth: 10, halign: 'center' },
             10: { cellWidth: 12, halign: 'center' },
           },
+          didDrawPage: function (data) {
+            if (!isFirstPageForDivision) {
+              // Repeat division header on new pages
+              doc.setFontSize(11);
+              doc.setFont('helvetica', 'bold');
+              doc.text(divisionLabel, 14, 20);
+              doc.setFont('helvetica', 'normal');
+            }
+            isFirstPageForDivision = false;
+          }
         });
         
         // @ts-ignore - autoTable adds finalY to doc
@@ -483,7 +494,7 @@ export default function Results() {
     const bottomMargin = 20;
     
     doc.setFontSize(14);
-    doc.text('Team Leaderboard - All Stages', 14, 12);
+    doc.text('Boules Tournament Manager - Team Leaderboard - All Stages', 14, 12);
     
     doc.setFontSize(9);
     doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
@@ -537,6 +548,7 @@ export default function Results() {
           summary.scoreDifference.toString(),
         ]);
         
+        let isFirstPageForDivision = true;
         autoTable(doc, {
           head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
           body: tableData,
@@ -562,6 +574,16 @@ export default function Results() {
             8: { cellWidth: 22, halign: 'center' },
             9: { cellWidth: 22, halign: 'center' },
           },
+          didDrawPage: function (data) {
+            if (!isFirstPageForDivision) {
+              // Repeat division header on new pages
+              doc.setFontSize(11);
+              doc.setFont('helvetica', 'bold');
+              doc.text(divisionLabel, 14, 20);
+              doc.setFont('helvetica', 'normal');
+            }
+            isFirstPageForDivision = false;
+          }
         });
         
         // @ts-ignore - autoTable adds finalY to doc
