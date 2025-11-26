@@ -213,8 +213,8 @@ export default function Leaderboard() {
                             <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">Score For</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">Score Against</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">Score Against</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -246,10 +246,10 @@ export default function Leaderboard() {
                                   {summary.points}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-score-for-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-score-for-${summary.teamName}`}>
                                 <span className="font-mono">{summary.scoreFor}</span>
                               </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-score-against-${summary.teamName}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-score-against-${summary.teamName}`}>
                                 <span className="font-mono">{summary.scoreAgainst}</span>
                               </TableCell>
                               <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-score-difference-${summary.teamName}`}>
