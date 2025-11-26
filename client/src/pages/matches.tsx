@@ -1645,8 +1645,8 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G2</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G3</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>
                     <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1658,8 +1658,8 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G2</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs max-lg:hidden">G3</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>
+                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>
                     {!isReadOnly && (
                       <TableHead className="w-20 max-md:w-16 text-right text-sm max-sm:text-xs">Actions</TableHead>
                     )}
@@ -1743,7 +1743,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center max-lg:hidden">
+                        <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
@@ -1764,7 +1764,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center max-lg:hidden">
+                        <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
@@ -1809,7 +1809,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center max-lg:hidden">
+                        <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
@@ -1830,7 +1830,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center max-lg:hidden">
+                        <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
