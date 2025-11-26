@@ -1743,7 +1743,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center max-lg:hidden">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
@@ -1764,7 +1764,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center max-lg:hidden">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
@@ -1809,7 +1809,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center max-lg:hidden">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
@@ -1830,7 +1830,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center max-lg:hidden">
                           {shouldShowInputs ? (
                             <Input
                               type="number"
