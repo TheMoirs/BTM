@@ -308,12 +308,12 @@ export default function Leaderboard() {
                             <TableHead className="text-sm max-sm:text-xs">Date</TableHead>
                             <TableHead className="text-sm max-sm:text-xs">Team 1</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G2</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G3</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">G2</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">G3</TableHead>
                             <TableHead className="text-sm max-sm:text-xs">Team 2</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G2</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs max-md:hidden">G3</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">G2</TableHead>
+                            <TableHead className="text-center text-sm max-sm:text-xs">G3</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -353,12 +353,12 @@ export default function Leaderboard() {
                                   {match.team1Game1Score !== null ? match.team1Game1Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team1-g2-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team1-g2-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team1Game2Score !== null ? match.team1Game2Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team1-g3-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team1-g3-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team1Game3Score !== null ? match.team1Game3Score : '-'}
                                 </span>
@@ -371,12 +371,12 @@ export default function Leaderboard() {
                                   {match.team2Game1Score !== null ? match.team2Game1Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team2-g2-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team2-g2-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team2Game2Score !== null ? match.team2Game2Score : '-'}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 max-md:hidden" data-testid={`text-team2-g3-${match.id}`}>
+                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team2-g3-${match.id}`}>
                                 <span className="font-mono">
                                   {match.team2Game3Score !== null ? match.team2Game3Score : '-'}
                                 </span>
