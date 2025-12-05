@@ -505,6 +505,9 @@ export function TournamentSelector() {
                         hasQuarterFinals: tournament.hasQuarterFinals,
                         hasSemiFinals: tournament.hasSemiFinals,
                         hasFinals: tournament.hasFinals,
+                        pointsForWin: tournament.pointsForWin ?? 2,
+                        pointsForDraw: tournament.pointsForDraw ?? 1,
+                        pointsForLoss: tournament.pointsForLoss ?? 0,
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}

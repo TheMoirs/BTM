@@ -146,6 +146,9 @@ export default function Leaderboard() {
         <div className="flex flex-col gap-1">
           <p className="text-lg font-semibold">{currentTournament.name}</p>
           <p className="text-sm text-muted-foreground">
+            Points: Win={currentTournament.pointsForWin ?? 2}, Draw={currentTournament.pointsForDraw ?? 1}, Loss={currentTournament.pointsForLoss ?? 0}
+          </p>
+          <p className="text-sm text-muted-foreground">
             {new Date().toLocaleString()}
           </p>
         </div>
