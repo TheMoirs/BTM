@@ -788,7 +788,13 @@ export default function Results() {
                           Team Leaderboard - All Stages
                         </DialogTitle>
                         <p className="text-sm text-muted-foreground">
-                          {currentTournament?.name} • {new Date().toLocaleString()}
+                          {currentTournament?.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Points: Win={currentTournament?.pointsForWin ?? 2}, Draw={currentTournament?.pointsForDraw ?? 1}, Loss={currentTournament?.pointsForLoss ?? 0}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date().toLocaleString()}
                         </p>
                       </div>
                       <Button
