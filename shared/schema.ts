@@ -12,6 +12,9 @@ export const tournaments = pgTable("tournaments", {
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
+  pointsForWin: integer("points_for_win").notNull().default(2),
+  pointsForDraw: integer("points_for_draw").notNull().default(1),
+  pointsForLoss: integer("points_for_loss").notNull().default(0),
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -24,6 +27,9 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   hasQuarterFinals: z.boolean().default(false),
   hasSemiFinals: z.boolean().default(false),
   hasFinals: z.boolean().default(true),
+  pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(2),
+  pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(1),
+  pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(0),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
