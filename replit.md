@@ -25,13 +25,13 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - **Teams**: Unique name, captain details, division (defaults to 'A').
     - **Matches**: Up to 3 game scores, stage, status, winner. Unique constraint on team pairs.
     - **Results**: Generated from match outcomes, records match info and game statistics.
-- **Match System**: Matches are "completed" when 1 or more complete game results (both teams' scores) are entered. Status progression: "scheduled", "in-progress", "completed". Points allocated per game (2 for win, 1 for draw, 0 for loss).
+- **Match System**: Matches are "completed" when 1 or more complete game results (both teams' scores) are entered. Status progression: "scheduled", "in-progress", "completed". Points allocated per game using tournament-specific point values (configurable Win/Draw/Loss, defaults: 2, 1, 0).
 - **Validation**: Shared Zod schemas for client-server consistency.
 - **Data Integrity**: Automatic database initialization for unique constraints, cascade deletion for related records (e.g., deleting a team removes associated matches and results; deleting a tournament removes all its data).
 
 ### Feature Specifications
 - **Multi-Tournament Support**: Independent tournaments with isolated data, selectable via navigation bar, persistent selection via `localStorage` and URL.
-- **Tournament Configuration**: Name, number of divisions (default 2), games per match (1-5, default 3), configurable stages.
+- **Tournament Configuration**: Name, number of divisions (default 2), games per match (1-5, default 3), configurable stages, customizable point values (Win/Draw/Loss defaults: 2, 1, 0).
 - **Tournament Progression**:
     - **Initial Stage**: Round-robin match generation within divisions.
     - **Automatic Stage Advancement**: Generates playoff stages (QF, SF, Finals) when preceding stage is complete.
