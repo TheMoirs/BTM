@@ -108,6 +108,9 @@ export function TournamentSelector() {
       hasQuarterFinals: false,
       hasSemiFinals: false,
       hasFinals: true,
+      pointsForWin: 2,
+      pointsForDraw: 1,
+      pointsForLoss: 0,
     },
   });
 
@@ -341,6 +344,70 @@ export function TournamentSelector() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="space-y-3">
+                <FormLabel>Point Values</FormLabel>
+                <FormDescription>Points awarded per game result</FormDescription>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="pointsForWin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Win</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-points-for-win"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pointsForDraw"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Draw</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-points-for-draw"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pointsForLoss"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Loss</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-points-for-loss"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-4">
@@ -737,6 +804,70 @@ export function TournamentSelector() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="space-y-3">
+                <FormLabel>Point Values</FormLabel>
+                <FormDescription>Points awarded per game result</FormDescription>
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="pointsForWin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Win</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-edit-points-for-win"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pointsForDraw"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Draw</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-edit-points-for-draw"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pointsForLoss"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Loss</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-edit-points-for-loss"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-4">
