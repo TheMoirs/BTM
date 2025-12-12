@@ -888,26 +888,24 @@ export default function Results() {
                 <FileDown className="mr-2 h-4 w-4" />
                 Download
               </Button>
+              <Button
+                variant="outline"
+                onClick={handleCopyShareLink}
+                disabled={isSharingLink}
+                data-testid="button-share-leaderboard"
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                {isSharingLink ? "Creating link..." : "Share Leaderboard"}
+              </Button>
               {!isReadOnly && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={handleCopyShareLink}
-                    disabled={isSharingLink}
-                    data-testid="button-share-leaderboard"
-                  >
-                    <Share2 className="mr-2 h-4 w-4" />
-                    {isSharingLink ? "Creating link..." : "Share Leaderboard"}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setShowClearConfirm(true)}
-                    data-testid="button-clear-all-results"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Clear All Results
-                  </Button>
-                </>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowClearConfirm(true)}
+                  data-testid="button-clear-all-results"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear All Results
+                </Button>
               )}
             </>
           )}

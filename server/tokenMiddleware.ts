@@ -38,10 +38,12 @@ export async function validateTokenMiddleware(
     req.isViewOnlyAccess = true;
     const method = req.method.toUpperCase();
     const isCreatingTournament = method === "POST" && req.path === "/api/tournaments";
+    const isCreatingShortLink = method === "POST" && req.path === "/api/short-links";
     
     if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
       // Allow POST /api/tournaments without token (initial tournament creation)
-      if (!isCreatingTournament) {
+      // Allow POST /api/short-links for sharing (read-only operation that creates a share link)
+      if (!isCreatingTournament && !isCreatingShortLink) {
         res.status(403).json({ error: "Write operations require admin access" });
         return;
       }
@@ -74,9 +76,14 @@ export async function validateTokenMiddleware(
       req.isAdminAccess = false;
       
       const method = req.method.toUpperCase();
+      const isCreatingShortLink = method === "POST" && req.path === "/api/short-links";
+      
       if (method === "POST" || method === "PATCH" || method === "PUT" || method === "DELETE") {
-        res.status(403).json({ error: "Write operations are not allowed in view-only mode" });
-        return;
+        // Allow POST /api/short-links for sharing (read-only operation that creates a share link)
+        if (!isCreatingShortLink) {
+          res.status(403).json({ error: "Write operations are not allowed in view-only mode" });
+          return;
+        }
       }
     }
 
