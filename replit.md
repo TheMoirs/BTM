@@ -43,6 +43,16 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry.
 - **Results Summary & Reports**: View team statistics and match results. Detailed table filterable by stage. Summary dialog always shows all stages grouped by Stage → Division. PDF reports include tournament name and timestamp.
 - **Standalone Leaderboard with Match Results**: Share leaderboard link shows team standings with toggle button to display match results. Matches grouped by division, sorted by status (completed first, then in-progress, then scheduled) with latest matches by date at top. Displays team names, game scores, status, stage, and date for each match.
+- **Internal Short URL System**: Self-hosted short links for sharing leaderboard and other pages.
+    - **Database**: `short_links` table stores code, tournamentId, accessType, targetPage, createdAt
+    - **Endpoints**:
+        - GET `/s/:code` - Redirects to target page with proper token and tournament params
+        - POST `/api/short-links` - Creates short links (available to all users including view-only)
+    - **Features**:
+        - Reuses existing short links for same tournament/page/access combination
+        - Generates cryptographically secure 6-character codes
+        - Share buttons visible to all users (not just admins)
+        - Tournament existence validated before link creation
 - **Three-Tier Security System**: Comprehensive access control with Master Admin, Admin tokens, and View tokens.
     - **Master Admin**: Password-based authentication using `MASTER_ADMIN_PASSWORD` environment variable.
         - Full control over ALL tournaments (view, edit, delete any tournament)
