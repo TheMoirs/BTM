@@ -281,6 +281,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       
+      // Verify the tournament exists before creating a short link
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+      
       // Check if a short link already exists for this combination
       let shortLink = await storage.getShortLinkForTournament(tournamentId, safeAccessType, targetPage);
       
