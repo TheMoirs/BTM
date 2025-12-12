@@ -26,7 +26,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Build the redirect URL with the appropriate token
       const token = shortLink.accessType === 'admin' ? tournament.adminToken : tournament.viewToken;
-      const targetPath = `/${shortLink.targetPage}`;
+      // Handle 'home' target page as root path
+      const targetPath = shortLink.targetPage === 'home' ? '/' : `/${shortLink.targetPage}`;
       const redirectUrl = `${targetPath}?token=${token}&tournament=${tournament.id}`;
       
       console.log(`[SHORT_LINK] Redirecting ${code} -> ${targetPath} for tournament ${tournament.id}`);
@@ -232,11 +233,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[AUDIT] Master admin retrieved admin credentials for tournament ${req.params.id} (${tournament.name})`);
       
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      
+      // Get or create short links for admin and view access
+      let adminShortLink = await storage.getShortLinkForTournament(tournament.id, 'admin', 'home');
+      if (!adminShortLink) {
+        adminShortLink = await storage.createShortLink(tournament.id, 'admin', 'home');
+      }
+      
+      let viewShortLink = await storage.getShortLinkForTournament(tournament.id, 'view', 'home');
+      if (!viewShortLink) {
+        viewShortLink = await storage.createShortLink(tournament.id, 'view', 'home');
+      }
+      
       res.json({
         tournamentId: tournament.id,
         tournamentName: tournament.name,
-        adminUrl: `${req.protocol}://${req.get('host')}/?token=${tournament.adminToken}&tournament=${tournament.id}`,
-        viewUrl: `${req.protocol}://${req.get('host')}/?token=${tournament.viewToken}&tournament=${tournament.id}`
+        adminUrl: `${baseUrl}/s/${adminShortLink.code}`,
+        viewUrl: `${baseUrl}/s/${viewShortLink.code}`
       });
     } catch (error) {
       console.error(`[ERROR] Failed to retrieve admin credentials:`, error);
