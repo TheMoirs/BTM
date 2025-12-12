@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile, getShareableShortLink } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,7 +66,7 @@ const stageLabels = {
 
 export default function Results() {
   const { currentTournament } = useTournament();
-  const { isReadOnly, viewToken, getShareableLink } = useViewMode();
+  const { isReadOnly } = useViewMode();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
@@ -318,44 +318,20 @@ export default function Results() {
     setIsSharingLink(true);
     
     try {
-      let shareToken: string;
+      // Create a short link using our internal system
+      const response = await apiRequest('POST', '/api/short-links', {
+        tournamentId: currentTournament.id,
+        targetPage: 'leaderboard'
+      });
       
-      // If we're in read-only mode, we already have a view token
-      if (isReadOnly) {
-        shareToken = viewToken!;
-      } else {
-        // We're in admin mode, need to regenerate the view token
-        // Use apiRequest which automatically includes the correct token (admin or master admin)
-        const response = await apiRequest(
-          'POST',
-          `/api/tournaments/${currentTournament.id}/regenerate-token`
-        );
-        
-        const data = await response.json();
-        shareToken = data.viewToken;
-        queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
-      }
+      const data = await response.json();
+      const shortUrl = data.shortUrl;
       
-      // Generate a link to the leaderboard page instead of the root page
-      const baseUrl = window.location.origin;
-      const urlObj = new URL(`${baseUrl}/leaderboard`);
-      urlObj.searchParams.set('token', shareToken);
-      urlObj.searchParams.set('tournament', currentTournament.id);
-      const longUrl = urlObj.toString();
-      
-      if (!longUrl) {
-        throw new Error('Failed to generate share link');
-      }
-      
-      const cacheKey = `share-${currentTournament.id}`;
-      const { url, isShortened } = await getShareableShortLink(longUrl, cacheKey);
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(shortUrl);
       
       toast({
         title: "Link copied",
-        description: isShortened 
-          ? `Short link copied: ${url}` 
-          : "Link copied to clipboard (shortening unavailable)",
+        description: `Short link copied: ${shortUrl}`,
         duration: 5000,
       });
     } catch (error) {
@@ -364,7 +340,7 @@ export default function Results() {
         title: "Error",
         description: "Failed to copy link to clipboard.",
         variant: "destructive",
-        duration: 5000,
+        duration: Infinity,
       });
     } finally {
       setIsSharingLink(false);

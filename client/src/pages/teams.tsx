@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile, getShareableShortLink } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,7 +122,7 @@ function getMailtoUrl(email: string, tournamentName: string): string {
 
 export default function Teams() {
   const { currentTournament } = useTournament();
-  const { isReadOnly, viewToken, getShareableLink } = useViewMode();
+  const { isReadOnly } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
@@ -1076,44 +1076,20 @@ export default function Teams() {
     setIsSharingLink(true);
     
     try {
-      let shareToken: string;
+      // Create a short link using our internal system
+      const response = await apiRequest('POST', '/api/short-links', {
+        tournamentId: currentTournament.id,
+        targetPage: 'leaderboard'
+      });
       
-      // If we're in read-only mode, we already have a view token
-      if (isReadOnly) {
-        shareToken = viewToken!;
-      } else {
-        // We're in admin mode, need to regenerate the view token
-        // Use apiRequest which automatically includes the correct token (admin or master admin)
-        const response = await apiRequest(
-          'POST',
-          `/api/tournaments/${currentTournament.id}/regenerate-token`
-        );
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to regenerate view token');
-        }
-        
-        const data = await response.json();
-        shareToken = data.viewToken;
-        queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
-      }
+      const data = await response.json();
+      const shortUrl = data.shortUrl;
       
-      const longUrl = getShareableLink(currentTournament, shareToken);
-      
-      if (!longUrl) {
-        throw new Error('Failed to generate share link');
-      }
-      
-      const cacheKey = `share-${currentTournament.id}`;
-      const { url, isShortened } = await getShareableShortLink(longUrl, cacheKey);
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(shortUrl);
       
       toast({
         title: "Link copied",
-        description: isShortened 
-          ? `Short link copied: ${url}` 
-          : "Link copied to clipboard (shortening unavailable)",
+        description: `Short link copied: ${shortUrl}`,
         duration: 5000,
       });
     } catch (error) {

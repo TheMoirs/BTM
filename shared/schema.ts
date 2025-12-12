@@ -154,3 +154,23 @@ export const insertResultSchema = createInsertSchema(results).omit({ id: true })
 
 export type InsertResult = z.infer<typeof insertResultSchema>;
 export type Result = typeof results.$inferSelect;
+
+// Short links for sharing tournament pages
+export const shortLinks = pgTable("short_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 8 }).notNull().unique(),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  accessType: text("access_type").notNull().default("view"), // 'view' or 'admin'
+  targetPage: text("target_page").notNull().default("leaderboard"), // 'leaderboard', 'teams', etc.
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertShortLinkSchema = createInsertSchema(shortLinks).omit({ id: true, createdAt: true }).extend({
+  code: z.string().min(6).max(8),
+  tournamentId: z.string().min(1, "Tournament is required"),
+  accessType: z.enum(["view", "admin"]).default("view"),
+  targetPage: z.enum(["leaderboard", "teams", "results", "matches"]).default("leaderboard"),
+});
+
+export type InsertShortLink = z.infer<typeof insertShortLinkSchema>;
+export type ShortLink = typeof shortLinks.$inferSelect;

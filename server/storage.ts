@@ -1,4 +1,4 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, teams, matches, results, tournaments } from "@shared/schema";
+import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, teams, matches, results, tournaments, shortLinks } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
@@ -44,6 +44,11 @@ export interface IStorage {
   createResult(result: InsertResult): Promise<Result>;
   deleteAllResults(tournamentId?: string): Promise<boolean>;
   deleteResultsByMatchId(matchId: string): Promise<boolean>;
+  
+  // Short link methods
+  createShortLink(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink>;
+  getShortLinkByCode(code: string): Promise<ShortLink | undefined>;
+  getShortLinkForTournament(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -690,6 +695,54 @@ export class DatabaseStorage implements IStorage {
         .set({ division: newDivision })
         .where(eq(results.matchId, match.id));
     }
+  }
+
+  // Short link methods
+  async createShortLink(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink> {
+    // Generate a random 6-character code
+    const code = this.generateShortCode();
+    
+    const [shortLink] = await db
+      .insert(shortLinks)
+      .values({
+        code,
+        tournamentId,
+        accessType,
+        targetPage,
+      })
+      .returning();
+    return shortLink;
+  }
+
+  async getShortLinkByCode(code: string): Promise<ShortLink | undefined> {
+    const [shortLink] = await db
+      .select()
+      .from(shortLinks)
+      .where(eq(shortLinks.code, code));
+    return shortLink || undefined;
+  }
+
+  async getShortLinkForTournament(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink | undefined> {
+    const [shortLink] = await db
+      .select()
+      .from(shortLinks)
+      .where(
+        and(
+          eq(shortLinks.tournamentId, tournamentId),
+          eq(shortLinks.accessType, accessType),
+          eq(shortLinks.targetPage, targetPage)
+        )
+      );
+    return shortLink || undefined;
+  }
+
+  private generateShortCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
   }
 }
 

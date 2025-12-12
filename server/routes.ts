@@ -8,6 +8,35 @@ import { validateTokenMiddleware } from "./tokenMiddleware";
 import { masterAdminSessions } from "./masterAdminSessions";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Short URL redirect endpoint (before token middleware - no auth required)
+  app.get("/s/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const shortLink = await storage.getShortLinkByCode(code);
+      
+      if (!shortLink) {
+        return res.status(404).send("Link not found");
+      }
+      
+      // Get the tournament to retrieve the appropriate token
+      const tournament = await storage.getTournament(shortLink.tournamentId);
+      if (!tournament) {
+        return res.status(404).send("Tournament not found");
+      }
+      
+      // Build the redirect URL with the appropriate token
+      const token = shortLink.accessType === 'admin' ? tournament.adminToken : tournament.viewToken;
+      const targetPath = `/${shortLink.targetPage}`;
+      const redirectUrl = `${targetPath}?token=${token}&tournament=${tournament.id}`;
+      
+      console.log(`[SHORT_LINK] Redirecting ${code} -> ${targetPath} for tournament ${tournament.id}`);
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("[ERROR] Short link redirect failed:", error);
+      res.status(500).send("Internal server error");
+    }
+  });
+
   // Master admin authentication endpoint (before token middleware)
   app.post("/api/auth/master-admin", async (req, res) => {
     try {
@@ -232,6 +261,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ viewToken: tournament.viewToken });
     } catch (error) {
       res.status(500).json({ error: "Failed to regenerate token" });
+    }
+  });
+
+  // Short link creation endpoint
+  app.post("/api/short-links", async (req: any, res) => {
+    try {
+      const { tournamentId, accessType, targetPage } = req.body;
+      
+      if (!tournamentId || !targetPage) {
+        return res.status(400).json({ error: "tournamentId and targetPage are required" });
+      }
+      
+      // Only allow view access type for security (no admin short links from public API)
+      const safeAccessType = 'view';
+      
+      // Enforce tournament-specific access when using tokens
+      if (req.tokenTournamentId && tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      
+      // Check if a short link already exists for this combination
+      let shortLink = await storage.getShortLinkForTournament(tournamentId, safeAccessType, targetPage);
+      
+      if (!shortLink) {
+        // Create a new short link
+        shortLink = await storage.createShortLink(tournamentId, safeAccessType, targetPage);
+      }
+      
+      // Build the short URL
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const shortUrl = `${baseUrl}/s/${shortLink.code}`;
+      
+      res.json({ 
+        code: shortLink.code,
+        shortUrl,
+        targetPage: shortLink.targetPage
+      });
+    } catch (error) {
+      console.error("[ERROR] Failed to create short link:", error);
+      res.status(500).json({ error: "Failed to create short link" });
     }
   });
 
