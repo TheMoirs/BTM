@@ -5,6 +5,7 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { HelpDialog } from "@/components/help-dialog";
 import {
   Table,
   TableBody,
@@ -197,6 +198,46 @@ export default function Leaderboard() {
             Back to Leaderboard
           </Button>
         )}
+        <HelpDialog title="Leaderboard - Help">
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-2">What is this page?</h3>
+              <p>The Leaderboard page displays team standings and match results for the tournament. It's a shareable, read-only view of tournament progress.</p>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-2">Team Leaderboard</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>View team rankings grouped by Stage and Division</li>
+                <li>See statistics: Points, Games Played/Won/Drawn/Lost, Score For/Against</li>
+                <li><strong>Click on a team name</strong> to view only that team's match results</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-2">All Match Results</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Click "All Match Results" to see all matches with scores</li>
+                <li>Matches are grouped by division</li>
+                <li>View match stage, status, date, and game scores</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-2">Team Match Filter</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Click any team name in the leaderboard to filter matches</li>
+                <li>Shows only matches where that team participated</li>
+                <li>Click "Back to Leaderboard" to return to the full view</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-2">Understanding Rankings</h3>
+              <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties.</p>
+            </div>
+          </div>
+        </HelpDialog>
       </div>
 
       {selectedTeamId && (

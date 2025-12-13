@@ -1533,17 +1533,36 @@ export default function Teams() {
                 </div>
                 
                 <div>
+                  <h3 className="font-semibold mb-2">Contacting Captains</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Email:</strong> Click the envelope icon next to a captain's email to send them an email</li>
+                    <li><strong>WhatsApp:</strong> Click the WhatsApp icon next to a phone number to message the captain directly</li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-2">Sharing & Reports</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Share View:</strong> Get a short link to share this teams page in read-only mode</li>
+                    <li><strong>Leaderboard:</strong> Navigate to view team rankings and match results</li>
+                    <li><strong>Download:</strong> Generate PDF or Excel report of all registered teams</li>
+                  </ul>
+                </div>
+                
+                <div>
                   <h3 className="font-semibold mb-2">Other Actions</h3>
                   <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Download:</strong> Generate and download a printable PDF or Excel report of all registered teams</li>
                     <li><strong>Clear All Data:</strong> Delete all teams from the tournament (warning: this cannot be undone)</li>
                     <li><strong>Delete Team:</strong> Click the trash icon next to a team to remove them</li>
                   </ul>
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold mb-2">Sorting</h3>
-                  <p>Click on column headers to sort teams by that field (name, division, captain details, etc.)</p>
+                  <h3 className="font-semibold mb-2">Sorting & Filtering</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click on column headers to sort teams by that field</li>
+                    <li>Use the Division filter to view teams from a specific division</li>
+                  </ul>
                 </div>
               </div>
             </HelpDialog>

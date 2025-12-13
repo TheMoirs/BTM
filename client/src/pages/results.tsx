@@ -229,7 +229,9 @@ export default function Results() {
 
     filteredResults.forEach(result => {
       if (!summaryMap.has(result.teamName)) {
+        const team = teams?.find(t => t.name === result.teamName);
         summaryMap.set(result.teamName, {
+          teamId: team?.id || null,
           teamName: result.teamName,
           division: result.division,
           gamesPlayed: 0,
@@ -267,7 +269,7 @@ export default function Results() {
       }
       return b.scoreDifference - a.scoreDifference;
     });
-  }, [filteredResults]);
+  }, [filteredResults, teams]);
 
   const teamSummariesByStageAndDivision = useMemo(() => {
     return calculateTeamSummariesByStageAndDivision(results, teams);
