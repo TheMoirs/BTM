@@ -1156,9 +1156,15 @@ export default function Teams() {
     console.log('Opening email client with recipients:', emailAddresses.length, 'teams');
     console.log('mailto link length:', mailtoLink.length, 'characters');
     
-    // Use window.location.href - the most reliable cross-platform method for mailto
+    // Use anchor element click - more reliable on iOS and other mobile platforms
+    // window.location.href doesn't work consistently on iOS Safari
     try {
-      window.location.href = mailtoLink;
+      const link = document.createElement('a');
+      link.href = mailtoLink;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       // Show confirmation after a brief delay (so it appears after the email client opens)
       setTimeout(() => {
