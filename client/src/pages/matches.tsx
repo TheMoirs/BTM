@@ -742,6 +742,23 @@ export default function Matches() {
         const team2Game3Score = values.team2Game3Score?.trim() !== "" ? parseInt(values.team2Game3Score!) : null;
         const matchDate = values.matchDate?.trim() || null;
 
+        // Check if any scores are entered
+        const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
+                            team1Game2Score !== null || team2Game2Score !== null ||
+                            team1Game3Score !== null || team2Game3Score !== null;
+        
+        // Validate date is provided if scores are entered
+        if (hasAnyScores && !matchDate) {
+          errors.push(`${matchLabel}: Match date is required when scores are entered`);
+          // Focus on the date input if possible
+          const dateInput = document.querySelector(`[data-testid="input-edit-date-${match.id}"]`) as HTMLInputElement;
+          if (dateInput) {
+            dateInput.focus();
+            dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          continue;
+        }
+        
         // Validate paired scores for each game
         if ((team1Game1Score !== null && team2Game1Score === null) || 
             (team1Game1Score === null && team2Game1Score !== null)) {
@@ -847,7 +864,8 @@ export default function Matches() {
 
   const getTeamName = (teamId: string) => {
     const team = teams?.find(t => t.id === teamId);
-    return team?.name || "Unknown Team";
+    if (!team) return "Unknown Team";
+    return team.teamDisplayId ? `${team.teamDisplayId} - ${team.name}` : team.name;
   };
 
   // Get unique divisions from matches

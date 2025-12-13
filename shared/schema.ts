@@ -38,6 +38,7 @@ export type Tournament = typeof tournaments.$inferSelect;
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  teamDisplayId: text("team_display_id"),
   name: text("name").notNull(),
   captainName: text("captain_name").notNull(),
   captainPhone: text("captain_phone").notNull(),
@@ -51,6 +52,7 @@ export const teams = pgTable("teams", {
 
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
   tournamentId: z.string().min(1, "Tournament is required"),
+  teamDisplayId: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   name: z.string().min(1, "Team name is required"),
   captainName: z.string().min(1, "Captain name is required"),
   captainPhone: z.string().min(1, "Phone number is required"),

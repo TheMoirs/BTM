@@ -66,7 +66,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type SortColumn = "name" | "division" | "captainName" | "captainPhone" | "captainEmail" | "homePiste" | "otherPlayers";
+type SortColumn = "teamDisplayId" | "name" | "division" | "captainName" | "captainPhone" | "captainEmail" | "homePiste" | "otherPlayers";
 type SortDirection = "asc" | "desc";
 
 interface EditingTeam extends Partial<InsertTeam> {
@@ -165,6 +165,7 @@ export default function Teams() {
     resolver: zodResolver(insertTeamSchema),
     defaultValues: {
       tournamentId: "",
+      teamDisplayId: "",
       name: "",
       captainName: "",
       captainPhone: "",
@@ -192,6 +193,7 @@ export default function Teams() {
       setIsCreateOpen(false);
       form.reset({
         tournamentId: currentTournament?.id || "",
+        teamDisplayId: "",
         name: "",
         captainName: "",
         captainPhone: "",
@@ -421,6 +423,19 @@ export default function Teams() {
             );
             return key ? row[key] : null;
           };
+          
+          const getTeamDisplayId = () => {
+            const key = Object.keys(row).find(k => 
+              k.toLowerCase() === 'teamdisplayid' || 
+              k.toLowerCase() === 'team display id' ||
+              k.toLowerCase() === 'team_display_id' ||
+              k.toLowerCase() === 'team id' ||
+              k.toLowerCase() === 'teamid' ||
+              k.toLowerCase() === 'team_id' ||
+              k.toLowerCase() === 'id'
+            );
+            return key ? row[key] : null;
+          };
 
           const name = getName();
           const captainName = getCaptainName();
@@ -429,6 +444,7 @@ export default function Teams() {
           const division = getDivision();
           const homePiste = getHomePiste();
           const otherPlayers = getOtherPlayers();
+          const teamDisplayId = getTeamDisplayId();
 
           // Check if row is completely empty (skip empty rows)
           const hasAnyData = Object.values(row).some(val => 
@@ -460,6 +476,9 @@ export default function Teams() {
             
             const teamData: InsertTeam = {
               tournamentId: currentTournamentRef.current,
+              teamDisplayId: teamDisplayId && String(teamDisplayId).trim() !== ""
+                ? String(teamDisplayId).trim()
+                : null,
               name: String(name).trim(),
               captainName: String(captainName).trim(),
               captainPhone: String(captainPhone).trim(),
@@ -556,6 +575,7 @@ export default function Teams() {
     
     const teamData: InsertTeam = {
       tournamentId: currentTournament.id,
+      teamDisplayId: data.teamDisplayId?.trim() || null,
       name: data.name.trim(),
       captainName: data.captainName.trim(),
       captainPhone: data.captainPhone.trim(),
@@ -573,6 +593,7 @@ export default function Teams() {
   const startEditing = (team: Team) => {
     setEditingRowId(team.id);
     setEditingValues({
+      teamDisplayId: team.teamDisplayId || "",
       name: team.name,
       captainName: team.captainName,
       captainPhone: team.captainPhone,
@@ -601,6 +622,7 @@ export default function Teams() {
     
     const teamData: InsertTeam = {
       tournamentId: currentTournament.id,
+      teamDisplayId: editingValues.teamDisplayId?.trim() || null,
       name: editingValues.name?.trim() || "",
       captainName: editingValues.captainName?.trim() || "",
       captainPhone: editingValues.captainPhone?.trim() || "",
@@ -639,6 +661,7 @@ export default function Teams() {
       getSortedTeams().forEach(team => {
         initialValues[team.id] = {
           id: team.id,
+          teamDisplayId: team.teamDisplayId || "",
           name: team.name,
           captainName: team.captainName,
           captainPhone: team.captainPhone,
@@ -661,6 +684,7 @@ export default function Teams() {
       ...prev,
       [newId]: {
         id: newId,
+        teamDisplayId: "",
         name: "",
         captainName: "",
         captainPhone: "",
@@ -724,6 +748,7 @@ export default function Teams() {
 
         const finalTeamData: InsertTeam = {
           tournamentId: currentTournament.id,
+          teamDisplayId: teamData.teamDisplayId?.trim() || null,
           name: teamData.name.trim(),
           captainName: teamData.captainName.trim(),
           captainPhone: teamData.captainPhone.trim(),
@@ -807,6 +832,13 @@ export default function Teams() {
           aValue = (a.division || "").toLowerCase();
           bValue = (b.division || "").toLowerCase();
           // Empty divisions go to end regardless of sort direction
+          if (!aValue && bValue) return 1;
+          if (aValue && !bValue) return -1;
+          break;
+        case "teamDisplayId":
+          aValue = (a.teamDisplayId || "").toLowerCase();
+          bValue = (b.teamDisplayId || "").toLowerCase();
+          // Empty team IDs go to end
           if (!aValue && bValue) return 1;
           if (aValue && !bValue) return -1;
           break;
@@ -928,6 +960,7 @@ export default function Teams() {
       startY += 5;
       
       const tableData = divisionTeams.map((team) => [
+        team.teamDisplayId || '—',
         team.name,
         team.homePiste || '—',
         team.captainName,
@@ -938,7 +971,7 @@ export default function Teams() {
       
       let isFirstPageForDivision = true;
       autoTable(doc, {
-        head: [['Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
+        head: [['ID', 'Team Name', 'Home Piste', 'Captain Name', 'Phone', 'Email', 'Other Players']],
         body: tableData,
         startY: startY,
         margin: { top: 25, bottom: 10, left: 14, right: 14 },
@@ -952,12 +985,13 @@ export default function Teams() {
           fontStyle: 'bold',
         },
         columnStyles: {
-          0: { cellWidth: 45 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 40 },
-          3: { cellWidth: 32 },
-          4: { cellWidth: 50 },
-          5: { cellWidth: 50 },
+          0: { cellWidth: 20 },
+          1: { cellWidth: 42 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 38 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 45 },
+          6: { cellWidth: 47 },
         },
         didDrawPage: function (data) {
           if (!isFirstPageForDivision) {
@@ -1021,12 +1055,13 @@ export default function Teams() {
       divisionTeams.forEach(team => {
         exportData.push({
           Division: division,
+          "Team ID": team.teamDisplayId || "",
           "Team Name": team.name,
           "Captain Name": team.captainName || "",
           "Captain Phone": team.captainPhone || "",
           "Captain Email": team.captainEmail || "",
           "Home Piste": team.homePiste || "",
-          "Other Players": team.otherPlayers || "",
+          "Other Players": team.otherPlayers ? team.otherPlayers.join(", ") : "",
         });
       });
     });
@@ -1340,6 +1375,25 @@ export default function Teams() {
                                 {...field}
                                 placeholder="Les Pétanqueurs"
                                 data-testid="input-team-name"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="teamDisplayId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Team ID (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value || ""}
+                                placeholder="T001"
+                                data-testid="input-team-id"
                               />
                             </FormControl>
                             <FormMessage />
@@ -1696,6 +1750,16 @@ export default function Teams() {
                         <SortIcon column="division" />
                       </button>
                     </TableHead>
+                    <TableHead className="w-[80px]">
+                      <button
+                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                        onClick={() => handleSort("teamDisplayId")}
+                        data-testid="sort-team-id"
+                      >
+                        ID
+                        <SortIcon column="teamDisplayId" />
+                      </button>
+                    </TableHead>
                     <TableHead className="w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1787,6 +1851,22 @@ export default function Teams() {
                               <Badge variant="outline" data-testid={`badge-division-${team.id}`}>
                                 {team.division}
                               </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {shouldShowInputs ? (
+                            <Input
+                              value={currentValues.teamDisplayId || ""}
+                              onChange={(e) => updateValue("teamDisplayId", e.target.value)}
+                              className="h-8 w-20"
+                              data-testid={`input-edit-team-id-${team.id}`}
+                            />
+                          ) : (
+                            team.teamDisplayId ? (
+                              <span className="font-mono text-sm" data-testid={`text-team-id-${team.id}`}>{team.teamDisplayId}</span>
                             ) : (
                               <span className="text-muted-foreground text-sm">—</span>
                             )
@@ -1967,6 +2047,14 @@ export default function Teams() {
                       </TableCell>
                       <TableCell>
                         <Input
+                          value={teamData.teamDisplayId || ""}
+                          onChange={(e) => updateAllEditingValue(id, "teamDisplayId", e.target.value)}
+                          className="h-8 w-20"
+                          data-testid={`input-edit-team-id-${id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
                           value={teamData.name || ""}
                           onChange={(e) => updateAllEditingValue(id, "name", e.target.value)}
                           className="h-8"
@@ -2033,7 +2121,7 @@ export default function Teams() {
                   ))}
                   {isEditAllMode && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-4">
+                      <TableCell colSpan={10} className="text-center py-4">
                         <Button
                           variant="outline"
                           size="sm"

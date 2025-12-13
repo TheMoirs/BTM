@@ -66,7 +66,9 @@ export default function Leaderboard() {
   });
 
   const getTeamName = (teamId: string): string => {
-    return teams?.find((t) => t.id === teamId)?.name || "Unknown Team";
+    const team = teams?.find((t) => t.id === teamId);
+    if (!team) return "Unknown Team";
+    return team.teamDisplayId ? `${team.teamDisplayId} - ${team.name}` : team.name;
   };
 
   const handleTeamClick = (teamId: string | null) => {
