@@ -233,6 +233,18 @@ export class DatabaseStorage implements IStorage {
       await this.updateMatchDivisionsForTeam(id);
     }
     
+    // If team name or teamDisplayId changed, update results for all matches involving this team
+    const nameChanged = existingTeam.name !== insertTeam.name;
+    const displayIdChanged = (existingTeam.teamDisplayId || null) !== (insertTeam.teamDisplayId || null);
+    
+    if (updatedTeam && (nameChanged || displayIdChanged)) {
+      // Pass the OLD team display name so we can find the correct results to update
+      const oldDisplayName = existingTeam.teamDisplayId 
+        ? `${existingTeam.teamDisplayId} - ${existingTeam.name}` 
+        : existingTeam.name;
+      await this.updateResultTeamNamesForTeam(id, oldDisplayName);
+    }
+    
     return updatedTeam || undefined;
   }
 
@@ -697,6 +709,69 @@ export class DatabaseStorage implements IStorage {
         .update(results)
         .set({ division: newDivision })
         .where(eq(results.matchId, match.id));
+    }
+  }
+
+  // Helper method to update result teamName and matchInfo when team name/displayId changes
+  private async updateResultTeamNamesForTeam(teamId: string, oldDisplayName: string): Promise<void> {
+    // Get the updated team
+    const updatedTeam = await this.getTeam(teamId);
+    if (!updatedTeam) return;
+
+    // Format new display name with Team ID if available
+    const newDisplayName = updatedTeam.teamDisplayId 
+      ? `${updatedTeam.teamDisplayId} - ${updatedTeam.name}` 
+      : updatedTeam.name;
+
+    // Find all matches where this team participates
+    const teamMatches = await db
+      .select()
+      .from(matches)
+      .where(or(eq(matches.team1Id, teamId), eq(matches.team2Id, teamId)));
+
+    // For each match, update the results with new team names
+    for (const match of teamMatches) {
+      const team1 = await this.getTeam(match.team1Id);
+      const team2 = await this.getTeam(match.team2Id);
+
+      if (!team1 || !team2) continue;
+
+      // Format display names with Team ID if available
+      const team1DisplayName = team1.teamDisplayId 
+        ? `${team1.teamDisplayId} - ${team1.name}` 
+        : team1.name;
+      const team2DisplayName = team2.teamDisplayId 
+        ? `${team2.teamDisplayId} - ${team2.name}` 
+        : team2.name;
+
+      const matchInfo = `${team1DisplayName} vs ${team2DisplayName}`;
+
+      // Update result for the changed team in this match using OLD display name to find it
+      await db
+        .update(results)
+        .set({ 
+          teamName: newDisplayName,
+          matchInfo: matchInfo 
+        })
+        .where(and(
+          eq(results.matchId, match.id),
+          eq(results.teamName, oldDisplayName)
+        ));
+
+      // Also update matchInfo for the OTHER team's result (they share the same matchInfo)
+      const otherTeamId = match.team1Id === teamId ? match.team2Id : match.team1Id;
+      const otherTeam = otherTeamId === match.team1Id ? team1 : team2;
+      const otherDisplayName = otherTeam.teamDisplayId 
+        ? `${otherTeam.teamDisplayId} - ${otherTeam.name}` 
+        : otherTeam.name;
+
+      await db
+        .update(results)
+        .set({ matchInfo: matchInfo })
+        .where(and(
+          eq(results.matchId, match.id),
+          eq(results.teamName, otherDisplayName)
+        ));
     }
   }
 
