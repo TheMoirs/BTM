@@ -42,7 +42,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import * as XLSX from "xlsx";
@@ -1076,10 +1077,10 @@ export default function Teams() {
     setIsSharingLink(true);
     
     try {
-      // Create a short link using our internal system
+      // Create a short link using our internal system - links to Teams page
       const response = await apiRequest('POST', '/api/short-links', {
         tournamentId: currentTournament.id,
-        targetPage: 'leaderboard'
+        targetPage: 'teams'
       });
       
       const data = await response.json();
@@ -1483,20 +1484,30 @@ export default function Teams() {
                 </Form>
                       </DialogContent>
                     </Dialog>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyShareLink}
-                      disabled={isSharingLink}
-                      data-testid="button-share-view"
-                    >
-                      <Share2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share View"}</span>
-                    </Button>
                   </>
                 )}
               </>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyShareLink}
+              disabled={isSharingLink}
+              data-testid="button-share-view"
+            >
+              <Share2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share View"}</span>
+            </Button>
+            <Link href="/leaderboard">
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="button-view-leaderboard"
+              >
+                <Trophy className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Leaderboard</span>
+              </Button>
+            </Link>
             <HelpDialog title="Teams - Help">
               <div className="space-y-4">
                 <div>
