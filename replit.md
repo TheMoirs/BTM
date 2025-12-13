@@ -22,7 +22,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 - **Backend**: Express.js with TypeScript and Node.js, RESTful API, Zod for validation.
 - **Data Storage**: PostgreSQL via Neon serverless driver, Drizzle ORM.
 - **Data Model**: Includes `Teams`, `Matches`, and `Results` entities.
-    - **Teams**: Unique name, captain details, division (defaults to 'A').
+    - **Teams**: Unique name, optional Team ID (teamDisplayId), captain details, division (defaults to 'A').
     - **Matches**: Up to 3 game scores, stage, status, winner. Unique constraint on team pairs.
     - **Results**: Generated from match outcomes, records match info and game statistics.
 - **Match System**: Matches are "completed" when 1 or more complete game results (both teams' scores) are entered. Status progression: "scheduled", "in-progress", "completed". Points allocated per game using tournament-specific point values (configurable Win/Draw/Loss, defaults: 2, 1, 0).
@@ -40,7 +40,8 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - **Ranking Calculation**: Based on latest completed stage results (Points, Score Difference, Score For).
     - **Safe Re-generation**: Updates scheduled playoff matches if initial stage results change before playoffs, protecting completed matches.
 - **Teams Management**: Add individually or bulk import via Excel. Inline editing and "Edit All" mode. Division changes restricted if team has matches. Division filtering. Share View button creates link to view-only Teams page (visitors can email/WhatsApp captains). Leaderboard button navigates to standings page.
-- **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry.
+    - **Team ID**: Optional custom identifier field (teamDisplayId) for teams. Displayed as "ID - Team Name" format on Matches, Results, and Leaderboard pages. Searchable via the Find & Edit search on Matches page. Included in PDF and Excel exports. Supported in Excel imports (columns: "Team ID", "teamid", "team_id", "id").
+- **Matches Management & Reporting**: View, edit, track matches. PDF reports grouped by stage. "Edit All" mode with keyboard navigation for score entry. Date validation requires match date when entering scores (focuses on empty date field if missing).
 - **Results Summary & Reports**: View team statistics and match results. Detailed table filterable by stage. Summary dialog always shows all stages grouped by Stage → Division. PDF reports include tournament name and timestamp.
 - **Standalone Leaderboard with Match Results**: Share leaderboard link shows team standings with toggle button to display match results. Matches grouped by division, sorted by status (completed first, then in-progress, then scheduled) with latest matches by date at top. Displays team names, game scores, status, stage, and date for each match.
 - **Internal Short URL System**: Self-hosted short links for sharing leaderboard and other pages.
