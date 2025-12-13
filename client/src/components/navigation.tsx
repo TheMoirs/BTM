@@ -45,11 +45,16 @@ export function Navigation() {
     // If successful, page will reload with new token
   };
 
-  const navItems = [
-    { path: "/", label: "Teams", icon: Users },
-    { path: "/matches", label: "Matches", icon: Trophy },
-    { path: "/results", label: "Results", icon: ListChecks },
-  ];
+  // In teams view-only mode (accessed via share link), hide Matches and Results
+  const isTeamsViewOnly = isReadOnly && (location === "/" || location === "/teams" || location.startsWith("/teams?"));
+  
+  const navItems = isTeamsViewOnly 
+    ? [{ path: "/", label: "Teams", icon: Users }]
+    : [
+        { path: "/", label: "Teams", icon: Users },
+        { path: "/matches", label: "Matches", icon: Trophy },
+        { path: "/results", label: "Results", icon: ListChecks },
+      ];
 
   // Helper function to add query parameters to path
   const getPathWithQuery = (path: string) => {
