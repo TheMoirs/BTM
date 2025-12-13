@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -31,6 +32,7 @@ const statusLabels = {
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
   const [showMatchResults, setShowMatchResults] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   const { data: results, isLoading: resultsLoading } = useQuery<Result[]>({
     queryKey: ["/api/results", currentTournament?.id],
@@ -66,6 +68,18 @@ export default function Leaderboard() {
     return teams?.find((t) => t.id === teamId)?.name || "Unknown Team";
   };
 
+  const handleTeamClick = (teamId: string | null) => {
+    if (teamId) {
+      setSelectedTeamId(teamId);
+      setShowMatchResults(true);
+    }
+  };
+
+  const handleBackToLeaderboard = () => {
+    setSelectedTeamId(null);
+    setShowMatchResults(false);
+  };
+
   const teamSummariesByStageAndDivision = useMemo(() => {
     return calculateTeamSummariesByStageAndDivision(results, teams);
   }, [results, teams]);
@@ -73,9 +87,13 @@ export default function Leaderboard() {
   const groupedMatchesByDivision = useMemo(() => {
     if (!matches) return [];
 
+    const filteredMatches = selectedTeamId
+      ? matches.filter(match => match.team1Id === selectedTeamId || match.team2Id === selectedTeamId)
+      : matches;
+
     const groups = new Map<string, Match[]>();
     
-    matches.forEach(match => {
+    filteredMatches.forEach(match => {
       const division = match.division || 'No Division';
       if (!groups.has(division)) {
         groups.set(division, []);
@@ -114,7 +132,7 @@ export default function Leaderboard() {
       if (b === 'No Division') return -1;
       return a.localeCompare(b);
     });
-  }, [matches]);
+  }, [matches, selectedTeamId]);
 
   // Show loading state while tournaments are being loaded, tournament is being resolved, or data is being fetched
   if (tournamentsLoading || resultsLoading || teamsLoading || matchesLoading) {
@@ -154,22 +172,40 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button
           variant={!showMatchResults ? "default" : "outline"}
-          onClick={() => setShowMatchResults(false)}
+          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); }}
           data-testid="button-show-leaderboard"
         >
           Team Leaderboard
         </Button>
         <Button
-          variant={showMatchResults ? "default" : "outline"}
-          onClick={() => setShowMatchResults(true)}
+          variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
+          onClick={() => { setShowMatchResults(true); setSelectedTeamId(null); }}
           data-testid="button-show-matches"
         >
-          Show Match Results
+          All Match Results
         </Button>
+        {selectedTeamId && (
+          <Button
+            variant="secondary"
+            onClick={handleBackToLeaderboard}
+            data-testid="button-back-to-leaderboard"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Leaderboard
+          </Button>
+        )}
       </div>
+
+      {selectedTeamId && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm px-3 py-1">
+            Showing matches for: {getTeamName(selectedTeamId)}
+          </Badge>
+        </div>
+      )}
 
       {!showMatchResults ? (
         <>
@@ -230,7 +266,14 @@ export default function Leaderboard() {
                                 </span>
                               </TableCell>
                               <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-team-${summary.teamName}`}>
-                                {summary.teamName}
+                                <button
+                                  type="button"
+                                  className="text-left text-primary hover:underline cursor-pointer"
+                                  onClick={() => handleTeamClick(summary.teamId)}
+                                  data-testid={`link-team-matches-${summary.teamName}`}
+                                >
+                                  {summary.teamName}
+                                </button>
                               </TableCell>
                               <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-played-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesPlayed}</span>

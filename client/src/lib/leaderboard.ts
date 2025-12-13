@@ -1,6 +1,7 @@
 import type { Result, Team } from "@shared/schema";
 
 export type TeamSummary = {
+  teamId: string | null;
   teamName: string;
   gamesPlayed: number;
   gamesWon: number;
@@ -28,6 +29,7 @@ export function calculateTeamSummariesByStageAndDivision(
     // Initialize all teams with zero stats
     teams.forEach(team => {
       initialTeamMap.set(team.name, {
+        teamId: team.id,
         teamName: team.name,
         division: team.division,
         gamesPlayed: 0,
@@ -57,7 +59,9 @@ export function calculateTeamSummariesByStageAndDivision(
       const teamMap = stageGroups.get(stage)!;
       
       if (!teamMap.has(result.teamName)) {
+        const team = teams?.find(t => t.name === result.teamName);
         teamMap.set(result.teamName, {
+          teamId: team?.id || null,
           teamName: result.teamName,
           division: result.division,
           gamesPlayed: 0,
