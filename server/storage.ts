@@ -450,7 +450,10 @@ export class DatabaseStorage implements IStorage {
         const team2 = await this.getTeam(match.team2Id);
         
         if (team1 && team2) {
-          const matchInfo = `${team1.name} vs ${team2.name}`;
+          // Format team names with Team ID if available
+          const team1DisplayName = team1.teamDisplayId ? `${team1.teamDisplayId} - ${team1.name}` : team1.name;
+          const team2DisplayName = team2.teamDisplayId ? `${team2.teamDisplayId} - ${team2.name}` : team2.name;
+          const matchInfo = `${team1DisplayName} vs ${team2DisplayName}`;
           
           // Calculate total scores across all games
           const team1TotalScore = (team1Game1Score ?? 0) + (team1Game2Score ?? 0) + (team1Game3Score ?? 0);
@@ -544,7 +547,7 @@ export class DatabaseStorage implements IStorage {
             matchInfo,
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
-            teamName: team1.name,
+            teamName: team1DisplayName,
             division: match.division || null,
             gamesPlayed,
             gamesWon: team1GamesWonCount,
@@ -562,7 +565,7 @@ export class DatabaseStorage implements IStorage {
             matchInfo,
             matchDate: matchDate || match.matchDate || null,
             stage: match.stage,
-            teamName: team2.name,
+            teamName: team2DisplayName,
             division: match.division || null,
             gamesPlayed,
             gamesWon: team2GamesWonCount,

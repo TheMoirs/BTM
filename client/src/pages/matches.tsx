@@ -532,6 +532,26 @@ export default function Matches() {
       }
     }
 
+    // Validate that date is provided when scores are entered
+    const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
+      team1Game2Score !== null || team2Game2Score !== null ||
+      team1Game3Score !== null || team2Game3Score !== null;
+    
+    if (hasAnyScores && !matchDate) {
+      toast({
+        title: "Date Required",
+        description: "Please enter a match date when entering scores.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+      // Focus on the date input
+      const dateInput = document.querySelector(`input[data-testid="input-date-${matchId}"]`) as HTMLInputElement;
+      if (dateInput) {
+        dateInput.focus();
+      }
+      return;
+    }
+
     updateMutation.mutate({
       id: matchId,
       data: {
