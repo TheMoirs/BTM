@@ -746,32 +746,46 @@ export class DatabaseStorage implements IStorage {
 
       const matchInfo = `${team1DisplayName} vs ${team2DisplayName}`;
 
-      // Update result for the changed team in this match using OLD display name to find it
-      await db
-        .update(results)
-        .set({ 
-          teamName: newDisplayName,
-          matchInfo: matchInfo 
-        })
-        .where(and(
-          eq(results.matchId, match.id),
-          eq(results.teamName, oldDisplayName)
-        ));
+      // Get all results for this match
+      const matchResults = await db
+        .select()
+        .from(results)
+        .where(eq(results.matchId, match.id));
 
-      // Also update matchInfo for the OTHER team's result (they share the same matchInfo)
+      // Determine which result belongs to which team by position in match
+      // team1 result should be first, team2 result should be second
+      // But since we can't rely on stored teamName (might be stale), 
+      // we identify by exclusion: find the other team's result first
       const otherTeamId = match.team1Id === teamId ? match.team2Id : match.team1Id;
       const otherTeam = otherTeamId === match.team1Id ? team1 : team2;
       const otherDisplayName = otherTeam.teamDisplayId 
         ? `${otherTeam.teamDisplayId} - ${otherTeam.name}` 
         : otherTeam.name;
 
-      await db
-        .update(results)
-        .set({ matchInfo: matchInfo })
-        .where(and(
-          eq(results.matchId, match.id),
-          eq(results.teamName, otherDisplayName)
-        ));
+      // Update ALL results for this match - set correct teamName based on position
+      for (const result of matchResults) {
+        // Check if this result's teamName matches the OTHER team (current or old name patterns)
+        const isOtherTeamResult = result.teamName === otherDisplayName || 
+          result.teamName === otherTeam.name ||
+          result.teamName.includes(otherTeam.name);
+
+        if (isOtherTeamResult) {
+          // This is the other team's result - just update matchInfo
+          await db
+            .update(results)
+            .set({ matchInfo: matchInfo })
+            .where(eq(results.id, result.id));
+        } else {
+          // This must be the changed team's result - update both teamName and matchInfo
+          await db
+            .update(results)
+            .set({ 
+              teamName: newDisplayName,
+              matchInfo: matchInfo 
+            })
+            .where(eq(results.id, result.id));
+        }
+      }
     }
   }
 

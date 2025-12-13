@@ -544,10 +544,14 @@ export default function Matches() {
         variant: "destructive",
         duration: Infinity,
       });
-      // Focus on the date input
+      // Focus on the date input - use scrollIntoView for mobile compatibility
       const dateInput = document.querySelector(`input[data-testid="input-date-${matchId}"]`) as HTMLInputElement;
       if (dateInput) {
-        dateInput.focus();
+        dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Small delay to ensure scroll completes before focus on mobile
+        setTimeout(() => {
+          dateInput.focus();
+        }, 100);
       }
       return;
     }
