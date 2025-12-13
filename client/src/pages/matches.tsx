@@ -647,6 +647,41 @@ export default function Matches() {
     setAllEditingValues({});
   };
 
+  // Helper to parse search query for "Team1 v Team2" or "Team1 vs Team2" patterns
+  const parseTeamVsSearch = (query: string): { team1Query: string; team2Query: string } | null => {
+    // Try splitting by ' vs ' or ' v ' (case insensitive, with spaces)
+    const vsMatch = query.match(/^(.+?)\s+(?:vs?)\s+(.+)$/i);
+    if (vsMatch && vsMatch[1].trim() && vsMatch[2].trim()) {
+      return {
+        team1Query: vsMatch[1].trim().toLowerCase(),
+        team2Query: vsMatch[2].trim().toLowerCase()
+      };
+    }
+    return null;
+  };
+
+  // Helper to check if a match matches the search query
+  const matchesTeamSearch = (match: Match, searchQuery: string): boolean => {
+    const team1Name = getTeamName(match.team1Id).toLowerCase();
+    const team2Name = getTeamName(match.team2Id).toLowerCase();
+    
+    // Check for "Team1 v Team2" pattern
+    const vsSearch = parseTeamVsSearch(searchQuery);
+    if (vsSearch) {
+      // Match should have one team matching each query (in either order)
+      const team1MatchesFirst = team1Name.includes(vsSearch.team1Query);
+      const team1MatchesSecond = team1Name.includes(vsSearch.team2Query);
+      const team2MatchesFirst = team2Name.includes(vsSearch.team1Query);
+      const team2MatchesSecond = team2Name.includes(vsSearch.team2Query);
+      
+      return (team1MatchesFirst && team2MatchesSecond) || (team1MatchesSecond && team2MatchesFirst);
+    }
+    
+    // Single team search - match either team
+    const query = searchQuery.toLowerCase().trim();
+    return team1Name.includes(query) || team2Name.includes(query);
+  };
+
   const handleFindEditTeam = () => {
     if (!teamSearchQuery.trim()) {
       toast({
@@ -662,12 +697,9 @@ export default function Matches() {
     setShowFindEditDialog(false);
     
     // Filter matches directly by team search query (before setting state)
-    const query = teamSearchQuery.toLowerCase().trim();
-    const filteredMatches = (matches || []).filter(match => {
-      const team1Name = getTeamName(match.team1Id).toLowerCase();
-      const team2Name = getTeamName(match.team2Id).toLowerCase();
-      return team1Name.includes(query) || team2Name.includes(query);
-    });
+    const filteredMatches = (matches || []).filter(match => 
+      matchesTeamSearch(match, teamSearchQuery.trim())
+    );
     
     if (filteredMatches.length === 0) {
       toast({
@@ -896,10 +928,7 @@ export default function Matches() {
       // Team search filter (when in Find & Edit mode)
       let teamMatch = true;
       if (isFindEditMode && teamSearchQuery.trim()) {
-        const query = teamSearchQuery.toLowerCase().trim();
-        const team1Name = getTeamName(match.team1Id).toLowerCase();
-        const team2Name = getTeamName(match.team2Id).toLowerCase();
-        teamMatch = team1Name.includes(query) || team2Name.includes(query);
+        teamMatch = matchesTeamSearch(match, teamSearchQuery.trim());
       }
       
       return stageMatch && divisionMatch && statusMatch && teamMatch;
@@ -1937,17 +1966,17 @@ export default function Matches() {
             <DialogHeader>
               <DialogTitle>Find & Edit Team Matches</DialogTitle>
               <p id="find-edit-description" className="text-sm text-muted-foreground">
-                Search for a team name to view and edit all matches involving that team
+                Search for a team or a specific match between two teams
               </p>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="team-search" className="text-sm font-medium">
-                  Team Name
+                  Team Name or Match
                 </label>
                 <Input
                   id="team-search"
-                  placeholder="Enter team name..."
+                  placeholder="e.g. Team A or Team A v Team B"
                   value={teamSearchQuery}
                   onChange={(e) => setTeamSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleFindEditTeam()}
@@ -1955,7 +1984,7 @@ export default function Matches() {
                   autoFocus
                 />
                 <p className="text-xs text-muted-foreground">
-                  Searches for matches where either Team 1 or Team 2 matches your search
+                  Search by team name/ID, or use "v" or "vs" to find a specific match (e.g. "10 vs 20")
                 </p>
               </div>
               <div className="flex justify-end gap-2">
