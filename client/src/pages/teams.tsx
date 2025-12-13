@@ -1512,25 +1512,32 @@ export default function Teams() {
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>
-                  <p>The Teams page lets you manage all teams registered for the tournament, including their captain contact information and division assignments.</p>
+                  <p>{isReadOnly 
+                    ? "The Teams page displays all teams registered for the tournament, including their captain contact information and division assignments."
+                    : "The Teams page lets you manage all teams registered for the tournament, including their captain contact information and division assignments."
+                  }</p>
                 </div>
                 
-                <div>
-                  <h3 className="font-semibold mb-2">Adding Teams</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Add Team:</strong> Click to register a new team one at a time</li>
-                    <li><strong>Import Excel:</strong> Upload an Excel file to add multiple teams at once</li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold mb-2">Editing Teams</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Edit All:</strong> Enable bulk editing mode to update multiple teams at once</li>
-                    <li><strong>Inline Edit:</strong> Click on any field in the table to edit that team directly</li>
-                    <li><strong>Division Changes:</strong> You can only change a team's division if they haven't played any matches yet</li>
-                  </ul>
-                </div>
+                {!isReadOnly && (
+                  <>
+                    <div>
+                      <h3 className="font-semibold mb-2">Adding Teams</h3>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><strong>Add Team:</strong> Click to register a new team one at a time</li>
+                        <li><strong>Import Excel:</strong> Upload an Excel file to add multiple teams at once</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-semibold mb-2">Editing Teams</h3>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><strong>Edit All:</strong> Enable bulk editing mode to update multiple teams at once</li>
+                        <li><strong>Inline Edit:</strong> Click on any field in the table to edit that team directly</li>
+                        <li><strong>Division Changes:</strong> You can only change a team's division if they haven't played any matches yet</li>
+                      </ul>
+                    </div>
+                  </>
+                )}
                 
                 <div>
                   <h3 className="font-semibold mb-2">Contacting Captains</h3>
@@ -1541,21 +1548,23 @@ export default function Teams() {
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold mb-2">Sharing & Reports</h3>
+                  <h3 className="font-semibold mb-2">Sharing & Navigation</h3>
                   <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Share View:</strong> Get a short link to share this teams page in read-only mode</li>
+                    <li><strong>Share View:</strong> Get a short link to share this teams page with others</li>
                     <li><strong>Leaderboard:</strong> Navigate to view team rankings and match results</li>
-                    <li><strong>Download:</strong> Generate PDF or Excel report of all registered teams</li>
                   </ul>
                 </div>
                 
-                <div>
-                  <h3 className="font-semibold mb-2">Other Actions</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Clear All Data:</strong> Delete all teams from the tournament (warning: this cannot be undone)</li>
-                    <li><strong>Delete Team:</strong> Click the trash icon next to a team to remove them</li>
-                  </ul>
-                </div>
+                {!isReadOnly && (
+                  <div>
+                    <h3 className="font-semibold mb-2">Other Actions</h3>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Download:</strong> Generate PDF or Excel report of all registered teams</li>
+                      <li><strong>Clear All Data:</strong> Delete all teams from the tournament (warning: this cannot be undone)</li>
+                      <li><strong>Delete Team:</strong> Click the trash icon next to a team to remove them</li>
+                    </ul>
+                  </div>
+                )}
                 
                 <div>
                   <h3 className="font-semibold mb-2">Sorting & Filtering</h3>
