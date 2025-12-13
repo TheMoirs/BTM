@@ -360,7 +360,12 @@ export default function Teams() {
           
           // Try to find column values with case-insensitive matching
           const getName = () => {
-            const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name');
+            const nameKey = Object.keys(row).find(k => 
+              k.toLowerCase() === 'name' ||
+              k.toLowerCase() === 'team name' ||
+              k.toLowerCase() === 'teamname' ||
+              k.toLowerCase() === 'team_name'
+            );
             return nameKey ? row[nameKey] : null;
           };
           
@@ -377,7 +382,8 @@ export default function Teams() {
             const key = Object.keys(row).find(k => 
               k.toLowerCase() === 'captainphone' || 
               k.toLowerCase() === 'captain phone' ||
-              k.toLowerCase() === 'captain_phone'
+              k.toLowerCase() === 'captain_phone' ||
+              k.toLowerCase() === 'phone'
             );
             return key ? row[key] : null;
           };
@@ -386,7 +392,8 @@ export default function Teams() {
             const key = Object.keys(row).find(k => 
               k.toLowerCase() === 'captainemail' || 
               k.toLowerCase() === 'captain email' ||
-              k.toLowerCase() === 'captain_email'
+              k.toLowerCase() === 'captain_email' ||
+              k.toLowerCase() === 'email'
             );
             return key ? row[key] : null;
           };
@@ -400,7 +407,8 @@ export default function Teams() {
             const key = Object.keys(row).find(k => 
               k.toLowerCase() === 'homepiste' || 
               k.toLowerCase() === 'home piste' ||
-              k.toLowerCase() === 'home_piste'
+              k.toLowerCase() === 'home_piste' ||
+              k.toLowerCase() === 'piste'
             );
             return key ? row[key] : null;
           };
