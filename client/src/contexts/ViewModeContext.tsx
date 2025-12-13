@@ -54,11 +54,9 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(VIEW_TOKEN_STORAGE_KEY, urlToken);
         localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
       }
-    } else if (!viewToken) {
-      localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
-      localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
     }
-  }, [location, viewToken]);
+    // Don't remove tokens when URL doesn't have one - tokens persist across navigation
+  }, [location]);
 
   // Query the server to check actual access level
   const { data: accessLevel } = useQuery<{
