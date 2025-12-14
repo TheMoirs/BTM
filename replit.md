@@ -31,7 +31,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
 
 ### Feature Specifications
 - **Multi-Tournament Support**: Independent tournaments with isolated data, selectable via navigation bar, persistent selection via `localStorage` and URL.
-- **Tournament Configuration**: Name, number of divisions (default 2), games per match (1-5, default 3), configurable stages, customizable point values (Win/Draw/Loss defaults: 2, 1, 0).
+- **Tournament Configuration**: Name, optional description (appears in PDF report headers), number of divisions (default 2), games per match (1-5, default 3), configurable stages, customizable point values (Win/Draw/Loss defaults: 2, 1, 0).
 - **Tournament Progression**:
     - **Initial Stage**: Round-robin match generation within divisions.
     - **Automatic Stage Advancement**: Generates playoff stages (QF, SF, Finals) when preceding stage is complete.
