@@ -848,137 +848,6 @@ export default function Results() {
         <div className="flex gap-2">
           {results && results.length > 0 && (
             <>
-              <Dialog open={showSummary} onOpenChange={setShowSummary}>
-                <DialogTrigger asChild>
-                  <Button variant="default" data-testid="button-show-summary">
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Leaderboard
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <DialogTitle>
-                          Team Leaderboard - All Stages
-                        </DialogTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {currentTournament?.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Points: Win={currentTournament?.pointsForWin ?? 2}, Draw={currentTournament?.pointsForDraw ?? 1}, Loss={currentTournament?.pointsForLoss ?? 0}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date().toLocaleString()}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={openSummaryPdfViewer}
-                        data-testid="button-summary-download"
-                      >
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Download
-                      </Button>
-                    </div>
-                  </DialogHeader>
-                  <div className="space-y-8">
-                    {teamSummariesByStageAndDivision.map(([stage, divisions]) => (
-                      <div key={stage} className="space-y-4">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default" className="text-lg px-3 py-1.5">
-                            {stageLabels[stage as keyof typeof stageLabels]}
-                          </Badge>
-                        </div>
-                        
-                        {divisions.map(([division, divisionSummaries]) => (
-                          <div key={`${stage}-${division}`}>
-                            <div className="mb-3">
-                              <h3 className="text-base font-semibold flex items-center gap-2">
-                                {division !== 'No Division' && (
-                                  <Badge variant="outline" className="px-2 py-1">
-                                    Division {division}
-                                  </Badge>
-                                )}
-                                {division === 'No Division' && (
-                                  <span>No Division Assigned</span>
-                                )}
-                                <span className="text-muted-foreground text-sm font-normal">
-                                  ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
-                                </span>
-                              </h3>
-                            </div>
-                        <div className="overflow-x-auto">
-                          <div className="rounded-md border">
-                            <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="text-center w-20">Position</TableHead>
-                                <TableHead>Team</TableHead>
-                                <TableHead className="text-center">Played</TableHead>
-                                <TableHead className="text-center">Won</TableHead>
-                                <TableHead className="text-center">Drawn</TableHead>
-                                <TableHead className="text-center">Lost</TableHead>
-                                <TableHead className="text-center">Points</TableHead>
-                                <TableHead className="text-center">Score For</TableHead>
-                                <TableHead className="text-center">Score Against</TableHead>
-                                <TableHead className="text-center">Score Difference</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {divisionSummaries.map((summary) => (
-                                <TableRow key={summary.teamName} data-testid={`row-summary-${summary.teamName}`}>
-                                  <TableCell className="text-center" data-testid={`text-position-${summary.teamName}`}>
-                                    <span className="font-mono font-semibold">{summary.position !== null ? summary.position : ''}</span>
-                                  </TableCell>
-                                  <TableCell className="font-medium" data-testid={`text-team-${summary.teamName}`}>
-                                    {summary.teamName}
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-played-${summary.teamName}`}>
-                                    <span className="font-mono">{summary.gamesPlayed}</span>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-won-${summary.teamName}`}>
-                                    <span className="font-mono">{summary.gamesWon}</span>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-drawn-${summary.teamName}`}>
-                                    <span className="font-mono">{summary.gamesDrawn}</span>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-lost-${summary.teamName}`}>
-                                    <span className="font-mono">{summary.gamesLost}</span>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-points-${summary.teamName}`}>
-                                    <Badge variant="default" className="font-mono">
-                                      {summary.points}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-score-for-${summary.teamName}`}>
-                                    <span className="font-mono">{summary.scoreFor}</span>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-score-against-${summary.teamName}`}>
-                                    <span className="font-mono">{summary.scoreAgainst}</span>
-                                  </TableCell>
-                                  <TableCell className="text-center" data-testid={`text-score-difference-${summary.teamName}`}>
-                                    <Badge 
-                                      variant={summary.scoreDifference > 0 ? "default" : summary.scoreDifference < 0 ? "destructive" : "secondary"}
-                                      className="font-mono"
-                                    >
-                                      {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                            </Table>
-                          </div>
-                        </div>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
               <Button
                 variant="outline"
                 onClick={openPdfViewer}
@@ -1018,8 +887,9 @@ export default function Results() {
               <div>
                 <h3 className="font-semibold mb-2">Viewing Results</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Leaderboard View:</strong> Click "Leaderboard" to see team rankings with statistics grouped by Stage and Division</li>
-                  <li><strong>Detailed Results:</strong> The main table shows individual game results from all completed matches</li>
+                  <li><strong>Detailed Results:</strong> The default view shows individual game results from all completed matches</li>
+                  <li><strong>Team Leaderboard:</strong> Click to see team rankings grouped by Stage and Division. Click team names to see their matches.</li>
+                  <li><strong>All Match Results:</strong> View all matches with scores grouped by division</li>
                   <li><strong>Stage Filter:</strong> Filter results by tournament stage (Initial, Quarter-Finals, Semi-Finals, Finals)</li>
                 </ul>
               </div>
