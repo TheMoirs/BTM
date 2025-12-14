@@ -19,8 +19,19 @@ export function isMobileDevice(): boolean {
 export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boolean> {
   try {
     const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
     
-    // Try Web Share API first (best UX on mobile)
+    // On mobile, open PDF in new tab - this is the most reliable approach
+    // Users can then save/share from the browser's native PDF viewer
+    const newWindow = window.open(url, '_blank');
+    
+    if (newWindow) {
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return true;
+    }
+    
+    // If popup was blocked, try Web Share API
     if (navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], filename, { type: 'application/pdf' })] })) {
       try {
         const file = new File([pdfBlob], filename, { type: 'application/pdf' });
@@ -28,14 +39,14 @@ export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boole
           files: [file],
           title: filename,
         });
+        URL.revokeObjectURL(url);
         return true;
       } catch (shareError) {
-        console.log('Web Share API failed, falling back to download:', shareError);
+        console.log('Web Share API failed:', shareError);
       }
     }
     
-    // Fallback: Trigger download via anchor element (more reliable on mobile than data URI)
-    const url = URL.createObjectURL(pdfBlob);
+    // Last resort: anchor download
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -43,9 +54,7 @@ export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boole
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    // Delay cleanup to ensure download completes
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
     return true;
   } catch (error) {
     console.error('Failed to open PDF on mobile:', error);
