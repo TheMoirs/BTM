@@ -29,9 +29,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { Result, Team } from "@shared/schema";
+import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision, type TeamSummary } from "@/lib/leaderboard";
-import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -64,6 +64,12 @@ const stageLabels = {
   finals: "Finals",
 };
 
+const statusLabels = {
+  scheduled: "Scheduled",
+  "in-progress": "In Progress",
+  completed: "Completed",
+};
+
 export default function Results() {
   const { currentTournament } = useTournament();
   const { isReadOnly } = useViewMode();
@@ -79,6 +85,12 @@ export default function Results() {
   const [summaryPdfBlobUrl, setSummaryPdfBlobUrl] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [isSharingLink, setIsSharingLink] = useState(false);
+  
+  // Inline leaderboard state
+  const [showInlineLeaderboard, setShowInlineLeaderboard] = useState(false);
+  const [showMatchResults, setShowMatchResults] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  
   const { toast } = useToast();
 
   const { data: results, isLoading } = useQuery<Result[]>({
@@ -96,6 +108,16 @@ export default function Results() {
     queryFn: async () => {
       if (!currentTournament) return [];
       const response = await apiRequest("GET", `/api/teams?tournamentId=${currentTournament.id}`);
+      return response.json();
+    },
+    enabled: !!currentTournament,
+  });
+
+  const { data: matches } = useQuery<Match[]>({
+    queryKey: ["/api/matches", currentTournament?.id],
+    queryFn: async () => {
+      if (!currentTournament) return [];
+      const response = await apiRequest("GET", `/api/matches?tournamentId=${currentTournament.id}`);
       return response.json();
     },
     enabled: !!currentTournament,
@@ -275,6 +297,80 @@ export default function Results() {
   const teamSummariesByStageAndDivision = useMemo(() => {
     return calculateTeamSummariesByStageAndDivision(results, teams);
   }, [results, teams]);
+
+  // Helper function to get team display name
+  const getTeamName = (teamId: string): string => {
+    const team = teams?.find((t) => t.id === teamId);
+    if (!team) return "Unknown Team";
+    return team.teamDisplayId ? `${team.name} (${team.teamDisplayId})` : team.name;
+  };
+
+  // Handle clicking a team name to drill down to their matches
+  const handleTeamClick = (teamId: string | null) => {
+    if (teamId) {
+      setSelectedTeamId(teamId);
+      setShowMatchResults(true);
+    }
+  };
+
+  // Handle going back to leaderboard from team matches view
+  const handleBackToLeaderboard = () => {
+    setSelectedTeamId(null);
+    setShowMatchResults(false);
+  };
+
+  // Group matches by division for the match results view
+  const groupedMatchesByDivision = useMemo(() => {
+    if (!matches) return [];
+
+    const filteredMatches = selectedTeamId
+      ? matches.filter(match => match.team1Id === selectedTeamId || match.team2Id === selectedTeamId)
+      : matches;
+
+    const groups = new Map<string, Match[]>();
+    
+    filteredMatches.forEach(match => {
+      const division = match.division || 'No Division';
+      if (!groups.has(division)) {
+        groups.set(division, []);
+      }
+      groups.get(division)!.push(match);
+    });
+    
+    // Sort matches: completed first, then in-progress, then scheduled
+    // Within each status, sort by date (latest first)
+    const statusOrder: Record<string, number> = {
+      'completed': 0,
+      'in-progress': 1,
+      'scheduled': 2
+    };
+
+    Array.from(groups.values()).forEach(divisionMatches => {
+      divisionMatches.sort((a, b) => {
+        // Primary sort: by status
+        const aStatusNormalized = (a.status || '').toLowerCase().trim();
+        const bStatusNormalized = (b.status || '').toLowerCase().trim();
+        const aStatusOrder = statusOrder[aStatusNormalized] ?? 999;
+        const bStatusOrder = statusOrder[bStatusNormalized] ?? 999;
+        const statusDiff = aStatusOrder - bStatusOrder;
+        if (statusDiff !== 0) return statusDiff;
+        
+        // Secondary sort: by date (latest first)
+        const aDate = a.matchDate ? new Date(a.matchDate).getTime() : 0;
+        const bDate = b.matchDate ? new Date(b.matchDate).getTime() : 0;
+        return bDate - aDate;
+      });
+    });
+    
+    // Sort divisions alphabetically with "No Division" last
+    const sortedGroups = Array.from(groups.entries()).sort(([a], [b]) => {
+      if (a === 'No Division') return 1;
+      if (b === 'No Division') return -1;
+      return a.localeCompare(b);
+    });
+    
+    return sortedGroups;
+  }, [matches, selectedTeamId]);
 
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
@@ -980,6 +1076,50 @@ export default function Results() {
         </div>
       )}
 
+      {results && results.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={!showInlineLeaderboard ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
+            data-testid="button-show-detailed-results"
+          >
+            Detailed Results
+          </Button>
+          <Button
+            variant={showInlineLeaderboard && !showMatchResults ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); }}
+            data-testid="button-show-inline-leaderboard"
+          >
+            Team Leaderboard
+          </Button>
+          <Button
+            variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
+            data-testid="button-show-all-matches"
+          >
+            All Match Results
+          </Button>
+          {selectedTeamId && (
+            <Button
+              variant="secondary"
+              onClick={handleBackToLeaderboard}
+              data-testid="button-back-to-leaderboard"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Leaderboard
+            </Button>
+          )}
+        </div>
+      )}
+
+      {selectedTeamId && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm px-3 py-1">
+            Showing matches for: {getTeamName(selectedTeamId)}
+          </Badge>
+        </div>
+      )}
+
       {isLoading ? (
         <Card>
           <CardContent className="py-8">
@@ -1014,6 +1154,239 @@ export default function Results() {
             </div>
           </CardContent>
         </Card>
+      ) : showInlineLeaderboard ? (
+        showMatchResults ? (
+          <>
+            {groupedMatchesByDivision.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No matches available yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {groupedMatchesByDivision.map(([division, divisionMatches]) => (
+                  <div key={division}>
+                    <div className="mb-3">
+                      <h3 className="text-base font-semibold flex items-center gap-2">
+                        {division !== 'No Division' && (
+                          <Badge variant="outline" className="px-2 py-1" data-testid={`badge-inline-division-${division}`}>
+                            Division {division}
+                          </Badge>
+                        )}
+                        {division === 'No Division' && (
+                          <span>No Division Assigned</span>
+                        )}
+                        <span className="text-muted-foreground text-sm font-normal">
+                          ({divisionMatches.length} {divisionMatches.length === 1 ? 'match' : 'matches'})
+                        </span>
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-sm max-sm:text-xs">Stage</TableHead>
+                              <TableHead className="text-sm max-sm:text-xs">Status</TableHead>
+                              <TableHead className="text-sm max-sm:text-xs">Date</TableHead>
+                              <TableHead className="text-sm max-sm:text-xs">Team 1</TableHead>
+                              <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
+                              <TableHead className="text-center text-sm max-sm:text-xs">G2</TableHead>
+                              <TableHead className="text-center text-sm max-sm:text-xs">G3</TableHead>
+                              <TableHead className="text-sm max-sm:text-xs">Team 2</TableHead>
+                              <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
+                              <TableHead className="text-center text-sm max-sm:text-xs">G2</TableHead>
+                              <TableHead className="text-center text-sm max-sm:text-xs">G3</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {divisionMatches.map((match) => (
+                              <TableRow key={match.id} data-testid={`row-inline-match-${match.id}`}>
+                                <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-stage-${match.id}`}>
+                                  {stageLabels[match.stage as keyof typeof stageLabels]}
+                                </TableCell>
+                                <TableCell className="text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-status-${match.id}`}>
+                                  <Badge
+                                    variant={
+                                      match.status === 'completed'
+                                        ? 'default'
+                                        : match.status === 'in-progress'
+                                        ? 'secondary'
+                                        : 'outline'
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {statusLabels[match.status as keyof typeof statusLabels]}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs max-sm:text-[0.625rem] py-2 max-sm:py-1 px-1" data-testid={`text-inline-date-${match.id}`}>
+                                  {match.matchDate
+                                    ? new Date(match.matchDate).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                      })
+                                    : '-'}
+                                </TableCell>
+                                <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team1-${match.id}`}>
+                                  {getTeamName(match.team1Id)}
+                                </TableCell>
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
+                                  <span className="font-mono">
+                                    {match.team1Game1Score !== null ? match.team1Game1Score : '-'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
+                                  <span className="font-mono">
+                                    {match.team1Game2Score !== null ? match.team1Game2Score : '-'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
+                                  <span className="font-mono">
+                                    {match.team1Game3Score !== null ? match.team1Game3Score : '-'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team2-${match.id}`}>
+                                  {getTeamName(match.team2Id)}
+                                </TableCell>
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
+                                  <span className="font-mono">
+                                    {match.team2Game1Score !== null ? match.team2Game1Score : '-'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
+                                  <span className="font-mono">
+                                    {match.team2Game2Score !== null ? match.team2Game2Score : '-'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
+                                  <span className="font-mono">
+                                    {match.team2Game3Score !== null ? match.team2Game3Score : '-'}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {teamSummariesByStageAndDivision.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No leaderboard data available yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {teamSummariesByStageAndDivision.map(([stage, divisions]) => (
+                  <div key={stage} className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="text-lg px-3 py-1.5" data-testid={`badge-inline-stage-${stage}`}>
+                        {stageLabels[stage as keyof typeof stageLabels]}
+                      </Badge>
+                    </div>
+                    
+                    {divisions.map(([division, divisionSummaries]) => (
+                      <div key={`${stage}-${division}`}>
+                        <div className="mb-3">
+                          <h3 className="text-base font-semibold flex items-center gap-2">
+                            {division !== 'No Division' && (
+                              <Badge variant="outline" className="px-2 py-1" data-testid={`badge-inline-lb-division-${division}`}>
+                                Division {division}
+                              </Badge>
+                            )}
+                            {division === 'No Division' && (
+                              <span>No Division Assigned</span>
+                            )}
+                            <span className="text-muted-foreground text-sm font-normal">
+                              ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
+                            </span>
+                          </h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-12 max-sm:w-10 text-center text-sm max-sm:text-xs">Position</TableHead>
+                                  <TableHead className="text-sm max-sm:text-xs">Team</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Played</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Won</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Score Against</TableHead>
+                                  <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {divisionSummaries.map((summary) => (
+                                  <TableRow key={summary.teamName} data-testid={`row-inline-summary-${summary.teamName}`}>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-position-${summary.teamName}`}>
+                                      <span className="font-mono font-semibold">
+                                        {summary.position !== null ? summary.position : ''}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team-${summary.teamName}`}>
+                                      <button
+                                        type="button"
+                                        className="text-left text-primary hover:underline cursor-pointer"
+                                        onClick={() => handleTeamClick(summary.teamId)}
+                                        data-testid={`link-inline-team-matches-${summary.teamName}`}
+                                      >
+                                        {summary.teamName}
+                                      </button>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-played-${summary.teamName}`}>
+                                      <span className="font-mono">{summary.gamesPlayed}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-won-${summary.teamName}`}>
+                                      <span className="font-mono">{summary.gamesWon}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-drawn-${summary.teamName}`}>
+                                      <span className="font-mono">{summary.gamesDrawn}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-lost-${summary.teamName}`}>
+                                      <span className="font-mono">{summary.gamesLost}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-points-${summary.teamName}`}>
+                                      <Badge variant="default" className="font-mono text-xs">
+                                        {summary.points}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-score-for-${summary.teamName}`}>
+                                      <span className="font-mono">{summary.scoreFor}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-score-against-${summary.teamName}`}>
+                                      <span className="font-mono">{summary.scoreAgainst}</span>
+                                    </TableCell>
+                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-score-difference-${summary.teamName}`}>
+                                      <Badge 
+                                        variant={summary.scoreDifference > 0 ? "default" : summary.scoreDifference < 0 ? "destructive" : "secondary"}
+                                        className="font-mono text-xs"
+                                      >
+                                        {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )
       ) : (
         <div className="space-y-8">
           {groupedByStageAndDivision.map(([stage, divisions]) => (
