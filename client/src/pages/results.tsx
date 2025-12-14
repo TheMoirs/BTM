@@ -86,8 +86,8 @@ export default function Results() {
   const [isClearing, setIsClearing] = useState(false);
   const [isSharingLink, setIsSharingLink] = useState(false);
   
-  // Inline leaderboard state
-  const [showInlineLeaderboard, setShowInlineLeaderboard] = useState(false);
+  // Inline leaderboard state - Team Leaderboard is the default view
+  const [showInlineLeaderboard, setShowInlineLeaderboard] = useState(true);
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   
