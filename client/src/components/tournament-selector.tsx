@@ -103,6 +103,7 @@ export function TournamentSelector() {
     resolver: zodResolver(insertTournamentSchema),
     defaultValues: {
       name: "",
+      description: "",
       numberOfDivisions: 2,
       gamesPerMatch: 3,
       hasQuarterFinals: false,
@@ -237,6 +238,20 @@ export function TournamentSelector() {
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-tournament-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={field.value || ""} placeholder="Enter tournament description for report headers" data-testid="input-tournament-description" className="resize-none" rows={2} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -500,6 +515,7 @@ export function TournamentSelector() {
                       setEditingTournament(tournament);
                       form.reset({
                         name: tournament.name,
+                        description: tournament.description || "",
                         numberOfDivisions: tournament.numberOfDivisions,
                         gamesPerMatch: tournament.gamesPerMatch,
                         hasQuarterFinals: tournament.hasQuarterFinals,
@@ -557,6 +573,20 @@ export function TournamentSelector() {
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-tournament-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={field.value || ""} placeholder="Enter tournament description for report headers" data-testid="input-tournament-description" className="resize-none" rows={2} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -700,6 +730,20 @@ export function TournamentSelector() {
                     <FormLabel>Tournament Name</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-edit-tournament-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={field.value || ""} placeholder="Enter tournament description for report headers" data-testid="input-edit-tournament-description" className="resize-none" rows={2} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

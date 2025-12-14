@@ -462,12 +462,19 @@ export default function Results() {
     
     doc.setFontSize(9);
     doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 23);
+    let headerY = 23;
+    if (currentTournament?.description) {
+      doc.text(`Description: ${currentTournament.description}`, 14, headerY);
+      headerY += 5;
+    }
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, headerY);
+    headerY += 5;
     if (stageFilter !== "all") {
-      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, 28);
+      doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, headerY);
+      headerY += 5;
     }
     
-    let startY = stageFilter !== "all" ? 33 : 28;
+    let startY = headerY;
     
     groupedByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
       // Add stage header
@@ -574,9 +581,14 @@ export default function Results() {
     
     doc.setFontSize(9);
     doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 23);
+    let summaryHeaderY = 23;
+    if (currentTournament?.description) {
+      doc.text(`Description: ${currentTournament.description}`, 14, summaryHeaderY);
+      summaryHeaderY += 5;
+    }
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
     
-    let startY = 28;
+    let startY = summaryHeaderY + 5;
     
     teamSummariesByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
       // Add stage header

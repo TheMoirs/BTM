@@ -7,6 +7,7 @@ import { relations } from "drizzle-orm";
 export const tournaments = pgTable("tournaments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  description: text("description"),
   numberOfDivisions: integer("number_of_divisions").notNull().default(2),
   gamesPerMatch: integer("games_per_match").notNull().default(3),
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
@@ -22,6 +23,7 @@ export const tournaments = pgTable("tournaments", {
 
 export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
+  description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),
   gamesPerMatch: z.number().int().min(1, "Must have at least 1 game").max(5, "Maximum 5 games per match").default(3),
   hasQuarterFinals: z.boolean().default(false),

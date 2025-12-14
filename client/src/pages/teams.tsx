@@ -1022,9 +1022,15 @@ export default function Teams() {
     doc.text('Boules Tournament Manager - Teams Report', 14, 12);
     
     doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 18);
+    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
+    let teamsHeaderY = 23;
+    if (currentTournament?.description) {
+      doc.text(`Description: ${currentTournament.description}`, 14, teamsHeaderY);
+      teamsHeaderY += 5;
+    }
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, teamsHeaderY);
     
-    let startY = 24;
+    let startY = teamsHeaderY + 6;
     
     filteredGroupedByDivision.forEach(([division, divisionTeams], index) => {
       const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
