@@ -1130,7 +1130,7 @@ export default function Teams() {
     const filename = `${tournamentName} - Teams.pdf`;
     
     if (isMobileDevice()) {
-      const success = await openPdfMobile(doc, filename);
+      const success = openPdfMobile(doc, filename);
       if (!success) {
         toast({
           title: "PDF Error",

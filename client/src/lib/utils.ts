@@ -16,28 +16,24 @@ export function isMobileDevice(): boolean {
   return hasCoarsePointer || isTouchDevice || mobileUA;
 }
 
-export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boolean> {
+export function openPdfMobile(doc: jsPDF, filename: string): boolean {
   try {
-    // Use jsPDF's native save method - most reliable on mobile
-    doc.save(filename);
+    // Get blob URL directly from jsPDF - this is synchronous
+    const blobUrl = doc.output('bloburl');
+    
+    // Open in new tab - user can then save from browser's PDF viewer
+    // Using window.location.href instead of window.open to avoid popup blockers
+    window.location.href = String(blobUrl);
     return true;
   } catch (error) {
-    console.error('Failed to save PDF on mobile:', error);
+    console.error('Failed to open PDF on mobile:', error);
     
-    // Fallback: try blob URL approach
+    // Fallback: try save method
     try {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      doc.save(filename);
       return true;
-    } catch (fallbackError) {
-      console.error('Fallback download also failed:', fallbackError);
+    } catch (saveError) {
+      console.error('Save fallback also failed:', saveError);
       return false;
     }
   }

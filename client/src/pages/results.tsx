@@ -701,7 +701,7 @@ export default function Results() {
     const filename = `${tournamentName} - Results.pdf`;
     
     if (isMobileDevice()) {
-      const success = await openPdfMobile(doc, filename);
+      const success = openPdfMobile(doc, filename);
       if (!success) {
         toast({
           title: "PDF Error",
@@ -724,7 +724,7 @@ export default function Results() {
     const filename = `${tournamentName} - Summary.pdf`;
     
     if (isMobileDevice()) {
-      const success = await openPdfMobile(doc, filename);
+      const success = openPdfMobile(doc, filename);
       if (!success) {
         toast({
           title: "PDF Error",

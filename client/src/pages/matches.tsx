@@ -1184,7 +1184,7 @@ export default function Matches() {
     const filename = `${tournamentName} - Matches.pdf`;
     
     if (isMobileDevice()) {
-      const success = await openPdfMobile(doc, filename);
+      const success = openPdfMobile(doc, filename);
       if (!success) {
         toast({
           title: "PDF Error",
