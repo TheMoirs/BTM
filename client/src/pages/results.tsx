@@ -1195,8 +1195,8 @@ export default function Results() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {divisionSummaries.map((summary) => (
-                                  <TableRow key={summary.teamName} data-testid={`row-inline-summary-${summary.teamName}`}>
+                                {divisionSummaries.map((summary, index) => (
+                                  <TableRow key={summary.teamId || `${summary.teamName}-${index}`} data-testid={`row-inline-summary-${summary.teamId || summary.teamName}`}>
                                     <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-position-${summary.teamName}`}>
                                       <span className="font-mono font-semibold">
                                         {summary.position !== null ? summary.position : ''}

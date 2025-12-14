@@ -59,10 +59,22 @@ export function calculateTeamSummariesByStageAndDivision(
       
       const teamMap = stageGroups.get(stage)!;
       
-      if (!teamMap.has(result.teamName)) {
-        const team = teams?.find(t => t.name === result.teamName);
-        const displayName = team?.teamDisplayId ? `${result.teamName} (${team.teamDisplayId})` : result.teamName;
-        teamMap.set(result.teamName, {
+      // Find the team - try exact match first, then check if result.teamName includes team name
+      // This handles cases where result.teamName might include the display ID suffix
+      let team = teams?.find(t => t.name === result.teamName);
+      let lookupKey = result.teamName;
+      
+      // If no exact match, try to find by checking if result.teamName starts with team name
+      if (!team && teams) {
+        team = teams.find(t => result.teamName.startsWith(t.name + ' (') || result.teamName === t.name);
+        if (team) {
+          lookupKey = team.name; // Use the clean team name as the key
+        }
+      }
+      
+      if (!teamMap.has(lookupKey)) {
+        const displayName = team?.teamDisplayId ? `${team.name} (${team.teamDisplayId})` : (team?.name || result.teamName);
+        teamMap.set(lookupKey, {
           teamId: team?.id || null,
           teamName: displayName,
           division: result.division,
@@ -78,7 +90,7 @@ export function calculateTeamSummariesByStageAndDivision(
         });
       }
 
-      const summary = teamMap.get(result.teamName)!;
+      const summary = teamMap.get(lookupKey)!;
       if (result.division && !summary.division) {
         summary.division = result.division;
       }
