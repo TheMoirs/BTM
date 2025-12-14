@@ -21,9 +21,15 @@ export function openPdfMobile(doc: jsPDF, filename: string): boolean {
     // Get blob URL directly from jsPDF - this is synchronous
     const blobUrl = doc.output('bloburl');
     
-    // Open in new tab - user can then save from browser's PDF viewer
-    // Using window.location.href instead of window.open to avoid popup blockers
-    window.location.href = String(blobUrl);
+    // Try opening in new tab first
+    const newWindow = window.open(String(blobUrl), '_blank');
+    
+    if (newWindow) {
+      return true;
+    }
+    
+    // If popup was blocked, try direct save
+    doc.save(filename);
     return true;
   } catch (error) {
     console.error('Failed to open PDF on mobile:', error);
