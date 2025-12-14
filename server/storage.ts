@@ -435,8 +435,8 @@ export class DatabaseStorage implements IStorage {
     const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
-      // Match is completed when at least one complete game has been played
-      if (hasCompleteGame) {
+      // Match is completed when at least one complete game has been played AND a date is entered
+      if (hasCompleteGame && finalMatchDate) {
         status = "completed";
         
         // Determine winner based on games won
