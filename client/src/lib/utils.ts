@@ -22,33 +22,31 @@ export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boole
     
     // Try Web Share API first (best UX on mobile)
     if (navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], filename, { type: 'application/pdf' })] })) {
-      const file = new File([pdfBlob], filename, { type: 'application/pdf' });
-      await navigator.share({
-        files: [file],
-        title: filename,
-      });
-      return true;
+      try {
+        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
+        return true;
+      } catch (shareError) {
+        console.log('Web Share API failed, falling back to download:', shareError);
+      }
     }
     
-    // Fallback: Try opening data URI in same window
-    try {
-      const dataUri = doc.output('datauristring');
-      window.location.href = dataUri;
-      return true;
-    } catch (error) {
-      // Final fallback: Trigger download via anchor element
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Delay cleanup to ensure download completes
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return true;
-    }
+    // Fallback: Trigger download via anchor element (more reliable on mobile than data URI)
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Delay cleanup to ensure download completes
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return true;
   } catch (error) {
     console.error('Failed to open PDF on mobile:', error);
     return false;
