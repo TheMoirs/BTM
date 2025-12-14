@@ -727,6 +727,12 @@ export default function Teams() {
     }
   };
 
+  const cancelEditAllMode = () => {
+    setAllEditingValues({});
+    setNewTeamCounter(0);
+    setIsEditAllMode(false);
+  };
+
   const addNewTeam = () => {
     const newId = `new-${newTeamCounter}`;
     setAllEditingValues(prev => ({
@@ -1422,16 +1428,28 @@ export default function Teams() {
                   </Button>
                 )}
                 {isEditAllMode && (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={toggleEditAllMode}
-                    disabled={isSaving}
-                    data-testid="button-save-all"
-                  >
-                    <Check className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save All"}</span>
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={cancelEditAllMode}
+                      disabled={isSaving}
+                      data-testid="button-cancel-edit-all"
+                    >
+                      <X className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Cancel</span>
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={toggleEditAllMode}
+                      disabled={isSaving}
+                      data-testid="button-save-all"
+                    >
+                      <Check className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save All"}</span>
+                    </Button>
+                  </>
                 )}
                 {!isEditAllMode && (
                   <Button
