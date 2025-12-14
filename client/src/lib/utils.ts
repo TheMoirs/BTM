@@ -18,47 +18,28 @@ export function isMobileDevice(): boolean {
 
 export async function openPdfMobile(doc: jsPDF, filename: string): Promise<boolean> {
   try {
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    // On mobile, open PDF in new tab - this is the most reliable approach
-    // Users can then save/share from the browser's native PDF viewer
-    const newWindow = window.open(url, '_blank');
-    
-    if (newWindow) {
-      // Clean up after a delay
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      return true;
-    }
-    
-    // If popup was blocked, try Web Share API
-    if (navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], filename, { type: 'application/pdf' })] })) {
-      try {
-        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
-        await navigator.share({
-          files: [file],
-          title: filename,
-        });
-        URL.revokeObjectURL(url);
-        return true;
-      } catch (shareError) {
-        console.log('Web Share API failed:', shareError);
-      }
-    }
-    
-    // Last resort: anchor download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    // Use jsPDF's native save method - most reliable on mobile
+    doc.save(filename);
     return true;
   } catch (error) {
-    console.error('Failed to open PDF on mobile:', error);
-    return false;
+    console.error('Failed to save PDF on mobile:', error);
+    
+    // Fallback: try blob URL approach
+    try {
+      const pdfBlob = doc.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      return true;
+    } catch (fallbackError) {
+      console.error('Fallback download also failed:', fallbackError);
+      return false;
+    }
   }
 }
 
