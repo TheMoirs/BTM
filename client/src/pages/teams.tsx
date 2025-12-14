@@ -778,14 +778,14 @@ export default function Teams() {
         const existing = teamIdMap.get(teamDisplayId);
         if (existing) {
           duplicateFound = { 
-            teamId: teamData.id, 
+            teamId: teamData.id || "", 
             displayId: teamData.teamDisplayId?.trim() || "", 
             existingTeamName: existing.teamName 
           };
           break;
         }
         teamIdMap.set(teamDisplayId, { 
-          teamId: teamData.id, 
+          teamId: teamData.id || "", 
           teamName: teamData.name?.trim() || "Unknown" 
         });
       }
