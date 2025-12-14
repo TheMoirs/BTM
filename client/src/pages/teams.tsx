@@ -573,9 +573,33 @@ export default function Teams() {
       return;
     }
     
+    const newTeamDisplayId = data.teamDisplayId?.trim() || null;
+    
+    // Check for duplicate Team ID (if one is provided)
+    if (newTeamDisplayId && teams) {
+      const duplicateTeam = teams.find(t => 
+        t.teamDisplayId?.toLowerCase() === newTeamDisplayId.toLowerCase()
+      );
+      if (duplicateTeam) {
+        toast({
+          title: "Duplicate Team ID",
+          description: `Team ID "${newTeamDisplayId}" is already used by "${duplicateTeam.name}".`,
+          variant: "destructive",
+          duration: Infinity,
+        });
+        // Focus on the Team ID input in the form
+        const teamIdInput = document.querySelector('input[name="teamDisplayId"]') as HTMLInputElement;
+        if (teamIdInput) {
+          teamIdInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => teamIdInput.focus(), 100);
+        }
+        return;
+      }
+    }
+    
     const teamData: InsertTeam = {
       tournamentId: currentTournament.id,
-      teamDisplayId: data.teamDisplayId?.trim() || null,
+      teamDisplayId: newTeamDisplayId,
       name: data.name.trim(),
       captainName: data.captainName.trim(),
       captainPhone: data.captainPhone.trim(),
@@ -620,9 +644,34 @@ export default function Teams() {
       return;
     }
     
+    const newTeamDisplayId = editingValues.teamDisplayId?.trim() || null;
+    
+    // Check for duplicate Team ID (if one is provided)
+    if (newTeamDisplayId && teams) {
+      const duplicateTeam = teams.find(t => 
+        t.id !== teamId && 
+        t.teamDisplayId?.toLowerCase() === newTeamDisplayId.toLowerCase()
+      );
+      if (duplicateTeam) {
+        toast({
+          title: "Duplicate Team ID",
+          description: `Team ID "${newTeamDisplayId}" is already used by "${duplicateTeam.name}".`,
+          variant: "destructive",
+          duration: Infinity,
+        });
+        // Focus on the Team ID input
+        const teamIdInput = document.querySelector(`input[data-testid="input-teamDisplayId-${teamId}"]`) as HTMLInputElement;
+        if (teamIdInput) {
+          teamIdInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => teamIdInput.focus(), 100);
+        }
+        return;
+      }
+    }
+    
     const teamData: InsertTeam = {
       tournamentId: currentTournament.id,
-      teamDisplayId: editingValues.teamDisplayId?.trim() || null,
+      teamDisplayId: newTeamDisplayId,
       name: editingValues.name?.trim() || "",
       captainName: editingValues.captainName?.trim() || "",
       captainPhone: editingValues.captainPhone?.trim() || "",
@@ -718,6 +767,45 @@ export default function Teams() {
     }
 
     const teamsToProcess = Object.values(allEditingValues);
+    
+    // Check for duplicate Team IDs before saving
+    const teamIdMap = new Map<string, { teamId: string; teamName: string }>();
+    let duplicateFound: { teamId: string; displayId: string; existingTeamName: string } | null = null;
+    
+    for (const teamData of teamsToProcess) {
+      const teamDisplayId = teamData.teamDisplayId?.trim()?.toLowerCase();
+      if (teamDisplayId) {
+        const existing = teamIdMap.get(teamDisplayId);
+        if (existing) {
+          duplicateFound = { 
+            teamId: teamData.id, 
+            displayId: teamData.teamDisplayId?.trim() || "", 
+            existingTeamName: existing.teamName 
+          };
+          break;
+        }
+        teamIdMap.set(teamDisplayId, { 
+          teamId: teamData.id, 
+          teamName: teamData.name?.trim() || "Unknown" 
+        });
+      }
+    }
+    
+    if (duplicateFound) {
+      toast({
+        title: "Duplicate Team ID",
+        description: `Team ID "${duplicateFound.displayId}" is used by multiple teams including "${duplicateFound.existingTeamName}".`,
+        variant: "destructive",
+        duration: Infinity,
+      });
+      // Focus on the duplicate Team ID input
+      const teamIdInput = document.querySelector(`input[data-testid="input-editall-teamDisplayId-${duplicateFound.teamId}"]`) as HTMLInputElement;
+      if (teamIdInput) {
+        teamIdInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => teamIdInput.focus(), 100);
+      }
+      return;
+    }
     
     setIsSaving(true);
     toast({
