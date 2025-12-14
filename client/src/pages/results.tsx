@@ -230,7 +230,7 @@ export default function Results() {
     filteredResults.forEach(result => {
       if (!summaryMap.has(result.teamName)) {
         const team = teams?.find(t => t.name === result.teamName);
-        const displayName = team?.teamDisplayId ? `${team.teamDisplayId} - ${result.teamName}` : result.teamName;
+        const displayName = team?.teamDisplayId ? `${result.teamName} (${team.teamDisplayId})` : result.teamName;
         summaryMap.set(result.teamName, {
           teamId: team?.id || null,
           teamName: displayName,

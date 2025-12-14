@@ -921,7 +921,7 @@ export default function Matches() {
   const getTeamName = (teamId: string) => {
     const team = teams?.find(t => t.id === teamId);
     if (!team) return "Unknown Team";
-    return team.teamDisplayId ? `${team.teamDisplayId} - ${team.name}` : team.name;
+    return team.teamDisplayId ? `${team.name} (${team.teamDisplayId})` : team.name;
   };
 
   // Get unique divisions from matches

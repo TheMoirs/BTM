@@ -240,7 +240,7 @@ export class DatabaseStorage implements IStorage {
     if (updatedTeam && (nameChanged || displayIdChanged)) {
       // Pass the OLD team display name so we can find the correct results to update
       const oldDisplayName = existingTeam.teamDisplayId 
-        ? `${existingTeam.teamDisplayId} - ${existingTeam.name}` 
+        ? `${existingTeam.name} (${existingTeam.teamDisplayId})` 
         : existingTeam.name;
       await this.updateResultTeamNamesForTeam(id, oldDisplayName);
     }
@@ -463,8 +463,8 @@ export class DatabaseStorage implements IStorage {
         
         if (team1 && team2) {
           // Format team names with Team ID if available
-          const team1DisplayName = team1.teamDisplayId ? `${team1.teamDisplayId} - ${team1.name}` : team1.name;
-          const team2DisplayName = team2.teamDisplayId ? `${team2.teamDisplayId} - ${team2.name}` : team2.name;
+          const team1DisplayName = team1.teamDisplayId ? `${team1.name} (${team1.teamDisplayId})` : team1.name;
+          const team2DisplayName = team2.teamDisplayId ? `${team2.name} (${team2.teamDisplayId})` : team2.name;
           const matchInfo = `${team1DisplayName} vs ${team2DisplayName}`;
           
           // Calculate total scores across all games
@@ -720,7 +720,7 @@ export class DatabaseStorage implements IStorage {
 
     // Format new display name with Team ID if available
     const newDisplayName = updatedTeam.teamDisplayId 
-      ? `${updatedTeam.teamDisplayId} - ${updatedTeam.name}` 
+      ? `${updatedTeam.name} (${updatedTeam.teamDisplayId})` 
       : updatedTeam.name;
 
     // Find all matches where this team participates
@@ -738,10 +738,10 @@ export class DatabaseStorage implements IStorage {
 
       // Format display names with Team ID if available
       const team1DisplayName = team1.teamDisplayId 
-        ? `${team1.teamDisplayId} - ${team1.name}` 
+        ? `${team1.name} (${team1.teamDisplayId})` 
         : team1.name;
       const team2DisplayName = team2.teamDisplayId 
-        ? `${team2.teamDisplayId} - ${team2.name}` 
+        ? `${team2.name} (${team2.teamDisplayId})` 
         : team2.name;
 
       const matchInfo = `${team1DisplayName} vs ${team2DisplayName}`;
@@ -759,7 +759,7 @@ export class DatabaseStorage implements IStorage {
       const otherTeamId = match.team1Id === teamId ? match.team2Id : match.team1Id;
       const otherTeam = otherTeamId === match.team1Id ? team1 : team2;
       const otherDisplayName = otherTeam.teamDisplayId 
-        ? `${otherTeam.teamDisplayId} - ${otherTeam.name}` 
+        ? `${otherTeam.name} (${otherTeam.teamDisplayId})` 
         : otherTeam.name;
 
       // Update ALL results for this match - set correct teamName based on position

@@ -28,7 +28,7 @@ export function calculateTeamSummariesByStageAndDivision(
     
     // Initialize all teams with zero stats
     teams.forEach(team => {
-      const displayName = team.teamDisplayId ? `${team.teamDisplayId} - ${team.name}` : team.name;
+      const displayName = team.teamDisplayId ? `${team.name} (${team.teamDisplayId})` : team.name;
       initialTeamMap.set(team.name, {
         teamId: team.id,
         teamName: displayName,
@@ -61,7 +61,7 @@ export function calculateTeamSummariesByStageAndDivision(
       
       if (!teamMap.has(result.teamName)) {
         const team = teams?.find(t => t.name === result.teamName);
-        const displayName = team?.teamDisplayId ? `${team.teamDisplayId} - ${result.teamName}` : result.teamName;
+        const displayName = team?.teamDisplayId ? `${result.teamName} (${team.teamDisplayId})` : result.teamName;
         teamMap.set(result.teamName, {
           teamId: team?.id || null,
           teamName: displayName,
