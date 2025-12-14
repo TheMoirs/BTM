@@ -457,17 +457,23 @@ export default function Results() {
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
-    doc.setFontSize(14);
-    doc.text('Boules Tournament Manager - Match Results Report', 14, 12);
+    // Add tournament name as main title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(currentTournament?.name || 'Tournament', 14, 12);
+    doc.setFont('helvetica', 'normal');
     
-    doc.setFontSize(9);
-    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
-    let headerY = 23;
+    // Add description if present
+    let headerY = 18;
     if (currentTournament?.description) {
-      doc.text(`Description: ${currentTournament.description}`, 14, headerY);
+      doc.setFontSize(10);
+      doc.text(currentTournament.description, 14, headerY);
       headerY += 5;
     }
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, headerY);
+    
+    // Add report type and generation date
+    doc.setFontSize(9);
+    doc.text(`Match Results Report - Generated: ${new Date().toLocaleString()}`, 14, headerY);
     headerY += 5;
     if (stageFilter !== "all") {
       doc.text(`Stage: ${stageLabels[stageFilter as keyof typeof stageLabels]}`, 14, headerY);
@@ -576,17 +582,23 @@ export default function Results() {
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
-    doc.setFontSize(14);
-    doc.text('Boules Tournament Manager - Team Leaderboard - All Stages', 14, 12);
+    // Add tournament name as main title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(currentTournament?.name || 'Tournament', 14, 12);
+    doc.setFont('helvetica', 'normal');
     
-    doc.setFontSize(9);
-    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
-    let summaryHeaderY = 23;
+    // Add description if present
+    let summaryHeaderY = 18;
     if (currentTournament?.description) {
-      doc.text(`Description: ${currentTournament.description}`, 14, summaryHeaderY);
+      doc.setFontSize(10);
+      doc.text(currentTournament.description, 14, summaryHeaderY);
       summaryHeaderY += 5;
     }
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
+    
+    // Add report type and generation date
+    doc.setFontSize(9);
+    doc.text(`Team Leaderboard (All Stages) - Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
     
     let startY = summaryHeaderY + 5;
     

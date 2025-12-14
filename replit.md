@@ -118,7 +118,7 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Master admin can retrieve shareable URLs to distribute to tournament organizers
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
 - **Tournament Deletion Warning**: Shows counts of teams and matches that will be deleted, with disabled submit button until counts load.
-- **PDF Generation**: Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
+- **PDF Generation**: All PDF reports display tournament name as bold main title, followed by optional description, then report type and timestamp. Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).
 - **Mobile Optimization**: Navigation uses three-row responsive layout (title row, tournament selector row, nav items row) to ensure all content is visible on mobile screens.
 
 ### System Design Choices

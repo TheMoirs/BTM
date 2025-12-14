@@ -1018,17 +1018,23 @@ export default function Teams() {
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
-    doc.setFontSize(14);
-    doc.text('Boules Tournament Manager - Teams Report', 14, 12);
+    // Add tournament name as main title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(currentTournament?.name || 'Tournament', 14, 12);
+    doc.setFont('helvetica', 'normal');
     
-    doc.setFontSize(9);
-    doc.text(`Tournament: ${currentTournament?.name || 'Unknown'}`, 14, 18);
-    let teamsHeaderY = 23;
+    // Add description if present
+    let teamsHeaderY = 18;
     if (currentTournament?.description) {
-      doc.text(`Description: ${currentTournament.description}`, 14, teamsHeaderY);
+      doc.setFontSize(10);
+      doc.text(currentTournament.description, 14, teamsHeaderY);
       teamsHeaderY += 5;
     }
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, teamsHeaderY);
+    
+    // Add report type and generation date
+    doc.setFontSize(9);
+    doc.text(`Teams Report - Generated: ${new Date().toLocaleString()}`, 14, teamsHeaderY);
     
     let startY = teamsHeaderY + 6;
     

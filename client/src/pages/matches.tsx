@@ -1038,15 +1038,25 @@ export default function Matches() {
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
-    // Add title
-    doc.setFontSize(14);
-    doc.text(`Boules Tournament Manager - Matches Report`, 14, 12);
+    // Add tournament name as main title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(currentTournament?.name || 'Tournament', 14, 12);
+    doc.setFont('helvetica', 'normal');
     
-    // Add generation date
+    // Add description if present
+    let headerY = 18;
+    if (currentTournament?.description) {
+      doc.setFontSize(10);
+      doc.text(currentTournament.description, 14, headerY);
+      headerY += 5;
+    }
+    
+    // Add report type and generation date
     doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 18);
+    doc.text(`Matches Report - Generated: ${new Date().toLocaleString()}`, 14, headerY);
     
-    let startY = 24;
+    let startY = headerY + 6;
     
     groupedByDivision.forEach(([division, divisionMatches], index) => {
       const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
