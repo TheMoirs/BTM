@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Users } from "lucide-react";
 import { HelpDialog } from "@/components/help-dialog";
 import {
   Table,
@@ -190,6 +191,15 @@ export default function Leaderboard() {
         >
           All Match Results
         </Button>
+        <Link href="/teams">
+          <Button
+            variant="outline"
+            data-testid="button-view-teams"
+          >
+            <Users className="h-4 w-4 mr-1" />
+            View Teams
+          </Button>
+        </Link>
         {selectedTeamId && (
           <Button
             variant="secondary"
