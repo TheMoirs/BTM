@@ -110,9 +110,15 @@ function formatPhoneForWhatsApp(phone: string): string {
 }
 
 // Helper function to create WhatsApp URL
+// On mobile: use https://wa.me which works great
+// On desktop: use whatsapp:// protocol to open app directly without browser page
 function getWhatsAppUrl(phone: string): string {
   const formatted = formatPhoneForWhatsApp(phone);
-  return `https://wa.me/${formatted}`;
+  if (isMobileDevice()) {
+    return `https://wa.me/${formatted}`;
+  }
+  // Desktop: use whatsapp:// protocol - opens app directly if installed, no browser fallback
+  return `whatsapp://send?phone=${formatted}`;
 }
 
 // Helper function to create mailto URL with tournament subject
