@@ -109,16 +109,48 @@ function formatPhoneForWhatsApp(phone: string): string {
   return digitsOnly;
 }
 
-// Helper function to create WhatsApp URL
+// Helper function to open WhatsApp with smart fallback
 // On mobile: use https://wa.me which works great
-// On desktop: use whatsapp:// protocol to open app directly without browser page
-function getWhatsAppUrl(phone: string): string {
+// On desktop: try whatsapp:// protocol first, fall back to wa.me if app not installed
+function openWhatsApp(phone: string): void {
   const formatted = formatPhoneForWhatsApp(phone);
+  const waWebUrl = `https://wa.me/${formatted}`;
+  
+  // On mobile, just use wa.me directly - it works perfectly
   if (isMobileDevice()) {
-    return `https://wa.me/${formatted}`;
+    window.open(waWebUrl, '_blank');
+    return;
   }
-  // Desktop: use whatsapp:// protocol - opens app directly if installed, no browser fallback
-  return `whatsapp://send?phone=${formatted}`;
+  
+  // On desktop: try the app protocol first, fall back to web if app doesn't open
+  const protocolUrl = `whatsapp://send?phone=${formatted}`;
+  
+  // Track if app opened by monitoring visibility change
+  let appOpened = false;
+  let fallbackTimer: ReturnType<typeof setTimeout>;
+  
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      // App opened successfully, cancel fallback
+      appOpened = true;
+      clearTimeout(fallbackTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+  };
+  
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // Try to open the app
+  window.location.href = protocolUrl;
+  
+  // If app doesn't open within 1.5 seconds, fall back to web URL
+  fallbackTimer = setTimeout(() => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    if (!appOpened) {
+      // App didn't open, show the install prompt page
+      window.open(waWebUrl, '_blank');
+    }
+  }, 1500);
 }
 
 // Helper function to create mailto URL with tournament subject
@@ -2045,16 +2077,15 @@ export default function Teams() {
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
                           ) : team.captainPhone ? (
-                            <a
-                              href={getWhatsAppUrl(team.captainPhone)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-foreground hover:text-green-600 transition-colors"
+                            <button
+                              type="button"
+                              onClick={() => openWhatsApp(team.captainPhone)}
+                              className="flex items-center gap-1.5 text-foreground hover:text-green-600 transition-colors cursor-pointer"
                               data-testid={`link-whatsapp-${team.id}`}
                             >
                               <MessageCircle className="h-4 w-4 text-green-600" />
                               <span data-testid={`text-captain-phone-${team.id}`}>{team.captainPhone}</span>
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-muted-foreground text-sm">—</span>
                           )}
