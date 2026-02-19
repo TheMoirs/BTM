@@ -646,51 +646,27 @@ export default function Results() {
         doc.setFont('helvetica', 'normal');
         startY += 5;
         
-        const tableData = divisionSummaries.map((summary) => {
-          const row = [
-            summary.position !== null ? summary.position.toString() : '',
-            summary.teamName,
-            summary.gamesPlayed.toString(),
-            summary.gamesWon.toString(),
-            summary.gamesDrawn.toString(),
-            summary.gamesLost.toString(),
-            summary.points.toString(),
-          ];
-          if (isForecast) {
-            row.push(summary.avgPoints !== null ? summary.avgPoints.toFixed(2) : '-');
-          }
-          row.push(
-            summary.scoreFor.toString(),
-            summary.scoreAgainst.toString(),
-            summary.scoreDifference.toString(),
-          );
-          if (isForecast) {
-            row.push(summary.avgScoreDifference !== null ? summary.avgScoreDifference.toFixed(2) : '-');
-          }
-          return row;
-        });
-        
-        const headers = ['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points'];
-        if (isForecast) headers.push('Avg Pts');
-        headers.push('For', 'Against', 'Diff');
-        if (isForecast) headers.push('Avg Diff');
-        
-        const colStyles: Record<number, { cellWidth: number; halign?: string }> = {
-          0: { cellWidth: 15, halign: 'center' },
-          1: { cellWidth: isForecast ? 45 : 60 },
-        };
-        for (let i = 2; i < headers.length; i++) {
-          colStyles[i] = { cellWidth: isForecast ? 18 : 22, halign: 'center' };
-        }
+        const tableData = divisionSummaries.map((summary) => [
+          summary.position !== null ? summary.position.toString() : '',
+          summary.teamName,
+          summary.gamesPlayed.toString(),
+          summary.gamesWon.toString(),
+          summary.gamesDrawn.toString(),
+          summary.gamesLost.toString(),
+          summary.points.toString(),
+          summary.scoreFor.toString(),
+          summary.scoreAgainst.toString(),
+          summary.scoreDifference.toString(),
+        ]);
         
         let isFirstPageForDivision = true;
         autoTable(doc, {
-          head: [headers],
+          head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
           body: tableData,
           startY: startY,
           margin: { top: 25, bottom: 10, left: 14, right: 14 },
           styles: {
-            fontSize: isForecast ? 8 : 10,
+            fontSize: 10,
             cellPadding: 3,
           },
           headStyles: {
@@ -698,7 +674,18 @@ export default function Results() {
             textColor: 255,
             fontStyle: 'bold',
           },
-          columnStyles: colStyles as any,
+          columnStyles: {
+            0: { cellWidth: 18, halign: 'center' },
+            1: { cellWidth: 60 },
+            2: { cellWidth: 22, halign: 'center' },
+            3: { cellWidth: 22, halign: 'center' },
+            4: { cellWidth: 22, halign: 'center' },
+            5: { cellWidth: 22, halign: 'center' },
+            6: { cellWidth: 22, halign: 'center' },
+            7: { cellWidth: 22, halign: 'center' },
+            8: { cellWidth: 22, halign: 'center' },
+            9: { cellWidth: 22, halign: 'center' },
+          },
           didDrawPage: function (data) {
             if (!isFirstPageForDivision) {
               // Draw division header in the margin area on continuation pages
@@ -800,27 +787,18 @@ export default function Results() {
         divisions.forEach(([division, divisionSummaries]) => {
           const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
           
-          const excelData = divisionSummaries.map((summary) => {
-            const row: Record<string, string | number> = {
-              'Position': summary.position !== null ? summary.position : '',
-              'Team': summary.teamName,
-              'Played': summary.gamesPlayed,
-              'Won': summary.gamesWon,
-              'Drawn': summary.gamesDrawn,
-              'Lost': summary.gamesLost,
-              'Points': summary.points,
-            };
-            if (isForecast) {
-              row['Avg Pts'] = summary.avgPoints !== null ? Number(summary.avgPoints.toFixed(2)) : '';
-            }
-            row['For'] = summary.scoreFor;
-            row['Against'] = summary.scoreAgainst;
-            row['Diff'] = summary.scoreDifference;
-            if (isForecast) {
-              row['Avg Diff'] = summary.avgScoreDifference !== null ? Number(summary.avgScoreDifference.toFixed(2)) : '';
-            }
-            return row;
-          });
+          const excelData = divisionSummaries.map((summary) => ({
+            'Position': summary.position !== null ? summary.position : '',
+            'Team': summary.teamName,
+            'Played': summary.gamesPlayed,
+            'Won': summary.gamesWon,
+            'Drawn': summary.gamesDrawn,
+            'Lost': summary.gamesLost,
+            'Points': summary.points,
+            'For': summary.scoreFor,
+            'Against': summary.scoreAgainst,
+            'Diff': summary.scoreDifference,
+          }));
           
           const worksheet = XLSX.utils.json_to_sheet(excelData);
           const sheetName = `${stageLabel} - ${divisionLabel}`.substring(0, 31);
@@ -1254,15 +1232,9 @@ export default function Results() {
                                   <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
-                                  {isForecast && (
-                                    <TableHead className="text-center text-sm max-sm:text-xs">Avg Pts</TableHead>
-                                  )}
                                   <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Score Against</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
-                                  {isForecast && (
-                                    <TableHead className="text-center text-sm max-sm:text-xs">Avg Diff</TableHead>
-                                  )}
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1300,13 +1272,6 @@ export default function Results() {
                                         {summary.points}
                                       </Badge>
                                     </TableCell>
-                                    {isForecast && (
-                                      <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-avg-points-${summary.teamName}`}>
-                                        <span className="font-mono">
-                                          {summary.avgPoints !== null ? summary.avgPoints.toFixed(2) : '-'}
-                                        </span>
-                                      </TableCell>
-                                    )}
                                     <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-score-for-${summary.teamName}`}>
                                       <span className="font-mono">{summary.scoreFor}</span>
                                     </TableCell>
@@ -1321,15 +1286,6 @@ export default function Results() {
                                         {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
                                       </Badge>
                                     </TableCell>
-                                    {isForecast && (
-                                      <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-avg-diff-${summary.teamName}`}>
-                                        <span className="font-mono">
-                                          {summary.avgScoreDifference !== null
-                                            ? `${summary.avgScoreDifference > 0 ? '+' : ''}${summary.avgScoreDifference.toFixed(2)}`
-                                            : '-'}
-                                        </span>
-                                      </TableCell>
-                                    )}
                                   </TableRow>
                                 ))}
                               </TableBody>

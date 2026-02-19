@@ -265,7 +265,6 @@ export default function Leaderboard() {
                 <li>Click "Forecast" to see predicted final standings</li>
                 <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
                 <li>Useful when teams have played different numbers of games</li>
-                <li>Additional columns show Avg Pts and Avg Diff per game</li>
               </ul>
             </div>
 
@@ -330,15 +329,9 @@ export default function Leaderboard() {
                             <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
-                            {isForecast && (
-                              <TableHead className="text-center text-sm max-sm:text-xs">Avg Pts</TableHead>
-                            )}
                             <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Score Against</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
-                            {isForecast && (
-                              <TableHead className="text-center text-sm max-sm:text-xs">Avg Diff</TableHead>
-                            )}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -376,13 +369,6 @@ export default function Leaderboard() {
                                   {summary.points}
                                 </Badge>
                               </TableCell>
-                              {isForecast && (
-                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-avg-points-${summary.teamName}`}>
-                                  <span className="font-mono">
-                                    {summary.avgPoints !== null ? summary.avgPoints.toFixed(2) : '-'}
-                                  </span>
-                                </TableCell>
-                              )}
                               <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-score-for-${summary.teamName}`}>
                                 <span className="font-mono">{summary.scoreFor}</span>
                               </TableCell>
@@ -397,15 +383,6 @@ export default function Leaderboard() {
                                   {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
                                 </Badge>
                               </TableCell>
-                              {isForecast && (
-                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-avg-diff-${summary.teamName}`}>
-                                  <span className="font-mono">
-                                    {summary.avgScoreDifference !== null
-                                      ? `${summary.avgScoreDifference > 0 ? '+' : ''}${summary.avgScoreDifference.toFixed(2)}`
-                                      : '-'}
-                                  </span>
-                                </TableCell>
-                              )}
                             </TableRow>
                           ))}
                         </TableBody>
