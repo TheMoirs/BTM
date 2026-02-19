@@ -30,7 +30,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Result, Team, Match } from "@shared/schema";
-import { calculateTeamSummariesByStageAndDivision, type TeamSummary } from "@/lib/leaderboard";
+import { calculateTeamSummariesByStageAndDivision, applyForecastSort, type TeamSummary } from "@/lib/leaderboard";
 import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
@@ -90,6 +90,7 @@ export default function Results() {
   const [showInlineLeaderboard, setShowInlineLeaderboard] = useState(true);
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [isForecast, setIsForecast] = useState(false);
   
   const { toast } = useToast();
 
@@ -297,6 +298,13 @@ export default function Results() {
   const teamSummariesByStageAndDivision = useMemo(() => {
     return calculateTeamSummariesByStageAndDivision(results, teams);
   }, [results, teams]);
+
+  const inlineDisplayData = useMemo(() => {
+    if (isForecast) {
+      return applyForecastSort(teamSummariesByStageAndDivision);
+    }
+    return teamSummariesByStageAndDivision;
+  }, [teamSummariesByStageAndDivision, isForecast]);
 
   // Helper function to get team display name
   const getTeamName = (teamId: string): string => {
@@ -598,11 +606,14 @@ export default function Results() {
     
     // Add report type and generation date
     doc.setFontSize(9);
-    doc.text(`Team Leaderboard (All Stages) - Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
+    const pdfTitle = isForecast ? 'Team Forecast (All Stages)' : 'Team Leaderboard (All Stages)';
+    doc.text(`${pdfTitle} - Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
     
     let startY = summaryHeaderY + 5;
     
-    teamSummariesByStageAndDivision.forEach(([stage, divisions], stageIndex) => {
+    const pdfData = isForecast ? applyForecastSort(teamSummariesByStageAndDivision) : teamSummariesByStageAndDivision;
+    
+    pdfData.forEach(([stage, divisions], stageIndex) => {
       // Add stage header
       if (stageIndex > 0) {
         startY += 10; // Add spacing between stages
@@ -635,27 +646,51 @@ export default function Results() {
         doc.setFont('helvetica', 'normal');
         startY += 5;
         
-        const tableData = divisionSummaries.map((summary) => [
-          summary.position !== null ? summary.position.toString() : '',
-          summary.teamName,
-          summary.gamesPlayed.toString(),
-          summary.gamesWon.toString(),
-          summary.gamesDrawn.toString(),
-          summary.gamesLost.toString(),
-          summary.points.toString(),
-          summary.scoreFor.toString(),
-          summary.scoreAgainst.toString(),
-          summary.scoreDifference.toString(),
-        ]);
+        const tableData = divisionSummaries.map((summary) => {
+          const row = [
+            summary.position !== null ? summary.position.toString() : '',
+            summary.teamName,
+            summary.gamesPlayed.toString(),
+            summary.gamesWon.toString(),
+            summary.gamesDrawn.toString(),
+            summary.gamesLost.toString(),
+            summary.points.toString(),
+          ];
+          if (isForecast) {
+            row.push(summary.avgPoints !== null ? summary.avgPoints.toFixed(2) : '-');
+          }
+          row.push(
+            summary.scoreFor.toString(),
+            summary.scoreAgainst.toString(),
+            summary.scoreDifference.toString(),
+          );
+          if (isForecast) {
+            row.push(summary.avgScoreDifference !== null ? summary.avgScoreDifference.toFixed(2) : '-');
+          }
+          return row;
+        });
+        
+        const headers = ['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points'];
+        if (isForecast) headers.push('Avg Pts');
+        headers.push('For', 'Against', 'Diff');
+        if (isForecast) headers.push('Avg Diff');
+        
+        const colStyles: Record<number, { cellWidth: number; halign?: string }> = {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: isForecast ? 45 : 60 },
+        };
+        for (let i = 2; i < headers.length; i++) {
+          colStyles[i] = { cellWidth: isForecast ? 18 : 22, halign: 'center' };
+        }
         
         let isFirstPageForDivision = true;
         autoTable(doc, {
-          head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
+          head: [headers],
           body: tableData,
           startY: startY,
           margin: { top: 25, bottom: 10, left: 14, right: 14 },
           styles: {
-            fontSize: 10,
+            fontSize: isForecast ? 8 : 10,
             cellPadding: 3,
           },
           headStyles: {
@@ -663,18 +698,7 @@ export default function Results() {
             textColor: 255,
             fontStyle: 'bold',
           },
-          columnStyles: {
-            0: { cellWidth: 18, halign: 'center' },
-            1: { cellWidth: 60 },
-            2: { cellWidth: 22, halign: 'center' },
-            3: { cellWidth: 22, halign: 'center' },
-            4: { cellWidth: 22, halign: 'center' },
-            5: { cellWidth: 22, halign: 'center' },
-            6: { cellWidth: 22, halign: 'center' },
-            7: { cellWidth: 22, halign: 'center' },
-            8: { cellWidth: 22, halign: 'center' },
-            9: { cellWidth: 22, halign: 'center' },
-          },
+          columnStyles: colStyles as any,
           didDrawPage: function (data) {
             if (!isFirstPageForDivision) {
               // Draw division header in the margin area on continuation pages
@@ -747,7 +771,7 @@ export default function Results() {
     const url = URL.createObjectURL(pdfBlob);
     
     const tournamentName = currentTournament?.name || 'Tournament';
-    const pageName = isSummary ? 'Leaderboard' : 'Results';
+    const pageName = isSummary ? (isForecast ? 'Forecast' : 'Leaderboard') : 'Results';
     const filename = `${tournamentName} - ${pageName}.pdf`;
     
     const link = document.createElement('a');
@@ -769,24 +793,34 @@ export default function Results() {
     const workbook = XLSX.utils.book_new();
     
     if (isSummary) {
-      teamSummariesByStageAndDivision.forEach(([stage, divisions]) => {
+      const excelSummaryData = isForecast ? applyForecastSort(teamSummariesByStageAndDivision) : teamSummariesByStageAndDivision;
+      excelSummaryData.forEach(([stage, divisions]) => {
         const stageLabel = stageLabels[stage as keyof typeof stageLabels];
         
         divisions.forEach(([division, divisionSummaries]) => {
           const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
           
-          const excelData = divisionSummaries.map((summary) => ({
-            'Position': summary.position !== null ? summary.position : '',
-            'Team': summary.teamName,
-            'Played': summary.gamesPlayed,
-            'Won': summary.gamesWon,
-            'Drawn': summary.gamesDrawn,
-            'Lost': summary.gamesLost,
-            'Points': summary.points,
-            'For': summary.scoreFor,
-            'Against': summary.scoreAgainst,
-            'Diff': summary.scoreDifference,
-          }));
+          const excelData = divisionSummaries.map((summary) => {
+            const row: Record<string, string | number> = {
+              'Position': summary.position !== null ? summary.position : '',
+              'Team': summary.teamName,
+              'Played': summary.gamesPlayed,
+              'Won': summary.gamesWon,
+              'Drawn': summary.gamesDrawn,
+              'Lost': summary.gamesLost,
+              'Points': summary.points,
+            };
+            if (isForecast) {
+              row['Avg Pts'] = summary.avgPoints !== null ? Number(summary.avgPoints.toFixed(2)) : '';
+            }
+            row['For'] = summary.scoreFor;
+            row['Against'] = summary.scoreAgainst;
+            row['Diff'] = summary.scoreDifference;
+            if (isForecast) {
+              row['Avg Diff'] = summary.avgScoreDifference !== null ? Number(summary.avgScoreDifference.toFixed(2)) : '';
+            }
+            return row;
+          });
           
           const worksheet = XLSX.utils.json_to_sheet(excelData);
           const sheetName = `${stageLabel} - ${divisionLabel}`.substring(0, 31);
@@ -822,7 +856,7 @@ export default function Results() {
     }
     
     const tournamentName = currentTournament?.name || 'Tournament';
-    const pageName = isSummary ? 'Leaderboard' : 'Results';
+    const pageName = isSummary ? (isForecast ? 'Forecast' : 'Leaderboard') : 'Results';
     const filename = `${tournamentName} - ${pageName}.xlsx`;
     XLSX.writeFile(workbook, filename);
     
@@ -980,11 +1014,18 @@ export default function Results() {
             Detailed Results
           </Button>
           <Button
-            variant={showInlineLeaderboard && !showMatchResults ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); }}
+            variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
             data-testid="button-show-inline-leaderboard"
           >
-            Team Leaderboard
+            Leaderboard
+          </Button>
+          <Button
+            variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
+            data-testid="button-show-inline-forecast"
+          >
+            Forecast
           </Button>
           <Button
             variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
@@ -1170,13 +1211,13 @@ export default function Results() {
           </>
         ) : (
           <>
-            {teamSummariesByStageAndDivision.length === 0 ? (
+            {inlineDisplayData.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">No leaderboard data available yet.</p>
               </div>
             ) : (
               <div className="space-y-8">
-                {teamSummariesByStageAndDivision.map(([stage, divisions]) => (
+                {inlineDisplayData.map(([stage, divisions]) => (
                   <div key={stage} className="space-y-4">
                     <div className="flex items-center gap-2">
                       <Badge variant="default" className="text-lg px-3 py-1.5" data-testid={`badge-inline-stage-${stage}`}>
@@ -1213,9 +1254,15 @@ export default function Results() {
                                   <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
+                                  {isForecast && (
+                                    <TableHead className="text-center text-sm max-sm:text-xs">Avg Pts</TableHead>
+                                  )}
                                   <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Score Against</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
+                                  {isForecast && (
+                                    <TableHead className="text-center text-sm max-sm:text-xs">Avg Diff</TableHead>
+                                  )}
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1253,6 +1300,13 @@ export default function Results() {
                                         {summary.points}
                                       </Badge>
                                     </TableCell>
+                                    {isForecast && (
+                                      <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-avg-points-${summary.teamName}`}>
+                                        <span className="font-mono">
+                                          {summary.avgPoints !== null ? summary.avgPoints.toFixed(2) : '-'}
+                                        </span>
+                                      </TableCell>
+                                    )}
                                     <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-score-for-${summary.teamName}`}>
                                       <span className="font-mono">{summary.scoreFor}</span>
                                     </TableCell>
@@ -1267,6 +1321,15 @@ export default function Results() {
                                         {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
                                       </Badge>
                                     </TableCell>
+                                    {isForecast && (
+                                      <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-avg-diff-${summary.teamName}`}>
+                                        <span className="font-mono">
+                                          {summary.avgScoreDifference !== null
+                                            ? `${summary.avgScoreDifference > 0 ? '+' : ''}${summary.avgScoreDifference.toFixed(2)}`
+                                            : '-'}
+                                        </span>
+                                      </TableCell>
+                                    )}
                                   </TableRow>
                                 ))}
                               </TableBody>

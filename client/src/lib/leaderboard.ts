@@ -12,6 +12,8 @@ export type TeamSummary = {
   scoreAgainst: number;
   scoreDifference: number;
   position: number | null;
+  avgPoints: number | null;
+  avgScoreDifference: number | null;
 };
 
 type TeamSummaryWithDivision = TeamSummary & { division: string | null };
@@ -42,6 +44,8 @@ export function calculateTeamSummariesByStageAndDivision(
         scoreAgainst: 0,
         scoreDifference: 0,
         position: null,
+        avgPoints: null,
+        avgScoreDifference: null,
       });
     });
     
@@ -87,6 +91,8 @@ export function calculateTeamSummariesByStageAndDivision(
           scoreAgainst: 0,
           scoreDifference: 0,
           position: null,
+          avgPoints: null,
+          avgScoreDifference: null,
         });
       }
 
@@ -117,6 +123,14 @@ export function calculateTeamSummariesByStageAndDivision(
   // For each stage, group teams by division and calculate positions
   return sortedStages.map(([stage, teamMap]) => {
     const allSummaries = Array.from(teamMap.values());
+    
+    // Calculate averages for all teams
+    allSummaries.forEach(summary => {
+      if (summary.gamesPlayed > 0) {
+        summary.avgPoints = summary.points / summary.gamesPlayed;
+        summary.avgScoreDifference = summary.scoreDifference / summary.gamesPlayed;
+      }
+    });
     
     // Separate teams with results from teams without results
     const teamsWithResults = allSummaries.filter(s => s.gamesPlayed > 0);
@@ -157,6 +171,68 @@ export function calculateTeamSummariesByStageAndDivision(
     });
 
     return [stage, sortedDivisions] as [string, [string, TeamSummaryWithDivision[]][]];
+  });
+}
+
+export function applyForecastSort(
+  data: [string, [string, TeamSummaryWithDivision[]][]][]
+): [string, [string, TeamSummaryWithDivision[]][]][] {
+  return data.map(([stage, divisions]) => {
+    const newDivisions = divisions.map(([division, summaries]) => {
+      const cloned = summaries.map(s => ({ ...s }));
+      
+      const teamsWithResults = cloned.filter(s => s.gamesPlayed > 0);
+      const teamsWithoutResults = cloned.filter(s => s.gamesPlayed === 0);
+      
+      // Sort by average points per game, then average score difference per game
+      teamsWithResults.sort((a, b) => {
+        const aAvgPts = a.avgPoints ?? 0;
+        const bAvgPts = b.avgPoints ?? 0;
+        if (bAvgPts !== aAvgPts) return bAvgPts - aAvgPts;
+        const aAvgDiff = a.avgScoreDifference ?? 0;
+        const bAvgDiff = b.avgScoreDifference ?? 0;
+        return bAvgDiff - aAvgDiff;
+      });
+      
+      teamsWithoutResults.sort((a, b) => a.teamName.localeCompare(b.teamName));
+      
+      const sorted = [...teamsWithResults, ...teamsWithoutResults];
+      applyForecastRanking(sorted);
+      
+      return [division, sorted] as [string, TeamSummaryWithDivision[]];
+    });
+    
+    return [stage, newDivisions] as [string, [string, TeamSummaryWithDivision[]][]];
+  });
+}
+
+export function applyForecastRanking(teams: TeamSummary[]): void {
+  const rankedTeams = teams.filter(t => t.gamesPlayed > 0);
+  
+  let currentPosition = 1;
+  let teamsAtCurrentRank = 0;
+  let lastAvgPts: number | null = null;
+  let lastAvgDiff: number | null = null;
+  
+  rankedTeams.forEach((team) => {
+    const avgPts = team.avgPoints ?? 0;
+    const avgDiff = team.avgScoreDifference ?? 0;
+    
+    const isTied = lastAvgPts !== null && 
+                  lastAvgDiff !== null &&
+                  Math.abs(avgPts - lastAvgPts) < 0.0001 && 
+                  Math.abs(avgDiff - lastAvgDiff) < 0.0001;
+    
+    if (!isTied) {
+      currentPosition += teamsAtCurrentRank;
+      teamsAtCurrentRank = 1;
+    } else {
+      teamsAtCurrentRank++;
+    }
+    
+    team.position = currentPosition;
+    lastAvgPts = avgPts;
+    lastAvgDiff = avgDiff;
   });
 }
 

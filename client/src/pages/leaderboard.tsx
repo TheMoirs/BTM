@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Result, Team, Match } from "@shared/schema";
-import { calculateTeamSummariesByStageAndDivision } from "@/lib/leaderboard";
+import { calculateTeamSummariesByStageAndDivision, applyForecastSort } from "@/lib/leaderboard";
 
 const stageLabels = {
   initial: "Initial",
@@ -35,6 +35,7 @@ export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [isForecast, setIsForecast] = useState(false);
 
   const { data: results, isLoading: resultsLoading } = useQuery<Result[]>({
     queryKey: ["/api/results", currentTournament?.id],
@@ -87,6 +88,13 @@ export default function Leaderboard() {
   const teamSummariesByStageAndDivision = useMemo(() => {
     return calculateTeamSummariesByStageAndDivision(results, teams);
   }, [results, teams]);
+
+  const displayData = useMemo(() => {
+    if (isForecast) {
+      return applyForecastSort(teamSummariesByStageAndDivision);
+    }
+    return teamSummariesByStageAndDivision;
+  }, [teamSummariesByStageAndDivision, isForecast]);
 
   const groupedMatchesByDivision = useMemo(() => {
     if (!matches) return [];
@@ -163,7 +171,7 @@ export default function Leaderboard() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
-          Team Leaderboard
+          {isForecast ? "Team Forecast" : "Team Leaderboard"}
         </h1>
         <div className="flex flex-col gap-1">
           <p className="text-lg font-semibold">{currentTournament.name}</p>
@@ -178,11 +186,18 @@ export default function Leaderboard() {
 
       <div className="flex gap-2 flex-wrap">
         <Button
-          variant={!showMatchResults ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); }}
+          variant={!showMatchResults && !isForecast ? "default" : "outline"}
+          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
           data-testid="button-show-leaderboard"
         >
-          Team Leaderboard
+          Leaderboard
+        </Button>
+        <Button
+          variant={!showMatchResults && isForecast ? "default" : "outline"}
+          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
+          data-testid="button-show-forecast"
+        >
+          Forecast
         </Button>
         <Button
           variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
@@ -245,8 +260,18 @@ export default function Leaderboard() {
             </div>
             
             <div>
+              <h3 className="font-semibold mb-2">Forecast View</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Click "Forecast" to see predicted final standings</li>
+                <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
+                <li>Useful when teams have played different numbers of games</li>
+                <li>Additional columns show Avg Pts and Avg Diff per game</li>
+              </ul>
+            </div>
+
+            <div>
               <h3 className="font-semibold mb-2">Understanding Rankings</h3>
-              <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties.</p>
+              <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
             </div>
           </div>
         </HelpDialog>
@@ -262,13 +287,13 @@ export default function Leaderboard() {
 
       {!showMatchResults ? (
         <>
-          {teamSummariesByStageAndDivision.length === 0 ? (
+          {displayData.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No leaderboard data available yet.</p>
             </div>
           ) : (
             <div className="space-y-8">
-          {teamSummariesByStageAndDivision.map(([stage, divisions]) => (
+          {displayData.map(([stage, divisions]) => (
             <div key={stage} className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant="default" className="text-lg px-3 py-1.5" data-testid={`badge-stage-${stage}`}>
@@ -305,9 +330,15 @@ export default function Leaderboard() {
                             <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
+                            {isForecast && (
+                              <TableHead className="text-center text-sm max-sm:text-xs">Avg Pts</TableHead>
+                            )}
                             <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Score Against</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Diff</TableHead>
+                            {isForecast && (
+                              <TableHead className="text-center text-sm max-sm:text-xs">Avg Diff</TableHead>
+                            )}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -345,6 +376,13 @@ export default function Leaderboard() {
                                   {summary.points}
                                 </Badge>
                               </TableCell>
+                              {isForecast && (
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-avg-points-${summary.teamName}`}>
+                                  <span className="font-mono">
+                                    {summary.avgPoints !== null ? summary.avgPoints.toFixed(2) : '-'}
+                                  </span>
+                                </TableCell>
+                              )}
                               <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-score-for-${summary.teamName}`}>
                                 <span className="font-mono">{summary.scoreFor}</span>
                               </TableCell>
@@ -359,6 +397,15 @@ export default function Leaderboard() {
                                   {summary.scoreDifference > 0 ? '+' : ''}{summary.scoreDifference}
                                 </Badge>
                               </TableCell>
+                              {isForecast && (
+                                <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-avg-diff-${summary.teamName}`}>
+                                  <span className="font-mono">
+                                    {summary.avgScoreDifference !== null
+                                      ? `${summary.avgScoreDifference > 0 ? '+' : ''}${summary.avgScoreDifference.toFixed(2)}`
+                                      : '-'}
+                                  </span>
+                                </TableCell>
+                              )}
                             </TableRow>
                           ))}
                         </TableBody>
