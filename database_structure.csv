@@ -1,0 +1,62 @@
+table_name,column_name,data_type,max_length,is_nullable,default_value
+matches,id,character varying,,NO,gen_random_uuid()
+matches,tournament_id,character varying,,NO,
+matches,team1_id,character varying,,NO,
+matches,team2_id,character varying,,NO,
+matches,team1_game1_score,integer,,YES,
+matches,team2_game1_score,integer,,YES,
+matches,team1_game2_score,integer,,YES,
+matches,team2_game2_score,integer,,YES,
+matches,team1_game3_score,integer,,YES,
+matches,team2_game3_score,integer,,YES,
+matches,stage,text,,NO,
+matches,status,text,,NO,scheduled
+matches,winner_id,character varying,,YES,
+matches,match_date,text,,YES,
+matches,division,text,,YES,
+results,id,character varying,,NO,gen_random_uuid()
+results,tournament_id,character varying,,NO,
+results,match_id,character varying,,NO,
+results,match_info,text,,NO,
+results,match_date,text,,YES,
+results,stage,text,,NO,
+results,team_name,text,,NO,
+results,division,text,,YES,
+results,games_played,integer,,NO,
+results,games_won,integer,,NO,
+results,games_lost,integer,,NO,
+results,games_drawn,integer,,NO,
+results,points,integer,,NO,
+results,score_for,integer,,NO,
+results,score_against,integer,,NO,
+results,score_difference,integer,,NO,
+short_links,id,character varying,,NO,gen_random_uuid()
+short_links,code,character varying,8,NO,
+short_links,tournament_id,character varying,,NO,
+short_links,access_type,text,,NO,view
+short_links,target_page,text,,NO,leaderboard
+short_links,created_at,timestamp,,NO,now()
+teams,id,character varying,,NO,gen_random_uuid()
+teams,tournament_id,character varying,,NO,
+teams,team_display_id,text,,YES,
+teams,name,text,,NO,
+teams,captain_name,text,,NO,
+teams,captain_phone,text,,NO,
+teams,captain_email,text,,YES,
+teams,division,text,,YES,
+teams,home_piste,text,,YES,
+teams,other_players,array,,YES,
+tournaments,id,character varying,,NO,gen_random_uuid()
+tournaments,name,text,,NO,
+tournaments,description,text,,YES,
+tournaments,number_of_divisions,integer,,NO,2
+tournaments,games_per_match,integer,,NO,3
+tournaments,has_quarter_finals,boolean,,NO,false
+tournaments,has_semi_finals,boolean,,NO,false
+tournaments,has_finals,boolean,,NO,true
+tournaments,points_for_win,integer,,NO,2
+tournaments,points_for_draw,integer,,NO,1
+tournaments,points_for_loss,integer,,NO,0
+tournaments,admin_token,character varying,32,NO,
+tournaments,view_token,character varying,32,NO,
+tournaments,created_at,timestamp,,NO,now()
