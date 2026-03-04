@@ -22,10 +22,6 @@ SET row_security = off;
 -- Data for Name: replit_database_migrations_v1; Type: TABLE DATA; Schema: _system; Owner: -
 --
 
-INSERT INTO _system.replit_database_migrations_v1 (id, build_id, deployment_id, statement_count, applied_at) VALUES (1, '717dcf40-6bee-4df5-b5ce-7c9789158276', 'c8139c86-ac23-408b-b197-b299e1e9ad93', 3, '2025-12-05 16:01:25.51043+00');
-INSERT INTO _system.replit_database_migrations_v1 (id, build_id, deployment_id, statement_count, applied_at) VALUES (2, '1e4ece12-d3cd-4537-91e0-e0c20d075699', 'c8139c86-ac23-408b-b197-b299e1e9ad93', 2, '2025-12-12 18:50:35.035482+00');
-INSERT INTO _system.replit_database_migrations_v1 (id, build_id, deployment_id, statement_count, applied_at) VALUES (3, '7e096c91-3237-4700-8250-5d346443a54c', 'c8139c86-ac23-408b-b197-b299e1e9ad93', 1, '2025-12-14 00:35:17.723403+00');
-INSERT INTO _system.replit_database_migrations_v1 (id, build_id, deployment_id, statement_count, applied_at) VALUES (4, '43ddff4e-5a12-4e0f-b74d-ef104a635933', 'c8139c86-ac23-408b-b197-b299e1e9ad93', 1, '2025-12-14 22:55:00.03109+00');
 
 
 --
@@ -281,7 +277,6 @@ INSERT INTO public.teams (id, name, captain_name, captain_phone, captain_email, 
 -- Name: replit_database_migrations_v1_id_seq; Type: SEQUENCE SET; Schema: _system; Owner: -
 --
 
-SELECT pg_catalog.setval('_system.replit_database_migrations_v1_id_seq', 4, true);
 
 
 --
