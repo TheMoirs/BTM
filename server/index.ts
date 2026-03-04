@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
 
 const app = express();
@@ -50,21 +50,19 @@ app.use((req, res, next) => {
 });
 
 async function initializeDatabase() {
+  const client = await pool.connect();
   try {
-    // Drop old index if it exists (without tournament_id or stage)
-    await db.execute(sql`DROP INDEX IF EXISTS unique_team_pair`);
-    
-    // Create unique index on matches table to prevent duplicate team pairings within a tournament stage
-    // This index ensures that matches like (Team A vs Team B) and (Team B vs Team A)
-    // are treated as duplicates within the same tournament stage, regardless of team order
-    // Teams can play again in different stages (e.g., initial round, then semi-finals)
-    await db.execute(sql`
+    await client.query('DROP INDEX IF EXISTS unique_team_pair');
+    await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS unique_team_pair 
       ON matches (tournament_id, stage, LEAST(team1_id, team2_id), GREATEST(team1_id, team2_id))
     `);
     log("Database initialized: unique_team_pair index ensured");
   } catch (error) {
-    log(`Warning: Could not create unique index: ${error instanceof Error ? error.message : error}`);
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    log(`Warning: Could not create unique index: ${msg}`);
+  } finally {
+    client.release();
   }
 }
 
