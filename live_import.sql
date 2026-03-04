@@ -1,4 +1,5 @@
 SET session_replication_role = replica;
+TRUNCATE TABLE results, short_links, matches, teams, tournaments RESTART IDENTITY CASCADE;
 --
 -- PostgreSQL database dump
 --
