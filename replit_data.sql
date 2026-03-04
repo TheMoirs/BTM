@@ -1,3 +1,4 @@
+SET session_replication_role = replica;
 --
 -- PostgreSQL database dump
 --
@@ -232,3 +233,4 @@ INSERT INTO public.teams (id, name, captain_name, captain_phone, captain_email, 
 --
 
 
+SET session_replication_role = DEFAULT;
