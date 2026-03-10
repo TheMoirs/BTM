@@ -76,7 +76,14 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      retry: false,
+      retry: (failureCount, error) => {
+        // Don't retry HTTP errors (4xx, 5xx) — only network/connection errors
+        if (error instanceof Error && /^\d{3}:/.test(error.message)) {
+          return false;
+        }
+        return failureCount < 5;
+      },
+      retryDelay: 3000,
     },
     mutations: {
       retry: false,
