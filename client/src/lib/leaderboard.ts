@@ -115,7 +115,7 @@ export function calculateTeamSummariesByStageAndDivision(
   if (stageGroups.size === 0) return [];
 
   // Sort stages in tournament progression order
-  const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals'];
+  const stageOrder = ['finals', 'semi-finals', 'quarter-finals', 'initial'];
   const sortedStages = Array.from(stageGroups.entries()).sort(([a], [b]) => {
     return stageOrder.indexOf(a) - stageOrder.indexOf(b);
   });
