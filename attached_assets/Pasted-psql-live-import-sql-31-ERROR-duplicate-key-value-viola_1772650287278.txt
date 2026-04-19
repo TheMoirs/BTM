@@ -1,0 +1,439 @@
+psql:live_import.sql:31: ERROR:  duplicate key value violates unique constraint "tournaments_pkey"
+DETAIL:  Key (id)=(cb01d0e3-44aa-43f3-bb69-02c24ef2438c) already exists.
+psql:live_import.sql:32: ERROR:  duplicate key value violates unique constraint "tournaments_pkey"
+DETAIL:  Key (id)=(f128820f-3cf7-43ec-96b7-af8fad3c7bf5) already exists.
+psql:live_import.sql:39: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(dcfddd03-a8e3-4fbf-865d-2a44a0cad6bc) already exists.
+psql:live_import.sql:40: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(f2ff6142-12df-4b96-b501-e655042bda99) already exists.
+psql:live_import.sql:41: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(55576977-ab73-4603-bd32-d0638771edc5) already exists.
+psql:live_import.sql:42: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(bd435825-dfbe-4510-80b1-30d08b59843a) already exists.
+psql:live_import.sql:43: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(16e8f60e-4b3e-428b-a20f-b2fbd3ad2b0e) already exists.
+psql:live_import.sql:44: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(f0d7ec00-8fa4-40ab-8564-0bc2ee835207) already exists.
+psql:live_import.sql:45: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(884e2066-e27f-4d40-aa0a-713d321d6520) already exists.
+psql:live_import.sql:46: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(231a4fba-52b9-45ff-8523-d4e8764a6273) already exists.
+psql:live_import.sql:47: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(521943db-6701-4e53-9386-4d7386fbe1ee) already exists.
+psql:live_import.sql:48: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(3aeb0796-3ef7-4d1f-94f7-eb38989cb89e) already exists.
+psql:live_import.sql:49: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(1f8d2ffe-959a-4ae3-aeb3-c92242a963eb) already exists.
+psql:live_import.sql:50: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(98d1b7a3-e0e0-412d-a5eb-42528b6faa96) already exists.
+psql:live_import.sql:51: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(f1985d39-9461-463c-b38e-beb0245996b6) already exists.
+psql:live_import.sql:52: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(8028d4c9-e380-4698-88cd-dd2123f77ec8) already exists.
+psql:live_import.sql:53: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(d6d36141-53d0-4909-89e1-1b7be37a4977) already exists.
+psql:live_import.sql:54: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(e36e5928-94cc-4efc-a5d2-9d23bd40b2d5) already exists.
+psql:live_import.sql:55: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(aa84f271-2c80-4aae-b341-c0f9d1a73b58) already exists.
+psql:live_import.sql:56: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(5083a8fd-ebf6-456a-a1b1-2e8cb29c7041) already exists.
+psql:live_import.sql:57: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(707f04ae-2a1a-4e39-bc4c-959d400190e7) already exists.
+psql:live_import.sql:58: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(dc6614f6-a1da-4586-a589-7648ee5c12dc) already exists.
+psql:live_import.sql:59: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(a84f9fa2-43c1-4fc5-820d-a45550564a9f) already exists.
+psql:live_import.sql:60: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(5204cf6b-0b9a-48df-8f97-36e534ad9c25) already exists.
+psql:live_import.sql:61: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(534f14dc-5307-4b0d-88c6-a31628ead10a) already exists.
+psql:live_import.sql:62: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(287b74eb-f035-4911-aeb8-992c4e747d61) already exists.
+psql:live_import.sql:63: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(b74017cc-d285-4412-802f-a9960f3326be) already exists.
+psql:live_import.sql:64: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(de881265-0451-42bc-80ec-5758924daec5) already exists.
+psql:live_import.sql:65: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(8732c5b3-c997-468d-830b-0f9aec82a0d0) already exists.
+psql:live_import.sql:66: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(6a41c43d-a055-413a-8ec4-4c0b1014dc32) already exists.
+psql:live_import.sql:67: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(439c113d-841e-4347-9682-2bae2052a059) already exists.
+psql:live_import.sql:68: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(98897341-7634-4845-be3b-1f3e4b63535e) already exists.
+psql:live_import.sql:69: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(aaeb0faa-a8f3-4ab7-8a3a-672c8e98e394) already exists.
+psql:live_import.sql:70: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(8c35382a-5cd5-4e58-b93e-42da578295b7) already exists.
+psql:live_import.sql:71: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(fcc83ac5-21f7-40aa-90c9-80710e358582) already exists.
+psql:live_import.sql:72: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(7d17aab8-b500-40ca-92a4-be57c29aee6e) already exists.
+psql:live_import.sql:73: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(3555e9b4-9355-4bdd-a6e6-eeaf4d0c56a0) already exists.
+psql:live_import.sql:74: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(842265b1-5e03-4008-9727-ecf73a260310) already exists.
+psql:live_import.sql:75: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(93927185-69e3-4655-bff6-6ae88a3ad5f8) already exists.
+psql:live_import.sql:76: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(c8e5675c-bd25-4812-9014-1bf069e1ec78) already exists.
+psql:live_import.sql:77: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(af7117a1-e05b-40fb-89b7-69cb81d304bd) already exists.
+psql:live_import.sql:78: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(d3255b3a-52f8-4394-bd1b-db6cd9db762c) already exists.
+psql:live_import.sql:79: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(503f71a2-9c6c-4f1d-9c35-aa55b2f7a802) already exists.
+psql:live_import.sql:80: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(05aa0c67-c381-4211-a808-e74440df2e7c) already exists.
+psql:live_import.sql:81: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(4d2c78bd-04b7-4465-8a60-8612efb90109) already exists.
+psql:live_import.sql:82: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(2c073eac-7ede-4967-8a33-6df0630754c2) already exists.
+psql:live_import.sql:83: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(90d158d7-2eac-4b82-916a-eadb23879675) already exists.
+psql:live_import.sql:84: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(ecb8fbdd-bde3-4576-8658-f4d5d0b6d41f) already exists.
+psql:live_import.sql:85: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(949a3baf-6571-418e-be9a-4b06fbaf7873) already exists.
+psql:live_import.sql:86: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(47b48b2d-45e2-4b67-9038-a5d37f6bae59) already exists.
+psql:live_import.sql:87: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(ce0d9741-25b1-4b04-b709-76a972fbdf0a) already exists.
+psql:live_import.sql:88: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(9a6ddce8-1b0a-4462-85d8-10efcd176fdf) already exists.
+psql:live_import.sql:89: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(7583b13e-b9b4-450c-9056-df4133b2e61b) already exists.
+psql:live_import.sql:90: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(395e0b30-4c96-44ae-82b2-1a6f5b336c4b) already exists.
+psql:live_import.sql:91: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(d6e3d719-c6b8-48e8-ab34-3190a0ae413a) already exists.
+psql:live_import.sql:92: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(6b71ef7d-bce3-4ab1-a2a5-1b2b3b2045a4) already exists.
+psql:live_import.sql:93: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(952740b0-ab96-49e0-b3c9-eaeb6277ee0b) already exists.
+psql:live_import.sql:94: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(5c9d1bb3-2f27-4abf-a987-8ac5e7399ce7) already exists.
+psql:live_import.sql:95: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(9d194ac1-944f-4393-9f7e-8d0a64f714a1) already exists.
+psql:live_import.sql:96: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(65ea3a25-3c25-4b9a-a958-5d5c8bd63377) already exists.
+psql:live_import.sql:97: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(aaf56a74-b93c-40a7-8776-5457d2f81d3b) already exists.
+psql:live_import.sql:98: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(b5639dc5-9f20-46a0-9bef-34d9e7ec8415) already exists.
+psql:live_import.sql:99: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(d84476b0-a337-423b-8e63-6d9a8071450b) already exists.
+psql:live_import.sql:100: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(5fd7ea1d-c926-459b-a126-0ae4715d0418) already exists.
+psql:live_import.sql:101: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(a99b1204-b177-4e97-8179-4133d44b84d2) already exists.
+psql:live_import.sql:102: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(d5123356-12cf-4c1f-b6c7-cdc3f4a7db7a) already exists.
+psql:live_import.sql:103: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(91b273c1-94aa-4fa7-bace-f051cc4ce643) already exists.
+psql:live_import.sql:104: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(34c4fcc5-d2d8-4c5a-b66f-44472a71e272) already exists.
+psql:live_import.sql:105: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(67ae984c-ffb0-4d5f-a429-2b75ba5216e2) already exists.
+psql:live_import.sql:106: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(07614350-6d73-434c-81bb-90b1d81050a4) already exists.
+psql:live_import.sql:107: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(bcf2a7e8-cdef-4069-b5c4-82c3c352598b) already exists.
+psql:live_import.sql:108: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(e09307b2-e7b9-4a49-9a0b-21f44264d182) already exists.
+psql:live_import.sql:109: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(9bfadb2c-f0ea-41e2-88e5-7dadd31fc40b) already exists.
+psql:live_import.sql:110: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(f4c83bc7-d57d-4ce8-a7c3-4f04c78f29dc) already exists.
+psql:live_import.sql:111: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(353d0645-7ee3-4a17-a158-d4780a3c4fc5) already exists.
+psql:live_import.sql:112: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(f45f9d2d-461d-4237-bb0f-52062aaf19d3) already exists.
+psql:live_import.sql:113: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(a9260a54-8581-4c8f-a585-23604e80a5c5) already exists.
+psql:live_import.sql:114: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(21738487-bd0b-44c1-abf5-0776fe26c0bf) already exists.
+psql:live_import.sql:115: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(bfdccfeb-1198-4ee5-b05d-c386606f1d94) already exists.
+psql:live_import.sql:116: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(fd862f9b-7ffa-437b-a2e2-de4a03ed548e) already exists.
+psql:live_import.sql:117: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(c0a7d8e8-68b0-4675-a39f-feec1dd17fdd) already exists.
+psql:live_import.sql:118: ERROR:  duplicate key value violates unique constraint "matches_pkey"
+DETAIL:  Key (id)=(4f787376-3f5e-43f4-8204-46ef28437ce2) already exists.
+psql:live_import.sql:125: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(b194bf7d-bf53-41ee-9fea-b97d08342800) already exists.
+psql:live_import.sql:126: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(7cc109cd-e0ef-4c96-9dff-ae515367f552) already exists.
+psql:live_import.sql:127: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(255d4243-ae97-4971-b3ce-a0ff4147471b) already exists.
+psql:live_import.sql:128: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(298c2d1b-0a45-4075-8809-831042f833a4) already exists.
+psql:live_import.sql:129: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(a22d00cc-22c2-450b-abbf-079856bf9288) already exists.
+psql:live_import.sql:130: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(38f8c260-a0a1-472e-b7e3-3120401fde43) already exists.
+psql:live_import.sql:131: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(d5184ce9-ddf2-4967-b511-170a964db1de) already exists.
+psql:live_import.sql:132: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(9c8a0540-cb5c-41d8-9058-f004638f04f6) already exists.
+psql:live_import.sql:133: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(8d5f889e-a5cb-4ccd-be93-5113ffe47647) already exists.
+psql:live_import.sql:134: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(f09893f0-5fba-4b25-bc7f-893b8bb5f475) already exists.
+psql:live_import.sql:135: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(0db61881-7116-44e6-ada3-20c896866b33) already exists.
+psql:live_import.sql:136: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(b86e49ad-8804-4993-9f70-0088b0044f75) already exists.
+psql:live_import.sql:137: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(d207b101-0daa-4d45-9c18-a318471e98ce) already exists.
+psql:live_import.sql:138: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(62ffb3e8-1db3-49a3-a5d9-edc2b7dbf18f) already exists.
+psql:live_import.sql:139: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(12a98e1e-fb36-44f1-a77f-e948ec0f0725) already exists.
+psql:live_import.sql:140: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(6ea8390d-eb07-4379-a8b1-19fef9440512) already exists.
+psql:live_import.sql:141: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(a529011c-d2d4-459b-b1ab-8e6074be7550) already exists.
+psql:live_import.sql:142: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(d51e3dc1-9c45-4d0f-915e-3a3e0bfa70b4) already exists.
+psql:live_import.sql:143: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(a9e0ed11-a864-460a-ad91-6f01d19e0b02) already exists.
+psql:live_import.sql:144: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(c8ef14af-3d76-4231-9c4f-cb30743c21e9) already exists.
+psql:live_import.sql:145: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(71c5b2e5-57a5-4160-95ac-513b8063f5ce) already exists.
+psql:live_import.sql:146: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(45293450-24ad-4e4b-ae6f-43e72b645760) already exists.
+psql:live_import.sql:147: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(aab6992e-4660-4e17-85ab-2a4e23761326) already exists.
+psql:live_import.sql:148: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(b3e9856a-5a3f-4efb-b697-0e4a97ca0cb5) already exists.
+psql:live_import.sql:149: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(cafe70d5-564e-4a3d-afdb-03d2bf918f9f) already exists.
+psql:live_import.sql:150: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(5ce465c7-104e-4e53-8099-5565945f816a) already exists.
+psql:live_import.sql:151: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(6ae12a7f-9da8-410b-bfa5-1e5684148105) already exists.
+psql:live_import.sql:152: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(3d2104be-88da-4867-8a76-de074ad4857b) already exists.
+psql:live_import.sql:153: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(c0e1ab76-6232-4324-8f05-737db0cc7a1b) already exists.
+psql:live_import.sql:154: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(3489c284-40a6-4647-84a5-07673e5483e3) already exists.
+psql:live_import.sql:155: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(fff41979-4b15-418c-8c6e-10b6321c3353) already exists.
+psql:live_import.sql:156: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(92782f7d-a9c1-481c-b621-39ef68be6019) already exists.
+psql:live_import.sql:157: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(7bb9f40c-96f6-46bd-b669-88ca98101a79) already exists.
+psql:live_import.sql:158: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ac2b40f2-b64c-41ab-aa40-014a2d4c233a) already exists.
+psql:live_import.sql:159: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(3d54f6ca-1f4a-4d02-9507-27b121f90772) already exists.
+psql:live_import.sql:160: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(a7b68b15-ba76-444f-a017-0f6424ccc2ae) already exists.
+psql:live_import.sql:161: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(50de9e88-896b-4c83-857b-e146ffddce17) already exists.
+psql:live_import.sql:162: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ca4cde72-5cb0-43f7-8663-48b27c133e19) already exists.
+psql:live_import.sql:163: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(e5c28cb5-2079-4c79-b784-a0d2f6c5b90f) already exists.
+psql:live_import.sql:164: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(250764bf-6de9-4f5c-bd55-92d815b305e2) already exists.
+psql:live_import.sql:165: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(332345a8-0e3d-40e3-9a25-c8390dd75ba1) already exists.
+psql:live_import.sql:166: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(72a103ef-e33b-451d-9baf-b6876fa12333) already exists.
+psql:live_import.sql:167: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(85811074-1f4c-4d6f-861d-8d85707b86e1) already exists.
+psql:live_import.sql:168: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(8c44185b-5e02-44f0-bb3f-901a281bd665) already exists.
+psql:live_import.sql:169: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(0240aad2-067d-4628-955d-976fd9f8f7d2) already exists.
+psql:live_import.sql:170: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(8a55b793-4904-4a6f-8093-bf171104245b) already exists.
+psql:live_import.sql:171: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(47be2d9d-6a4c-4c69-af0e-c8ed0313d301) already exists.
+psql:live_import.sql:172: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(bbf736bb-febb-476b-adf1-a447a8f6ee09) already exists.
+psql:live_import.sql:173: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(91b2b037-c2a5-4f82-9fd1-7ede68ffb134) already exists.
+psql:live_import.sql:174: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(08da1e29-c68e-4d1c-9d22-c66d24032676) already exists.
+psql:live_import.sql:175: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(6115e31b-9715-42a9-955c-ca465ff1aca0) already exists.
+psql:live_import.sql:176: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(25a3d270-3de5-4c14-8ca7-a862e0120e95) already exists.
+psql:live_import.sql:177: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(9dad8611-8282-40f4-9adc-f98a1a7537d9) already exists.
+psql:live_import.sql:178: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(627d3490-e0fb-4c50-b864-e3c989dd16cb) already exists.
+psql:live_import.sql:179: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(43dea62f-54c3-48ec-a21a-d0c5f830b3d7) already exists.
+psql:live_import.sql:180: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(2abae74d-a45f-4e58-9313-e20d8e5678f9) already exists.
+psql:live_import.sql:181: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(002319c9-cd1c-4e29-abc1-f460c2e78412) already exists.
+psql:live_import.sql:182: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(37677476-a8cd-4e12-ba57-ebdd2761c096) already exists.
+psql:live_import.sql:183: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(6b83b8aa-aafc-431d-90fc-88221a10fafb) already exists.
+psql:live_import.sql:184: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(d0962f1c-0cba-4384-8926-fe1c3efcaa3f) already exists.
+psql:live_import.sql:185: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(0dcb1d0c-0dea-4836-8b93-0728e55044a1) already exists.
+psql:live_import.sql:186: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(f34ed9da-b8ff-4a4c-8a46-16205332e457) already exists.
+psql:live_import.sql:187: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(f0f73ee8-faf8-4a73-8952-682e0607eb8a) already exists.
+psql:live_import.sql:188: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(cc25a8f9-f32b-416d-bf65-abe0b7b2114b) already exists.
+psql:live_import.sql:189: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(f6d90d4f-672c-44ee-a2a9-be13c3849a8e) already exists.
+psql:live_import.sql:190: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(82f07a42-8d0f-4020-a2f2-a4a00e962242) already exists.
+psql:live_import.sql:191: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(322c3386-9109-41c4-bfc6-59b1deb2e060) already exists.
+psql:live_import.sql:192: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(67302801-af3f-4f60-9f75-3d061ca06a0d) already exists.
+psql:live_import.sql:193: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(5a12a500-64a3-4b84-97cd-5baf06766506) already exists.
+psql:live_import.sql:194: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(1696a2b5-a17a-4e2c-b764-4b9a0b8ae8ab) already exists.
+psql:live_import.sql:195: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(68b69024-c2e2-4436-b6d2-8d0ab9b6b24b) already exists.
+psql:live_import.sql:196: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(c84ead02-e3b2-48eb-9932-a66423a75dc0) already exists.
+psql:live_import.sql:197: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(15d68e8d-6ffc-400c-84f7-4ecc4de84215) already exists.
+psql:live_import.sql:198: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(57d10d74-926c-4eef-aae1-1ebf16fd6f86) already exists.
+psql:live_import.sql:199: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(9f004449-f9a2-4787-b0ff-ab8542a35251) already exists.
+psql:live_import.sql:200: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(4f0a765b-55f3-4ae8-8622-d2a5491b3243) already exists.
+psql:live_import.sql:201: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ed6272f4-1d86-445f-88d9-23794c7f575d) already exists.
+psql:live_import.sql:202: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(560214ae-4503-4fc5-a844-b10c60ef6f4f) already exists.
+psql:live_import.sql:203: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(d2f700d3-243b-4904-b6be-1f2c3c26dc09) already exists.
+psql:live_import.sql:204: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(f37f9934-ee3b-4bb5-9791-ed35d26140dc) already exists.
+psql:live_import.sql:205: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ea615e13-82cf-412d-b665-b5b0046552eb) already exists.
+psql:live_import.sql:206: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(fe6056d3-8fe2-4352-9c37-d9f0044c7c54) already exists.
+psql:live_import.sql:207: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(0988c0cc-3318-4762-8d0e-726c2ad00999) already exists.
+psql:live_import.sql:208: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(853851f8-176d-492d-a4ff-9ec083dcc54a) already exists.
+psql:live_import.sql:209: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(4fd7d3a6-1d76-42fb-852c-eba7efcb4983) already exists.
+psql:live_import.sql:210: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ac8db5fe-21f9-44a7-9f39-9282630ea999) already exists.
+psql:live_import.sql:211: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(4218a027-943b-4367-bf9e-575d027effda) already exists.
+psql:live_import.sql:212: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(d9aa236e-6bd1-4a40-8b99-f278e18b607e) already exists.
+psql:live_import.sql:213: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(34253595-8fc4-47e8-8b6f-fcbdcada13ab) already exists.
+psql:live_import.sql:214: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(48827161-4265-485d-916f-157e7e97c864) already exists.
+psql:live_import.sql:215: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(53331edc-8cb4-4f6e-b4c6-e8b8035a3639) already exists.
+psql:live_import.sql:216: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(41a52235-d368-4114-a0fb-1b6f0831b178) already exists.
+psql:live_import.sql:217: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(43bc172f-5f28-4deb-8800-5bae7ced661f) already exists.
+psql:live_import.sql:218: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(8586f847-7d54-48a4-826c-1f4cf7a7371b) already exists.
+psql:live_import.sql:219: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(37907a2a-5c8a-476f-9ef0-b40d87aefe72) already exists.
+psql:live_import.sql:220: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ddf0765a-8e0e-4231-a5e6-1c57da3bafb1) already exists.
+psql:live_import.sql:221: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(5673d7c0-e2c9-49bb-9485-02c6fecaa0af) already exists.
+psql:live_import.sql:222: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(e0630a7e-d55a-4899-b547-632925553146) already exists.
+psql:live_import.sql:223: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(fd77efe8-3924-45e1-9810-9f1fd6a2547f) already exists.
+psql:live_import.sql:224: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(73a3e026-61ca-4fc6-ae8b-b11a6a8a640f) already exists.
+psql:live_import.sql:225: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(3577ec5c-7dd6-4aed-9f0a-20be2697d400) already exists.
+psql:live_import.sql:226: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(ad157606-3e81-4175-a620-da3dec226321) already exists.
+psql:live_import.sql:227: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(cc34c53a-aa8b-413c-b35d-77fda76726a1) already exists.
+psql:live_import.sql:228: ERROR:  duplicate key value violates unique constraint "results_pkey"
+DETAIL:  Key (id)=(222046ae-f63d-4b34-8a37-b3d6cf7e4e7d) already exists.
+psql:live_import.sql:235: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(171a6b74-8a18-43c0-bb21-f15e80f1fbf5) already exists.
+psql:live_import.sql:236: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(7e1486fc-930b-4001-91dd-de32dc46a382) already exists.
+psql:live_import.sql:237: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(bff9e6b5-308a-416b-b764-8bfb5314fd4e) already exists.
+psql:live_import.sql:238: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(80b85c85-f7f0-477c-9c6b-3c02fad191a5) already exists.
+psql:live_import.sql:239: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(982f61da-ac9e-4fd2-b8f6-82cdeb3cb1ab) already exists.
+psql:live_import.sql:240: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(c7c898ef-5a4f-42bc-b2b1-5dfaf3f5a36d) already exists.
+psql:live_import.sql:241: ERROR:  duplicate key value violates unique constraint "short_links_pkey"
+DETAIL:  Key (id)=(13b5f5d0-e0d1-484a-9e8b-0da6c244dd1f) already exists.
+psql:live_import.sql:248: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(ec32766c-de6e-4156-9ff6-ee132876a561) already exists.
+psql:live_import.sql:249: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(6b7b31df-cbb0-4530-b1a1-eabbd5cc4097) already exists.
+psql:live_import.sql:250: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(591985f4-b2e0-4f51-bbaf-fe010e7f5dad) already exists.
+psql:live_import.sql:251: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(bdc2c83a-482f-441c-b8d9-a8abfa3044ed) already exists.
+psql:live_import.sql:252: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(a9767299-1530-40cb-be52-14dcd7dd4090) already exists.
+psql:live_import.sql:253: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(4413c331-5c08-4a48-a572-e38b00681ef3) already exists.
+psql:live_import.sql:254: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(174069c2-bb96-42bc-9ad3-eecbd1faf127) already exists.
+psql:live_import.sql:255: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(81cf2788-4624-4312-a492-125ce14300c5) already exists.
+psql:live_import.sql:256: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(acd14948-7053-4e3a-a1d0-0e2d89c0e924) already exists.
+psql:live_import.sql:257: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(1d5c8ba1-5916-4c2d-b0a5-49f1c12ed5f9) already exists.
+psql:live_import.sql:258: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(b91a2621-0dae-4c67-acff-52873ad502c3) already exists.
+psql:live_import.sql:259: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(79131f12-0c93-4eb2-b65c-b95621c6a784) already exists.
+psql:live_import.sql:260: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(319b0bdc-f05e-4e38-bdc3-e2da14bb42d8) already exists.
+psql:live_import.sql:261: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(d429d23b-6033-4f24-be49-b0a99c50a602) already exists.
+psql:live_import.sql:262: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(1f9386dc-8608-4bd5-b704-ba6df6747015) already exists.
+psql:live_import.sql:263: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(e1949bc8-634c-45b4-b54f-c25cff3375f4) already exists.
+psql:live_import.sql:264: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(74f4450e-045d-4010-b4c7-6a45e6a29cbc) already exists.
+psql:live_import.sql:265: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(6a294df0-7b25-40ff-aa65-795e5ede596d) already exists.
+psql:live_import.sql:266: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(ebd2ff27-63e4-4911-a5f3-40803eb197ca) already exists.
+psql:live_import.sql:267: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(09e6359d-cb90-43d3-bc01-65d7c90c99c3) already exists.
+psql:live_import.sql:268: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(5e257b32-8849-42e4-ad02-9aeed40e5eb4) already exists.
+psql:live_import.sql:269: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(bc903c9d-c25c-4154-9ffe-744ba3714839) already exists.
+psql:live_import.sql:270: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(34b51226-62bc-440c-b5e9-f167385353da) already exists.
+psql:live_import.sql:271: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(720716e4-41e8-4074-9711-a851cc3c23fb) already exists.
+psql:live_import.sql:272: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(fbba4b36-3b2c-48b9-84f5-ff0fda9e31a4) already exists.
+psql:live_import.sql:273: ERROR:  duplicate key value violates unique constraint "teams_pkey"
+DETAIL:  Key (id)=(ae17c1d9-fff0-4296-82ba-420fcf06d19c) already exists.
+SET
