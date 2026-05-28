@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "ssKY9495DtcDzG_B0hRe1"
+uri = "file://Boules_Tournament_Manager.xlsx"
+type = "table"
+title = "Boules Tournament Manager Spreadsheet"
