@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trophy, Eye, EyeOff } from "lucide-react";
+import { Loader2, Trophy, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 function PasswordInput({
   id,
@@ -56,6 +56,10 @@ function PasswordInput({
 export default function Login() {
   const { login, register } = useAuth();
   const { toast } = useToast();
+
+  const tokenExpired =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("expired") === "1";
 
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
@@ -119,6 +123,22 @@ export default function Login() {
           <h1 className="text-2xl font-bold text-foreground">Boules Tournament Manager</h1>
           <p className="text-muted-foreground text-sm">Sign in to manage your tournaments</p>
         </div>
+
+        {/* Expired share-link banner */}
+        {tokenExpired && (
+          <div
+            className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-destructive"
+            data-testid="banner-token-expired"
+          >
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-sm">Your access link has expired</p>
+              <p className="text-sm text-destructive/80">
+                The share link you used is no longer valid. Please ask the tournament organiser for a new link, or sign in below.
+              </p>
+            </div>
+          </div>
+        )}
 
         <Tabs defaultValue="signin">
           <TabsList className="grid w-full grid-cols-2">
