@@ -31,7 +31,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 export function Navigation() {
   const [location] = useLocation();
-  const { isReadOnly, isMasterAdmin, viewToken, loginMasterAdmin, logoutMasterAdmin } = useViewMode();
+  const { isReadOnly, isMasterAdmin, masterAdminEnabled, viewToken, loginMasterAdmin, logoutMasterAdmin } = useViewMode();
   const { currentTournament } = useTournament();
   const { user, logout } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -112,8 +112,10 @@ export function Navigation() {
     return path;
   };
 
-  // Logged-in as system admin via email — the master admin password button is redundant
-  const showMasterAdminButton = !user?.isSystemAdmin;
+  // Show the legacy password-based master admin button only when:
+  // 1. MASTER_ADMIN_PASSWORD is configured in the environment, AND
+  // 2. The user is not already logged in as a system admin via email
+  const showMasterAdminButton = masterAdminEnabled && !user?.isSystemAdmin;
 
   return (
     <nav className="border-b bg-background sticky top-0 z-50">

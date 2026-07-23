@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 interface ViewModeContextType {
   isReadOnly: boolean;
   isMasterAdmin: boolean;
+  masterAdminEnabled: boolean;
   viewToken: string | null;
   getShareableLink: (tournament: Tournament, token?: string) => string | null;
   loginMasterAdmin: (password: string) => Promise<boolean>;
@@ -64,12 +65,14 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     isAdminAccess: boolean;
     isViewOnlyAccess: boolean;
     tournamentId: string | null;
+    masterAdminEnabled: boolean;
   }>({
     queryKey: ['/api/auth/check-access'],
     enabled: true,
   });
 
   const isMasterAdmin = accessLevel?.isMasterAdmin ?? false;
+  const masterAdminEnabled = accessLevel?.masterAdminEnabled ?? false;
   // isReadOnly should be true ONLY if we have view-only access (not admin or master admin)
   const isReadOnly = accessLevel?.isViewOnlyAccess ?? (viewToken !== null && !viewToken.startsWith('master_'));
 
@@ -121,7 +124,8 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
   return (
     <ViewModeContext.Provider value={{ 
       isReadOnly, 
-      isMasterAdmin, 
+      isMasterAdmin,
+      masterAdminEnabled,
       viewToken, 
       getShareableLink,
       loginMasterAdmin,

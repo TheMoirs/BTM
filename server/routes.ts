@@ -413,6 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAdminAccess: req.isAdminAccess || false,
       isViewOnlyAccess: req.isViewOnlyAccess || false,
       tournamentId: req.tokenTournamentId || null,
+      masterAdminEnabled: !!process.env.MASTER_ADMIN_PASSWORD,
       user: req.sessionUser ? {
         id: req.sessionUser.userId,
         email: req.sessionUser.email,
