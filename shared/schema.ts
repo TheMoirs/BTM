@@ -4,6 +4,29 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 
+// ── Users ─────────────────────────────────────────────────────────────────
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name"),
+  isSystemAdmin: boolean("is_system_admin").notNull().default(false),
+  isBlocked: boolean("is_blocked").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true, createdAt: true, passwordHash: true, isSystemAdmin: true, isBlocked: true,
+}).extend({
+  email: z.string().email("Valid email required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  displayName: z.string().transform(v => v === "" ? null : v).nullable().optional(),
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+// ── Tournaments ───────────────────────────────────────────────────────────
 export const tournaments = pgTable("tournaments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -19,9 +42,10 @@ export const tournaments = pgTable("tournaments", {
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),

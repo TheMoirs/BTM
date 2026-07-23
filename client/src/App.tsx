@@ -5,11 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TournamentProvider } from "@/contexts/TournamentContext";
 import { ViewModeProvider } from "@/contexts/ViewModeContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Navigation } from "@/components/navigation";
 import Teams from "@/pages/teams";
 import Matches from "@/pages/matches";
 import Results from "@/pages/results";
 import Leaderboard from "@/pages/leaderboard";
+import Login from "@/pages/login";
+import AdminUsers from "@/pages/admin-users";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
@@ -50,36 +53,74 @@ function ServerStartupGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function Router() {
+function AppContent() {
+  const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  // Determine if this is a share link access (token in URL)
+  const hasUrlToken = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("token");
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Show login page for /login route always
+  if (location === "/login") {
+    return (
+      <>
+        <Login />
+        <Toaster />
+      </>
+    );
+  }
+
+  // If not logged in and not accessing via share link token → show login
+  if (!user && !hasUrlToken) {
+    return (
+      <>
+        <Login />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Logged-in or share-link access — show the full app
+  const showNavigation = location !== "/leaderboard";
+
   return (
-    <Switch>
-      <Route path="/" component={Teams} />
-      <Route path="/teams" component={Teams} />
-      <Route path="/matches" component={Matches} />
-      <Route path="/results" component={Results} />
-      <Route path="/leaderboard" component={Leaderboard} />
-      <Route component={NotFound} />
-    </Switch>
+    <ViewModeProvider>
+      <TournamentProvider>
+        <div className="min-h-screen bg-background">
+          {showNavigation && <Navigation />}
+          <Switch>
+            <Route path="/" component={Teams} />
+            <Route path="/teams" component={Teams} />
+            <Route path="/matches" component={Matches} />
+            <Route path="/results" component={Results} />
+            <Route path="/leaderboard" component={Leaderboard} />
+            <Route path="/admin/users" component={AdminUsers} />
+            <Route path="/login" component={Login} />
+            <Route component={NotFound} />
+          </Switch>
+        </div>
+        <Toaster />
+      </TournamentProvider>
+    </ViewModeProvider>
   );
 }
 
 function App() {
-  const [location] = useLocation();
-  const showNavigation = location !== "/leaderboard";
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ServerStartupGuard>
-          <ViewModeProvider>
-            <TournamentProvider>
-              <div className="min-h-screen bg-background">
-                {showNavigation && <Navigation />}
-                <Router />
-              </div>
-              <Toaster />
-            </TournamentProvider>
-          </ViewModeProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
         </ServerStartupGuard>
       </TooltipProvider>
     </QueryClientProvider>

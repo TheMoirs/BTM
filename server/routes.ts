@@ -6,6 +6,8 @@ import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
 import { masterAdminSessions } from "./masterAdminSessions";
+import bcrypt from "bcryptjs";
+import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Short URL redirect endpoint (before token middleware - no auth required)
@@ -63,32 +65,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Email/password auth routes (before token middleware) ─────────────────
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { email, password, displayName } = req.body;
+      if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+      if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await storage.getUserByEmail(normalizedEmail);
+      if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+
+      const isSystemAdmin = normalizedEmail === SYSTEM_ADMIN_EMAIL;
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await storage.createUser(normalizedEmail, passwordHash, displayName?.trim() || null, isSystemAdmin);
+
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin });
+      console.log(`[AUTH] Registered: ${user.email} (sysAdmin: ${isSystemAdmin})`);
+      res.status(201).json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      if (!user) return res.status(401).json({ error: "Invalid email or password" });
+      if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+      const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
+      console.log(`[AUTH] Login: ${user.email}`);
+      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (_req, res) => {
+    clearAuthCookie(res);
+    res.json({ success: true });
+  });
+
+  app.get("/api/auth/user", async (req, res) => {
+    try {
+      const session = getSessionFromRequest(req);
+      if (!session) return res.json({ user: null });
+      const user = await storage.getUserById(session.userId);
+      if (!user || user.isBlocked) { clearAuthCookie(res); return res.json({ user: null }); }
+      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+    } catch {
+      res.status(500).json({ error: "Failed to get user" });
+    }
+  });
+
   app.use(validateTokenMiddleware);
+
+  // ── Admin routes (system admin only) ──────────────────────────────────────
+  app.get("/api/admin/users", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const allUsers = await storage.getAllUsers();
+      const withCounts = await Promise.all(allUsers.map(async u => {
+        const ts = await storage.getTournamentsByUserId(u.id);
+        const { passwordHash: _ph, ...safe } = u;
+        return { ...safe, tournamentCount: ts.length };
+      }));
+      res.json(withCounts);
+    } catch {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/block", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const { isBlocked } = req.body;
+      const user = await storage.setUserBlocked(req.params.id, isBlocked);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch {
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      if (req.sessionUser?.userId === req.params.id) return res.status(400).json({ error: "Cannot delete your own account" });
+      const deleted = await storage.deleteUser(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "User not found" });
+      res.status(204).send();
+    } catch {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
 
   // Tournament routes
   app.get("/api/tournaments", async (req: any, res) => {
     try {
-      // Master admin gets all tournaments
       if (req.isMasterAdmin) {
-        const tournaments = await storage.getAllTournaments();
-        // Strip sensitive tokens from all tournaments
-        const tournamentsWithoutTokens = tournaments.map(({ adminToken, viewToken, ...tournament }) => tournament);
-        res.json(tournamentsWithoutTokens);
-      }
-      // If accessing with a token, only return the associated tournament
-      else if (req.tokenTournamentId) {
-        const tournament = await storage.getTournament(req.tokenTournamentId);
-        if (!tournament) {
-          return res.status(404).json({ error: "Tournament not found" });
-        }
-        // Strip sensitive tokens from response
-        const { viewToken, adminToken, ...tournamentWithoutTokens } = tournament;
-        res.json([tournamentWithoutTokens]);
+        // System admin / master admin sees all
+        const ts = await storage.getAllTournaments();
+        res.json(ts.map(({ adminToken, viewToken, ...t }) => t));
+      } else if (req.tokenTournamentId) {
+        // Token-based share link — only the specific tournament
+        const t = await storage.getTournament(req.tokenTournamentId);
+        if (!t) return res.status(404).json({ error: "Tournament not found" });
+        const { viewToken, adminToken, ...withoutTokens } = t;
+        res.json([withoutTokens]);
+      } else if (req.sessionUser) {
+        // Logged-in regular user sees their own tournaments
+        const ts = await storage.getTournamentsByUserId(req.sessionUser.userId);
+        res.json(ts.map(({ adminToken, viewToken, ...t }) => t));
       } else {
-        const tournaments = await storage.getAllTournaments();
-        // Strip sensitive tokens from all tournaments
-        const tournamentsWithoutTokens = tournaments.map(({ adminToken, viewToken, ...tournament }) => tournament);
-        res.json(tournamentsWithoutTokens);
+        // No auth — empty list
+        res.json([]);
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tournaments" });
@@ -144,14 +245,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tournaments", async (req: any, res) => {
     try {
-      // CRITICAL: Only master admins can create tournaments
-      if (!req.isMasterAdmin) {
+      // Allow master admin OR any logged-in user
+      if (!req.isMasterAdmin && !req.sessionUser) {
         console.warn("[SECURITY] Unauthorized attempt to create tournament");
-        return res.status(403).json({ error: "Access denied: master admin access required" });
+        return res.status(403).json({ error: "Access denied: login required to create tournaments" });
       }
-      
+
       const validatedData = insertTournamentSchema.parse(req.body);
-      const tournament = await storage.createTournament(validatedData);
+      const userId = req.sessionUser?.userId || null;
+      const tournament = await storage.createTournament(validatedData, userId);
       res.status(201).json(tournament);
     } catch (error) {
       if (error instanceof Error) {
@@ -213,7 +315,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isMasterAdmin: req.isMasterAdmin || false,
       isAdminAccess: req.isAdminAccess || false,
       isViewOnlyAccess: req.isViewOnlyAccess || false,
-      tournamentId: req.tokenTournamentId || null
+      tournamentId: req.tokenTournamentId || null,
+      user: req.sessionUser ? {
+        id: req.sessionUser.userId,
+        email: req.sessionUser.email,
+        displayName: req.sessionUser.displayName,
+        isSystemAdmin: req.sessionUser.isSystemAdmin,
+      } : null,
     });
   });
 

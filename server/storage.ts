@@ -1,4 +1,4 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, teams, matches, results, tournaments, shortLinks } from "@shared/schema";
+import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
@@ -8,7 +8,7 @@ export interface IStorage {
   getAllTournaments(): Promise<Tournament[]>;
   getTournament(id: string): Promise<Tournament | undefined>;
   getLatestTournament(): Promise<Tournament | undefined>;
-  createTournament(tournament: InsertTournament): Promise<Tournament>;
+  createTournament(tournament: InsertTournament, userId?: string): Promise<Tournament>;
   updateTournament(id: string, tournament: InsertTournament): Promise<Tournament | undefined>;
   deleteTournament(id: string): Promise<boolean>;
   regenerateViewToken(id: string): Promise<Tournament | undefined>;
@@ -49,6 +49,15 @@ export interface IStorage {
   createShortLink(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink>;
   getShortLinkByCode(code: string): Promise<ShortLink | undefined>;
   getShortLinkForTournament(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink | undefined>;
+
+  // User methods
+  getUserById(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  getTournamentsByUserId(userId: string): Promise<Tournament[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -67,13 +76,14 @@ export class DatabaseStorage implements IStorage {
     return tournament || undefined;
   }
 
-  async createTournament(insertTournament: InsertTournament): Promise<Tournament> {
+  async createTournament(insertTournament: InsertTournament, userId?: string): Promise<Tournament> {
     const [tournament] = await db
       .insert(tournaments)
       .values({
         ...insertTournament,
         adminToken: generateViewToken(),
         viewToken: generateViewToken(),
+        userId: userId || null,
       })
       .returning();
     return tournament;
@@ -840,6 +850,46 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return shortLink || undefined;
+  }
+
+  // ── User methods ───────────────────────────────────────────────────────────
+  async getUserById(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return user || undefined;
+  }
+
+  async createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User> {
+    const [user] = await db.insert(users).values({
+      email: email.toLowerCase(),
+      passwordHash,
+      displayName,
+      isSystemAdmin,
+      isBlocked: false,
+    }).returning();
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ isBlocked }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getTournamentsByUserId(userId: string): Promise<Tournament[]> {
+    return await db.select().from(tournaments).where(eq(tournaments.userId, userId)).orderBy(desc(tournaments.createdAt));
   }
 
   private generateShortCode(): string {

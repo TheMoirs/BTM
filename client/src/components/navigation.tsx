@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, Lock, LogOut } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, Lock, LogOut, UserCog, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import {
   Dialog,
@@ -22,6 +23,7 @@ export function Navigation() {
   const [location] = useLocation();
   const { isReadOnly, isMasterAdmin, viewToken, loginMasterAdmin, logoutMasterAdmin } = useViewMode();
   const { currentTournament } = useTournament();
+  const { user, logout } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -30,9 +32,7 @@ export function Navigation() {
   const handleMasterLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
-    
     const success = await loginMasterAdmin(password);
-    
     if (!success) {
       toast({
         title: "Login failed",
@@ -42,13 +42,17 @@ export function Navigation() {
       });
       setIsLoggingIn(false);
     }
-    // If successful, page will reload with new token
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/login";
   };
 
   // In teams view-only mode (accessed via share link), hide Matches and Results
   const isTeamsViewOnly = isReadOnly && (location === "/" || location === "/teams" || location.startsWith("/teams?"));
-  
-  const navItems = isTeamsViewOnly 
+
+  const navItems = isTeamsViewOnly
     ? [{ path: "/", label: "Teams", icon: Users }]
     : [
         { path: "/", label: "Teams", icon: Users },
@@ -56,108 +60,166 @@ export function Navigation() {
         { path: "/results", label: "Results", icon: ListChecks },
       ];
 
-  // Helper function to add query parameters to path
   const getPathWithQuery = (path: string) => {
-    if (isReadOnly) {
-      return `${path}?view=readonly`;
-    }
+    if (isReadOnly) return `${path}?view=readonly`;
     return path;
   };
+
+  // Logged-in as system admin via email — the master admin password button is redundant
+  const showMasterAdminButton = !user?.isSystemAdmin;
 
   return (
     <nav className="border-b bg-background sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        {/* Mobile and Desktop Layout */}
         <div className="py-3 space-y-3">
-          {/* Top Row: Title and Master Admin */}
+          {/* Top Row: Title + Auth buttons */}
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-lg sm:text-xl font-semibold text-foreground">
               Boules Tournament Manager
             </h1>
             <div className="flex items-center gap-2 shrink-0">
-              {isMasterAdmin ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={logoutMasterAdmin}
-                  data-testid="button-master-admin-logout"
-                  className="hidden sm:flex"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
+              {/* Logged-in user section */}
+              {user ? (
+                <>
+                  {/* System admin Users link */}
+                  {user.isSystemAdmin && (
+                    <Link href="/admin/users">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        data-testid="button-admin-users"
+                        className="hidden sm:flex"
+                      >
+                        <UserCog className="h-4 w-4 mr-2" />
+                        Users
+                      </Button>
+                    </Link>
+                  )}
+                  {user.isSystemAdmin && (
+                    <Link href="/admin/users">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        data-testid="button-admin-users-mobile"
+                        className="sm:hidden"
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  )}
+
+                  {/* User name + logout */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogout}
+                    data-testid="button-user-logout"
+                    className="hidden sm:flex"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    <span className="max-w-[120px] truncate">{user.displayName || user.email.split("@")[0]}</span>
+                    <LogOut className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleLogout}
+                    data-testid="button-user-logout-mobile"
+                    className="sm:hidden"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </>
               ) : (
-                <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      data-testid="button-master-admin-login"
-                      className="hidden sm:flex"
-                    >
-                      <Lock className="h-4 w-4 mr-2" />
-                      Master Admin
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Master Admin Login</DialogTitle>
-                      <DialogDescription>
-                        Enter the master admin password to manage all tournaments
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleMasterLogin} className="space-y-4">
-                      <Input
-                        type="password"
-                        placeholder="Master password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoggingIn}
-                        autoFocus
-                        data-testid="input-master-admin-password"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowLoginDialog(false)}
-                          disabled={isLoggingIn}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          disabled={isLoggingIn || !password}
-                          data-testid="button-submit-master-admin"
-                        >
-                          {isLoggingIn ? "Logging in..." : "Login"}
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-              {/* Mobile Master Admin button - icon only */}
-              {isMasterAdmin ? (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={logoutMasterAdmin}
-                  data-testid="button-master-admin-logout-mobile"
-                  className="sm:hidden"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowLoginDialog(true)}
-                  data-testid="button-master-admin-login-mobile"
-                  className="sm:hidden"
-                >
-                  <Lock className="h-4 w-4" />
-                </Button>
+                /* Not logged in — show master admin password button (legacy token access) */
+                showMasterAdminButton && (
+                  <>
+                    {isMasterAdmin ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={logoutMasterAdmin}
+                        data-testid="button-master-admin-logout"
+                        className="hidden sm:flex"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
+                      </Button>
+                    ) : (
+                      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-testid="button-master-admin-login"
+                            className="hidden sm:flex"
+                          >
+                            <Lock className="h-4 w-4 mr-2" />
+                            Master Admin
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Master Admin Login</DialogTitle>
+                            <DialogDescription>
+                              Enter the master admin password to manage all tournaments
+                            </DialogDescription>
+                          </DialogHeader>
+                          <form onSubmit={handleMasterLogin} className="space-y-4">
+                            <Input
+                              type="password"
+                              placeholder="Master password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              disabled={isLoggingIn}
+                              autoFocus
+                              data-testid="input-master-admin-password"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowLoginDialog(false)}
+                                disabled={isLoggingIn}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="submit"
+                                disabled={isLoggingIn || !password}
+                                data-testid="button-submit-master-admin"
+                              >
+                                {isLoggingIn ? "Logging in..." : "Login"}
+                              </Button>
+                            </div>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                    {/* Mobile master admin */}
+                    {isMasterAdmin ? (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={logoutMasterAdmin}
+                        data-testid="button-master-admin-logout-mobile"
+                        className="sm:hidden"
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowLoginDialog(true)}
+                        data-testid="button-master-admin-login-mobile"
+                        className="sm:hidden"
+                      >
+                        <Lock className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </>
+                )
               )}
             </div>
           </div>
@@ -170,7 +232,7 @@ export function Navigation() {
                 {isMasterAdmin ? (
                   <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-master-admin">
                     <Shield className="h-3 w-3" />
-                    <span className="hidden sm:inline">Master Admin</span>
+                    <span className="hidden sm:inline">{user?.isSystemAdmin ? "System Admin" : "Master Admin"}</span>
                     <span className="sm:hidden">Admin</span>
                   </Badge>
                 ) : isReadOnly ? (
@@ -194,8 +256,7 @@ export function Navigation() {
           <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             {navItems.map((item) => {
               const Icon = item.icon;
-              // Strip query parameters from location for active state comparison
-              const currentPath = location.split('?')[0];
+              const currentPath = location.split("?")[0];
               const isActive = currentPath === item.path;
               const pathWithQuery = getPathWithQuery(item.path);
               return (
