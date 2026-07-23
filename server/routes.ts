@@ -304,13 +304,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/tournaments/:id", async (req: any, res) => {
     try {
-      // Require admin access for tournament updates
       if (!req.isAdminAccess) {
-        return res.status(403).json({ error: "Access denied: admin token required" });
+        return res.status(403).json({ error: "Access denied: login required" });
       }
-      // Master admin can update any tournament, otherwise verify tournament ownership
-      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
-        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      // Master admin can update any tournament
+      if (!req.isMasterAdmin) {
+        // Token-based access: token must match this tournament
+        if (req.tokenTournamentId && req.params.id !== req.tokenTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Session-based access: user must own this tournament
+        if (req.sessionUser && !req.tokenTournamentId) {
+          const tournament = await storage.getTournament(req.params.id);
+          if (!tournament || tournament.userId !== req.sessionUser.userId) {
+            return res.status(403).json({ error: "Access denied: you do not own this tournament" });
+          }
+        }
       }
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.updateTournament(req.params.id, validatedData);
@@ -385,13 +394,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/tournaments/:id", async (req: any, res) => {
     try {
-      // Require admin access for tournament deletion
       if (!req.isAdminAccess) {
-        return res.status(403).json({ error: "Access denied: admin token required" });
+        return res.status(403).json({ error: "Access denied: login required" });
       }
-      // Master admin can delete any tournament, otherwise verify tournament ownership
-      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
-        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      if (!req.isMasterAdmin) {
+        // Token-based access: token must match this tournament
+        if (req.tokenTournamentId && req.params.id !== req.tokenTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Session-based access: user must own this tournament
+        if (req.sessionUser && !req.tokenTournamentId) {
+          const tournament = await storage.getTournament(req.params.id);
+          if (!tournament || tournament.userId !== req.sessionUser.userId) {
+            return res.status(403).json({ error: "Access denied: you do not own this tournament" });
+          }
+        }
       }
       const deleted = await storage.deleteTournament(req.params.id);
       if (!deleted) {

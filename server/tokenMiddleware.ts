@@ -55,8 +55,9 @@ export async function validateTokenMiddleware(
   const token = (req.query.token as string || '').trim();
   if (!token) {
     if (req.sessionUser) {
-      // Regular logged-in user — route handlers enforce per-resource ownership
-      req.isAdminAccess = false;
+      // Regular logged-in user — has admin-level access to their own resources.
+      // Per-resource ownership is enforced inside each route handler.
+      req.isAdminAccess = true;
       req.isViewOnlyAccess = false;
       next();
       return;

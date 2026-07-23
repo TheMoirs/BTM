@@ -245,8 +245,8 @@ export function TournamentSelector() {
   };
 
   if (!currentTournament) {
-    // Only master admin can create tournaments
-    if (!isMasterAdmin) {
+    // Any logged-in user can create a tournament
+    if (!isMasterAdmin && !user) {
       return (
         <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-muted text-muted-foreground" data-testid="tournament-display-empty">
           <Trophy className="h-4 w-4" />
@@ -548,33 +548,31 @@ export function TournamentSelector() {
                       <Link2 className="h-3 w-3" />
                     </Button>
                   )}
-                  {isMasterAdmin && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingTournament(tournament);
-                        form.reset({
-                          name: tournament.name,
-                          description: tournament.description || "",
-                          numberOfDivisions: tournament.numberOfDivisions,
-                          gamesPerMatch: tournament.gamesPerMatch,
-                          hasQuarterFinals: tournament.hasQuarterFinals,
-                          hasSemiFinals: tournament.hasSemiFinals,
-                          hasFinals: tournament.hasFinals,
-                          pointsForWin: tournament.pointsForWin ?? 2,
-                          pointsForDraw: tournament.pointsForDraw ?? 1,
-                          pointsForLoss: tournament.pointsForLoss ?? 0,
-                        });
-                      }}
-                      data-testid={`button-edit-tournament-${tournament.id}`}
-                      title="Edit tournament settings"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTournament(tournament);
+                      form.reset({
+                        name: tournament.name,
+                        description: tournament.description || "",
+                        numberOfDivisions: tournament.numberOfDivisions,
+                        gamesPerMatch: tournament.gamesPerMatch,
+                        hasQuarterFinals: tournament.hasQuarterFinals,
+                        hasSemiFinals: tournament.hasSemiFinals,
+                        hasFinals: tournament.hasFinals,
+                        pointsForWin: tournament.pointsForWin ?? 2,
+                        pointsForDraw: tournament.pointsForDraw ?? 1,
+                        pointsForLoss: tournament.pointsForLoss ?? 0,
+                      });
+                    }}
+                    data-testid={`button-edit-tournament-${tournament.id}`}
+                    title="Edit tournament settings"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -589,26 +587,24 @@ export function TournamentSelector() {
                   >
                     <UserRoundCheck className="h-3 w-3" />
                   </Button>
-                  {isMasterAdmin && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingTournament(tournament);
-                      }}
-                      data-testid={`button-delete-tournament-${tournament.id}`}
-                      title="Delete tournament"
-                    >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingTournament(tournament);
+                    }}
+                    data-testid={`button-delete-tournament-${tournament.id}`}
+                    title="Delete tournament"
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
                 </div>
               )}
             </DropdownMenuItem>
           ))}
-          {isMasterAdmin && (
+          {(isMasterAdmin || user) && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setIsCreateOpen(true)} data-testid="button-create-new-tournament">
