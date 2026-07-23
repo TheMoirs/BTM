@@ -177,7 +177,7 @@ export default function AdminUsers() {
               {usersData.map(u => (
                 <div
                   key={u.id}
-                  className="flex items-center gap-3 p-3 rounded-md border bg-card"
+                  className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-md border bg-card"
                   data-testid={`row-user-${u.id}`}
                 >
                   {/* User info */}
@@ -203,7 +203,7 @@ export default function AdminUsers() {
 
                   {/* Actions */}
                   {!u.isSystemAdmin && u.id !== user?.id && (
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
