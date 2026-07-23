@@ -16,8 +16,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldAlert, ShieldCheck, Trash2, Users, ArrowLeft } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Trash2, Users, ArrowLeft, KeyRound } from "lucide-react";
 
 interface UserRow {
   id: string;
@@ -34,6 +43,9 @@ export default function AdminUsers() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Redirect if not system admin
   if (user && !user.isSystemAdmin) {
@@ -62,6 +74,34 @@ export default function AdminUsers() {
       toast({
         title: "Action failed",
         description: err?.message || "Could not update user.",
+        variant: "destructive",
+        duration: Infinity,
+      });
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ id, newPassword }: { id: string; newPassword: string }) => {
+      const res = await apiRequest("POST", `/api/admin/users/${id}/reset-password`, { newPassword });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Reset failed");
+      }
+    },
+    onSuccess: () => {
+      setResetTarget(null);
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({
+        title: "Password reset",
+        description: "The user's password has been reset successfully.",
+        duration: Infinity,
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Reset failed",
+        description: err?.message || "Could not reset password.",
         variant: "destructive",
         duration: Infinity,
       });
@@ -97,6 +137,15 @@ export default function AdminUsers() {
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+  const handleResetPassword = () => {
+    if (!resetTarget) return;
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive", duration: Infinity });
+      return;
+    }
+    resetPasswordMutation.mutate({ id: resetTarget.id, newPassword });
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -154,7 +203,17 @@ export default function AdminUsers() {
 
                   {/* Actions */}
                   {!u.isSystemAdmin && u.id !== user?.id && (
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setResetTarget(u); setNewPassword(""); setConfirmPassword(""); }}
+                        disabled={resetPasswordMutation.isPending}
+                        data-testid={`button-reset-password-user-${u.id}`}
+                      >
+                        <KeyRound className="h-3.5 w-3.5 mr-1.5" />
+                        Reset Password
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -192,6 +251,57 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reset password dialog */}
+      <Dialog open={!!resetTarget} onOpenChange={open => { if (!open) { setResetTarget(null); setNewPassword(""); setConfirmPassword(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset password for {resetTarget?.displayName || resetTarget?.email}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="admin-new-password">New password</Label>
+              <Input
+                id="admin-new-password"
+                type="password"
+                placeholder="At least 8 characters"
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                disabled={resetPasswordMutation.isPending}
+                data-testid="input-admin-new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-confirm-password">Confirm new password</Label>
+              <Input
+                id="admin-confirm-password"
+                type="password"
+                placeholder="Repeat the new password"
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                disabled={resetPasswordMutation.isPending}
+                data-testid="input-admin-confirm-password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setResetTarget(null); setNewPassword(""); setConfirmPassword(""); }}
+              disabled={resetPasswordMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={resetPasswordMutation.isPending || !newPassword || !confirmPassword}
+              data-testid="button-confirm-reset-password"
+            >
+              {resetPasswordMutation.isPending ? "Resetting…" : "Reset password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>

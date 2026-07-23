@@ -56,6 +56,7 @@ export interface IStorage {
   createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
   getAllUsers(): Promise<User[]>;
   setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
+  updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
 }
@@ -880,6 +881,11 @@ export class DatabaseStorage implements IStorage {
 
   async setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined> {
     const [user] = await db.update(users).set({ isBlocked }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, id)).returning();
     return user || undefined;
   }
 

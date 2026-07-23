@@ -116,6 +116,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
+  app.patch("/api/auth/password", async (req, res) => {
+    try {
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
+      if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+
+      const user = await storage.getUserById(session.userId);
+      if (!user || user.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, newHash);
+      console.log(`[AUTH] Password changed for: ${user.email}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Change password error:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
   app.get("/api/auth/user", async (req, res) => {
     try {
       const session = getSessionFromRequest(req);
@@ -155,6 +180,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch {
       res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword || newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+      const user = await storage.getUserById(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, newHash);
+      console.log(`[AUDIT] Admin reset password for: ${user.email}`);
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "Failed to reset password" });
     }
   });
 
