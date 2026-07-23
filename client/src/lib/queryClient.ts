@@ -11,8 +11,9 @@ function getViewToken(): string | null {
     return urlToken;
   }
   
-  // Check both regular view tokens and master admin tokens
-  return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
+  // View tokens live in sessionStorage (persist across refreshes in same tab only).
+  // Legacy master admin tokens stay in localStorage.
+  return sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
 }
 
 function appendTokenToUrl(url: string): string {
@@ -32,12 +33,14 @@ function appendTokenToUrl(url: string): string {
  */
 function handleUnauthorized() {
   const urlToken = new URLSearchParams(window.location.search).get('token');
-  const persistedViewToken = localStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
+  const persistedViewToken = sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY)
+    || localStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
 
-  // Only act when the token came from localStorage, not from the current URL.
+  // Only act when the token came from storage, not from the current URL.
   // If the URL carries a token, the server will reject it directly with 401 and
   // the user still has that link — we don't need to intervene here.
   if (!urlToken && persistedViewToken) {
+    sessionStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
     localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
     localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
     window.location.href = '/login?expired=1';

@@ -75,7 +75,8 @@ function AppContent() {
 
   useEffect(() => {
     if (!urlToken) { setUrlTokenIsView(false); return; }
-    fetch("/api/auth/check-access", { credentials: "include" })
+    // Forward the full query string so the token middleware can validate the token type
+    fetch(`/api/auth/check-access${window.location.search}`, { credentials: "include" })
       .then(r => r.json())
       .then(data => setUrlTokenIsView(!!data.isViewOnlyAccess))
       .catch(() => setUrlTokenIsView(false));
