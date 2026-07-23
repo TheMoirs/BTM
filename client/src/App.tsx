@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -73,27 +73,46 @@ function AppContent() {
     );
   }
 
-  // Show login page for /login route always
-  if (location === "/login") {
+  // Share-link visitors bypass the login gate entirely
+  if (hasUrlToken) {
+    const showNavigation = location !== "/leaderboard";
     return (
-      <>
-        <Login />
-        <Toaster />
-      </>
+      <ViewModeProvider>
+        <TournamentProvider>
+          <div className="min-h-screen bg-background">
+            {showNavigation && <Navigation />}
+            <Switch>
+              <Route path="/" component={Teams} />
+              <Route path="/teams" component={Teams} />
+              <Route path="/matches" component={Matches} />
+              <Route path="/results" component={Results} />
+              <Route path="/leaderboard" component={Leaderboard} />
+              <Route path="/login"><Redirect to="/teams" /></Route>
+              <Route component={NotFound} />
+            </Switch>
+          </div>
+          <Toaster />
+        </TournamentProvider>
+      </ViewModeProvider>
     );
   }
 
-  // If not logged in and not accessing via share link token → show login
-  if (!user && !hasUrlToken) {
+  // Not logged in → /login is the landing page; redirect everything else there
+  if (!user) {
     return (
-      <>
-        <Login />
-        <Toaster />
-      </>
+      <Switch>
+        <Route path="/login">
+          <>
+            <Login />
+            <Toaster />
+          </>
+        </Route>
+        <Route><Redirect to="/login" /></Route>
+      </Switch>
     );
   }
 
-  // Logged-in or share-link access — show the full app
+  // Logged in → redirect /login to /teams, show the full app everywhere else
   const showNavigation = location !== "/leaderboard";
 
   return (
@@ -102,13 +121,13 @@ function AppContent() {
         <div className="min-h-screen bg-background">
           {showNavigation && <Navigation />}
           <Switch>
+            <Route path="/login"><Redirect to="/teams" /></Route>
             <Route path="/" component={Teams} />
             <Route path="/teams" component={Teams} />
             <Route path="/matches" component={Matches} />
             <Route path="/results" component={Results} />
             <Route path="/leaderboard" component={Leaderboard} />
             <Route path="/admin/users" component={AdminUsers} />
-            <Route path="/login" component={Login} />
             <Route component={NotFound} />
           </Switch>
         </div>
