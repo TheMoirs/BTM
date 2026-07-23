@@ -15,6 +15,8 @@ interface ViewModeContextType {
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
 
+// sessionStorage: survives page refresh in the same tab but NOT new-tab or fresh visits,
+// so the domain root always shows the login page when opened fresh.
 const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
 const MASTER_ADMIN_TOKEN_KEY = 'boules_master_admin_token';
 
@@ -38,7 +40,7 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
       return urlToken;
     }
     
-    return localStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
+    return sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
   }, [location, mounted]);
 
   // Store token in localStorage when detected in URL
@@ -50,9 +52,9 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
       // Check if it's a master admin token
       if (urlToken.startsWith('master_')) {
         localStorage.setItem(MASTER_ADMIN_TOKEN_KEY, urlToken);
-        localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
+        sessionStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
       } else {
-        localStorage.setItem(VIEW_TOKEN_STORAGE_KEY, urlToken);
+        sessionStorage.setItem(VIEW_TOKEN_STORAGE_KEY, urlToken);
         localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
       }
     }
@@ -102,7 +104,7 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
 
   const logoutMasterAdmin = () => {
     localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
-    localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
+    sessionStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
     window.location.href = '/';
   };
 

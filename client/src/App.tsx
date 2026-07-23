@@ -57,10 +57,11 @@ function AppContent() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
 
-  // For a persisted view token (from a previous share-link visit), we know it's view-only.
-  // Admin tokens stored in localStorage do NOT bypass login — those require the user to log in.
+  // View tokens are stored in sessionStorage (not localStorage) so they survive page refreshes
+  // within the same tab but don't persist across new tabs or fresh visits to the domain.
+  // Admin tokens in localStorage do NOT bypass login — those require the user to log in.
   const hasPersistedViewToken =
-    typeof window !== "undefined" && !!localStorage.getItem("boules_view_token");
+    typeof window !== "undefined" && !!sessionStorage.getItem("boules_view_token");
 
   // When a ?token= is present in the URL we don't know its type yet — check-access tells us.
   // null = still resolving, true = view-only (bypass login), false = admin (require login)
