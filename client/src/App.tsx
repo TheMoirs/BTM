@@ -57,8 +57,13 @@ function AppContent() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
 
-  // Determine if this is a share link access (token in URL)
-  const hasUrlToken = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("token");
+  // Determine if this is a share link access — check URL first, then localStorage
+  // (token persists to localStorage via ViewModeContext so SPA navigation + refresh still works)
+  const hasUrlToken = typeof window !== "undefined" && (
+    new URLSearchParams(window.location.search).has("token") ||
+    !!localStorage.getItem("boules_view_token") ||
+    !!localStorage.getItem("boules_master_admin_token")
+  );
 
   if (isLoading) {
     return (
