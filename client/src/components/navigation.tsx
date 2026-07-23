@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, Lock, LogOut, UserCog, User, KeyRound } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, Lock, LogOut, UserCog, User, KeyRound, UserPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,18 +33,28 @@ export function Navigation() {
   const [location] = useLocation();
   const { isReadOnly, isMasterAdmin, masterAdminEnabled, viewToken, loginMasterAdmin, logoutMasterAdmin } = useViewMode();
   const { currentTournament } = useTournament();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { toast } = useToast();
 
-  // Change password state
+  // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Display name state
+  const [displayName, setDisplayName] = useState("");
+  const [isUpdatingName, setIsUpdatingName] = useState(false);
+
+  useEffect(() => {
+    if (showChangePassword) {
+      setDisplayName(user?.displayName ?? "");
+    }
+  }, [showChangePassword, user?.displayName]);
 
   const handleMasterLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +74,23 @@ export function Navigation() {
   const handleLogout = async () => {
     await logout();
     window.location.href = "/login";
+  };
+
+  const handleUpdateDisplayName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdatingName(true);
+    try {
+      const result = await updateProfile(displayName.trim() || null);
+      if (!result.success) {
+        toast({ title: "Update failed", description: result.error || "Could not update display name.", variant: "destructive", duration: Infinity });
+      } else {
+        toast({ title: "Display name updated", description: "Your display name has been saved.", duration: Infinity });
+      }
+    } catch {
+      toast({ title: "Update failed", description: "An unexpected error occurred.", variant: "destructive", duration: Infinity });
+    } finally {
+      setIsUpdatingName(false);
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -175,8 +202,8 @@ export function Navigation() {
                         onClick={() => setShowChangePassword(true)}
                         data-testid="menu-item-change-password"
                       >
-                        <KeyRound className="h-4 w-4 mr-2" />
-                        Change Password
+                        <UserPen className="h-4 w-4 mr-2" />
+                        Profile Settings
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -198,7 +225,7 @@ export function Navigation() {
                     data-testid="button-change-password-mobile"
                     className="sm:hidden"
                   >
-                    <KeyRound className="h-4 w-4" />
+                    <UserPen className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -363,19 +390,45 @@ export function Navigation() {
         </div>
       </div>
 
-      {/* Change Password Dialog */}
+      {/* Profile Settings Dialog */}
       <Dialog open={showChangePassword} onOpenChange={open => {
         if (!open) { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }
         setShowChangePassword(open);
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
+            <DialogTitle>Profile Settings</DialogTitle>
             <DialogDescription>
-              Enter your current password and choose a new one.
+              Update your display name or change your password.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleChangePassword} className="space-y-4 py-2">
+
+          {/* Display name section */}
+          <form onSubmit={handleUpdateDisplayName} className="space-y-3 py-2 border-b pb-4">
+            <p className="text-sm font-medium">Display name</p>
+            <div className="flex gap-2">
+              <Input
+                id="display-name"
+                type="text"
+                placeholder={user?.email.split("@")[0] ?? "Your name"}
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                disabled={isUpdatingName}
+                data-testid="input-display-name"
+              />
+              <Button
+                type="submit"
+                disabled={isUpdatingName || displayName === (user?.displayName ?? "")}
+                data-testid="button-submit-display-name"
+              >
+                {isUpdatingName ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </form>
+
+          {/* Change password section */}
+          <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
+            <p className="text-sm font-medium">Change password</p>
             <div className="space-y-2">
               <Label htmlFor="current-password">Current password</Label>
               <Input
@@ -385,7 +438,6 @@ export function Navigation() {
                 value={currentPassword}
                 onChange={e => setCurrentPassword(e.target.value)}
                 disabled={isChangingPassword}
-                autoFocus
                 data-testid="input-current-password"
               />
             </div>

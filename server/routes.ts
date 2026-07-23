@@ -116,6 +116,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
+  app.patch("/api/auth/profile", async (req, res) => {
+    try {
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+
+      const { displayName } = req.body;
+      const trimmed = typeof displayName === "string" ? displayName.trim() : null;
+
+      const user = await storage.getUserById(session.userId);
+      if (!user || user.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
+
+      const updated = await storage.updateUserProfile(user.id, trimmed || null);
+      if (!updated) return res.status(500).json({ error: "Failed to update profile" });
+
+      setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
+      console.log(`[AUTH] Display name updated for: ${updated.email}`);
+      res.json({ user: { id: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Update profile error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
   app.patch("/api/auth/password", async (req, res) => {
     try {
       const session = getSessionFromRequest(req);
