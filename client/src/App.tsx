@@ -73,7 +73,19 @@ function AppContent() {
     );
   }
 
-  // Share-link visitors bypass the login gate entirely
+  // /login always shows the login page (or redirects to /teams if already logged in)
+  // This must come before the share-link bypass so visiting /login directly always works
+  if (location === "/login") {
+    if (user) return <Redirect to="/teams" />;
+    return (
+      <>
+        <Login />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Share-link visitors bypass the login gate for all non-login routes
   if (hasUrlToken) {
     const showNavigation = location !== "/leaderboard";
     return (
@@ -87,7 +99,6 @@ function AppContent() {
               <Route path="/matches" component={Matches} />
               <Route path="/results" component={Results} />
               <Route path="/leaderboard" component={Leaderboard} />
-              <Route path="/login"><Redirect to="/teams" /></Route>
               <Route component={NotFound} />
             </Switch>
           </div>
@@ -97,18 +108,13 @@ function AppContent() {
     );
   }
 
-  // Not logged in → /login is the landing page; redirect everything else there
+  // Not logged in → redirect everything to /login
   if (!user) {
     return (
-      <Switch>
-        <Route path="/login">
-          <>
-            <Login />
-            <Toaster />
-          </>
-        </Route>
-        <Route><Redirect to="/login" /></Route>
-      </Switch>
+      <>
+        <Redirect to="/login" />
+        <Toaster />
+      </>
     );
   }
 
