@@ -6,11 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 interface ViewModeContextType {
   isReadOnly: boolean;
   isMasterAdmin: boolean;
-  masterAdminEnabled: boolean;
   viewToken: string | null;
   getShareableLink: (tournament: Tournament, token?: string) => string | null;
-  loginMasterAdmin: (password: string) => Promise<boolean>;
-  logoutMasterAdmin: () => void;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined);
@@ -18,7 +15,6 @@ const ViewModeContext = createContext<ViewModeContextType | undefined>(undefined
 // sessionStorage: survives page refresh in the same tab but NOT new-tab or fresh visits,
 // so the domain root always shows the login page when opened fresh.
 const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
-const MASTER_ADMIN_TOKEN_KEY = 'boules_master_admin_token';
 
 export function ViewModeProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -29,7 +25,7 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     setMounted(true);
   }, []);
   
-  // Extract token from URL or localStorage, prioritizing URL
+  // Extract token from URL or sessionStorage, prioritizing URL
   const viewToken = useMemo(() => {
     if (!mounted) return null;
     
@@ -40,23 +36,16 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
       return urlToken;
     }
     
-    return sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
+    return sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
   }, [location, mounted]);
 
-  // Store token in localStorage when detected in URL
+  // Store token in sessionStorage when detected in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get('token');
     
     if (urlToken) {
-      // Check if it's a master admin token
-      if (urlToken.startsWith('master_')) {
-        localStorage.setItem(MASTER_ADMIN_TOKEN_KEY, urlToken);
-        sessionStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
-      } else {
-        sessionStorage.setItem(VIEW_TOKEN_STORAGE_KEY, urlToken);
-        localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
-      }
+      sessionStorage.setItem(VIEW_TOKEN_STORAGE_KEY, urlToken);
     }
     // Don't remove tokens when URL doesn't have one - tokens persist across navigation
   }, [location]);
@@ -67,46 +56,14 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     isAdminAccess: boolean;
     isViewOnlyAccess: boolean;
     tournamentId: string | null;
-    masterAdminEnabled: boolean;
   }>({
     queryKey: ['/api/auth/check-access'],
     enabled: true,
   });
 
   const isMasterAdmin = accessLevel?.isMasterAdmin ?? false;
-  const masterAdminEnabled = accessLevel?.masterAdminEnabled ?? false;
   // isReadOnly should be true ONLY if we have view-only access (not admin or master admin)
-  const isReadOnly = accessLevel?.isViewOnlyAccess ?? (viewToken !== null && !viewToken.startsWith('master_'));
-
-  const loginMasterAdmin = async (password: string): Promise<boolean> => {
-    try {
-      const response = await fetch('/api/auth/master-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-
-      if (response.ok) {
-        const { sessionToken } = await response.json();
-        localStorage.setItem(MASTER_ADMIN_TOKEN_KEY, sessionToken);
-        localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
-        
-        // Redirect to apply the master admin token
-        window.location.href = `/?token=${sessionToken}`;
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Master admin login failed:', error);
-      return false;
-    }
-  };
-
-  const logoutMasterAdmin = () => {
-    localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
-    sessionStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
-    window.location.href = '/';
-  };
+  const isReadOnly = accessLevel?.isViewOnlyAccess ?? false;
 
   const getShareableLink = (tournament: Tournament, token?: string) => {
     // Use provided token, or fall back to stored viewToken, or tournament.viewToken
@@ -127,11 +84,8 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     <ViewModeContext.Provider value={{ 
       isReadOnly, 
       isMasterAdmin,
-      masterAdminEnabled,
       viewToken, 
       getShareableLink,
-      loginMasterAdmin,
-      logoutMasterAdmin 
     }}>
       {children}
     </ViewModeContext.Provider>

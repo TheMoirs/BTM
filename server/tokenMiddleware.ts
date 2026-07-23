@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { masterAdminSessions } from "./masterAdminSessions";
 import { getSessionFromRequest, clearAuthCookie } from "./sessionAuth";
 
 export interface SessionUser {
@@ -52,24 +51,8 @@ export async function validateTokenMiddleware(
     }
   }
 
-  // ── 2. Check URL-based master admin session token ──────────────────────
+  // ── 2. No URL token — check if session user covers write access ────────
   const token = (req.query.token as string || '').trim();
-
-  if (token && token.startsWith('master_')) {
-    if (masterAdminSessions.validateSession(token)) {
-      req.isMasterAdmin = true;
-      req.isAdminAccess = true;
-      req.isViewOnlyAccess = false;
-      next();
-      return;
-    } else {
-      console.warn(`[SECURITY] Invalid or expired master admin token attempted: ${token.substring(0, 16)}...`);
-      res.status(401).json({ error: "Invalid or expired master admin session" });
-      return;
-    }
-  }
-
-  // ── 3. No URL token — check if session user covers write access ────────
   if (!token) {
     if (req.sessionUser) {
       // Regular logged-in user — route handlers enforce per-resource ownership

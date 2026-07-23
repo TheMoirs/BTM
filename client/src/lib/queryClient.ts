@@ -1,7 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
-const MASTER_ADMIN_TOKEN_KEY = 'boules_master_admin_token';
 
 function getViewToken(): string | null {
   const params = new URLSearchParams(window.location.search);
@@ -12,8 +11,7 @@ function getViewToken(): string | null {
   }
   
   // View tokens live in sessionStorage (persist across refreshes in same tab only).
-  // Legacy master admin tokens stay in localStorage.
-  return sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY) || localStorage.getItem(MASTER_ADMIN_TOKEN_KEY);
+  return sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY);
 }
 
 function appendTokenToUrl(url: string): string {
@@ -42,7 +40,6 @@ function handleUnauthorized() {
   if (!urlToken && persistedViewToken) {
     sessionStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
     localStorage.removeItem(VIEW_TOKEN_STORAGE_KEY);
-    localStorage.removeItem(MASTER_ADMIN_TOKEN_KEY);
     window.location.href = '/login?expired=1';
   }
 }

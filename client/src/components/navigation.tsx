@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, Lock, LogOut, UserCog, User, KeyRound, UserPen } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -31,12 +30,9 @@ import { apiRequest } from "@/lib/queryClient";
 
 export function Navigation() {
   const [location] = useLocation();
-  const { isReadOnly, isMasterAdmin, masterAdminEnabled, viewToken, loginMasterAdmin, logoutMasterAdmin } = useViewMode();
+  const { isReadOnly, isMasterAdmin, viewToken } = useViewMode();
   const { currentTournament } = useTournament();
   const { user, logout, updateProfile } = useAuth();
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [password, setPassword] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { toast } = useToast();
 
   // Profile/settings dialog state
@@ -55,21 +51,6 @@ export function Navigation() {
       setDisplayName(user?.displayName ?? "");
     }
   }, [showChangePassword, user?.displayName]);
-
-  const handleMasterLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    const success = await loginMasterAdmin(password);
-    if (!success) {
-      toast({
-        title: "Login failed",
-        description: "Invalid master admin password",
-        variant: "destructive",
-        duration: Infinity,
-      });
-      setIsLoggingIn(false);
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -138,11 +119,6 @@ export function Navigation() {
     if (isReadOnly) return `${path}?view=readonly`;
     return path;
   };
-
-  // Show the legacy password-based master admin button only when:
-  // 1. MASTER_ADMIN_PASSWORD is configured in the environment, AND
-  // 2. The user is not already logged in as a system admin via email
-  const showMasterAdminButton = masterAdminEnabled && !user?.isSystemAdmin;
 
   return (
     <nav className="border-b bg-background sticky top-0 z-50">
@@ -237,97 +213,7 @@ export function Navigation() {
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </>
-              ) : (
-                /* Not logged in — show master admin password button (legacy token access) */
-                showMasterAdminButton && (
-                  <>
-                    {isMasterAdmin ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={logoutMasterAdmin}
-                        data-testid="button-master-admin-logout"
-                        className="hidden sm:flex"
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Logout
-                      </Button>
-                    ) : (
-                      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            data-testid="button-master-admin-login"
-                            className="hidden sm:flex"
-                          >
-                            <Lock className="h-4 w-4 mr-2" />
-                            Master Admin
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Master Admin Login</DialogTitle>
-                            <DialogDescription>
-                              Enter the master admin password to manage all tournaments
-                            </DialogDescription>
-                          </DialogHeader>
-                          <form onSubmit={handleMasterLogin} className="space-y-4">
-                            <Input
-                              type="password"
-                              placeholder="Master password"
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              disabled={isLoggingIn}
-                              autoFocus
-                              data-testid="input-master-admin-password"
-                            />
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setShowLoginDialog(false)}
-                                disabled={isLoggingIn}
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                type="submit"
-                                disabled={isLoggingIn || !password}
-                                data-testid="button-submit-master-admin"
-                              >
-                                {isLoggingIn ? "Logging in..." : "Login"}
-                              </Button>
-                            </div>
-                          </form>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                    {/* Mobile master admin */}
-                    {isMasterAdmin ? (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={logoutMasterAdmin}
-                        data-testid="button-master-admin-logout-mobile"
-                        className="sm:hidden"
-                      >
-                        <LogOut className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowLoginDialog(true)}
-                        data-testid="button-master-admin-login-mobile"
-                        className="sm:hidden"
-                      >
-                        <Lock className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </>
-                )
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -339,7 +225,7 @@ export function Navigation() {
                 {isMasterAdmin ? (
                   <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-master-admin">
                     <Shield className="h-3 w-3" />
-                    <span className="hidden sm:inline">{user?.isSystemAdmin ? "System Admin" : "Master Admin"}</span>
+                    <span className="hidden sm:inline">System Admin</span>
                     <span className="sm:hidden">Admin</span>
                   </Badge>
                 ) : isReadOnly ? (

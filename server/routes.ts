@@ -5,7 +5,6 @@ import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTour
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
-import { masterAdminSessions } from "./masterAdminSessions";
 import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
 
@@ -37,31 +36,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[ERROR] Short link redirect failed:", error);
       res.status(500).send("Internal server error");
-    }
-  });
-
-  // Master admin authentication endpoint (before token middleware)
-  app.post("/api/auth/master-admin", async (req, res) => {
-    try {
-      const { password } = req.body;
-      const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
-      
-      if (!masterPassword) {
-        console.error("[SECURITY] Master admin attempted but MASTER_ADMIN_PASSWORD not configured");
-        return res.status(503).json({ error: "Master admin not configured" });
-      }
-      
-      if (password === masterPassword) {
-        const sessionToken = masterAdminSessions.createSession();
-        console.log(`[AUDIT] Master admin login successful - active sessions: ${masterAdminSessions.getActiveSessionCount()}`);
-        res.json({ success: true, sessionToken });
-      } else {
-        console.warn("[SECURITY] Failed master admin login attempt - invalid password");
-        res.status(401).json({ error: "Invalid password" });
-      }
-    } catch (error) {
-      console.error("[ERROR] Master admin authentication error:", error);
-      res.status(500).json({ error: "Authentication failed" });
     }
   });
 
@@ -436,7 +410,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAdminAccess: req.isAdminAccess || false,
       isViewOnlyAccess: req.isViewOnlyAccess || false,
       tournamentId: req.tokenTournamentId || null,
-      masterAdminEnabled: !!process.env.MASTER_ADMIN_PASSWORD,
       user: req.sessionUser ? {
         id: req.sessionUser.userId,
         email: req.sessionUser.email,
