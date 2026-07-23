@@ -57,15 +57,31 @@ function AppContent() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
 
-  // Determine if this is a share link access — check URL first, then localStorage
-  // (token persists to localStorage via ViewModeContext so SPA navigation + refresh still works)
-  const hasUrlToken = typeof window !== "undefined" && (
-    new URLSearchParams(window.location.search).has("token") ||
-    !!localStorage.getItem("boules_view_token") ||
-    !!localStorage.getItem("boules_master_admin_token")
+  // For a persisted view token (from a previous share-link visit), we know it's view-only.
+  // Admin tokens stored in localStorage do NOT bypass login — those require the user to log in.
+  const hasPersistedViewToken =
+    typeof window !== "undefined" && !!localStorage.getItem("boules_view_token");
+
+  // When a ?token= is present in the URL we don't know its type yet — check-access tells us.
+  // null = still resolving, true = view-only (bypass login), false = admin (require login)
+  const urlToken =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("token")
+      : null;
+  const [urlTokenIsView, setUrlTokenIsView] = useState<boolean | null>(
+    urlToken ? null : false
   );
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!urlToken) { setUrlTokenIsView(false); return; }
+    fetch("/api/auth/check-access", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => setUrlTokenIsView(!!data.isViewOnlyAccess))
+      .catch(() => setUrlTokenIsView(false));
+  }, [urlToken]);
+
+  // Show spinner while auth or URL-token type is still resolving
+  if (isLoading || urlTokenIsView === null) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -73,8 +89,11 @@ function AppContent() {
     );
   }
 
-  // /login always shows the login page (or redirects to /teams if already logged in)
-  // This must come before the share-link bypass so visiting /login directly always works
+  // View-only share link access (URL token confirmed as view-only, or persisted view token)
+  const isViewLinkAccess = urlTokenIsView || hasPersistedViewToken;
+
+  // /login always shows the login page (or redirects to /teams if already logged in).
+  // Must come before share-link bypass so visiting /login directly always works.
   if (location === "/login") {
     if (user) return <Redirect to="/teams" />;
     return (
@@ -85,8 +104,8 @@ function AppContent() {
     );
   }
 
-  // Share-link visitors bypass the login gate for all non-login routes
-  if (hasUrlToken) {
+  // View-only share-link visitors bypass the login gate
+  if (isViewLinkAccess) {
     const showNavigation = location !== "/leaderboard";
     return (
       <ViewModeProvider>
@@ -108,7 +127,7 @@ function AppContent() {
     );
   }
 
-  // Not logged in → redirect everything to /login
+  // Not logged in (and no view token) → redirect to /login
   if (!user) {
     return (
       <>
@@ -118,7 +137,7 @@ function AppContent() {
     );
   }
 
-  // Logged in → redirect /login to /teams, show the full app everywhere else
+  // Logged in → show the full app
   const showNavigation = location !== "/leaderboard";
 
   return (
@@ -127,7 +146,6 @@ function AppContent() {
         <div className="min-h-screen bg-background">
           {showNavigation && <Navigation />}
           <Switch>
-            <Route path="/login"><Redirect to="/teams" /></Route>
             <Route path="/" component={Teams} />
             <Route path="/teams" component={Teams} />
             <Route path="/matches" component={Matches} />
