@@ -6,7 +6,52 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trophy } from "lucide-react";
+import { Loader2, Trophy, Eye, EyeOff } from "lucide-react";
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  autoComplete,
+  "data-testid": testId,
+}: {
+  id: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  autoComplete?: string;
+  "data-testid"?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={visible ? "text" : "password"}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        autoComplete={autoComplete}
+        data-testid={testId}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={() => setVisible(v => !v)}
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+        tabIndex={-1}
+        aria-label={visible ? "Hide password" : "Show password"}
+        data-testid={testId ? `${testId}-toggle` : undefined}
+      >
+        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
 
 export default function Login() {
   const { login, register } = useAuth();
@@ -35,7 +80,6 @@ export default function Login() {
         duration: Infinity,
       });
     }
-    // On success, AuthContext updates user state and the app re-renders
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -106,9 +150,8 @@ export default function Login() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="signin-password"
-                      type="password"
                       placeholder="••••••••"
                       value={signInPassword}
                       onChange={e => setSignInPassword(e.target.value)}
@@ -169,9 +212,8 @@ export default function Login() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="reg-password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="reg-password"
-                      type="password"
                       placeholder="At least 8 characters"
                       value={regPassword}
                       onChange={e => setRegPassword(e.target.value)}
@@ -182,9 +224,8 @@ export default function Login() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="reg-confirm">Confirm Password</Label>
-                    <Input
+                    <PasswordInput
                       id="reg-confirm"
-                      type="password"
                       placeholder="••••••••"
                       value={regConfirm}
                       onChange={e => setRegConfirm(e.target.value)}
