@@ -263,7 +263,7 @@ export function TournamentSelector() {
             Create Tournament
           </Button>
         </DialogTrigger>
-        <DialogContent data-testid="dialog-create-tournament">
+        <DialogContent data-testid="dialog-create-tournament" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
@@ -617,7 +617,7 @@ export function TournamentSelector() {
       </DropdownMenu>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent data-testid="dialog-create-tournament">
+        <DialogContent data-testid="dialog-create-tournament" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
@@ -774,7 +774,7 @@ export function TournamentSelector() {
       </Dialog>
 
       <Dialog open={!!editingTournament} onOpenChange={(open) => !open && setEditingTournament(null)}>
-        <DialogContent data-testid="dialog-edit-tournament">
+        <DialogContent data-testid="dialog-edit-tournament" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Tournament</DialogTitle>
           </DialogHeader>
