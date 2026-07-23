@@ -330,6 +330,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/tournaments/:id/transfer", async (req: any, res) => {
+    try {
+      const tournamentId = req.params.id;
+
+      // Allow master admin OR the logged-in user who owns this tournament
+      const isTournamentOwner = req.sessionUser && (() => {
+        // We'll verify ownership after fetching the tournament
+        return true;
+      })();
+
+      if (!req.isMasterAdmin && !isTournamentOwner) {
+        return res.status(403).json({ error: "Access denied: master admin or tournament owner required" });
+      }
+
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Non-master-admin users must own the tournament
+      if (!req.isMasterAdmin) {
+        if (!req.sessionUser || tournament.userId !== req.sessionUser.userId) {
+          return res.status(403).json({ error: "Access denied: you do not own this tournament" });
+        }
+      }
+
+      const { email } = req.body;
+      if (typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ error: "A valid email address is required" });
+      }
+
+      const targetUser = await storage.getUserByEmail(email.trim());
+      if (!targetUser) {
+        return res.status(404).json({ error: `No user found with email "${email.trim()}"` });
+      }
+
+      if (targetUser.isBlocked) {
+        return res.status(400).json({ error: "Cannot transfer to a blocked user account" });
+      }
+
+      const updated = await storage.transferTournamentOwnership(tournamentId, targetUser.id);
+      if (!updated) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      console.log(`[AUDIT] Tournament ${tournamentId} (${tournament.name}) ownership transferred to user ${targetUser.id} (${targetUser.email})`);
+      res.json({ success: true, newOwnerEmail: targetUser.email, newOwnerDisplayName: targetUser.displayName });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to transfer tournament ownership" });
+      }
+    }
+  });
+
   app.delete("/api/tournaments/:id", async (req: any, res) => {
     try {
       // Require admin access for tournament deletion

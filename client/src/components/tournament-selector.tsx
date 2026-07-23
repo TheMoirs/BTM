@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,20 +43,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check, UserRoundCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament, lockedTournamentId } = useTournament();
   const { isReadOnly, isMasterAdmin } = useViewMode();
+  const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
   const [viewingCredentials, setViewingCredentials] = useState<Tournament | null>(null);
+  const [transferringTournament, setTransferringTournament] = useState<Tournament | null>(null);
+  const [transferEmail, setTransferEmail] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const { toast} = useToast();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isTournamentLocked = !!lockedTournamentId;
 
   const { data: tournaments } = useQuery<Tournament[]>({
@@ -83,6 +88,40 @@ export function TournamentSelector() {
     },
     enabled: !!deletingTournament,
   });
+
+  const { mutate: doTransfer, isPending: isTransferring } = useMutation<any, Error, { id: string; email: string }>({
+    mutationFn: async ({ id, email }) => {
+      const response = await apiRequest("PATCH", `/api/tournaments/${id}/transfer`, { email });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Transfer failed");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      const ownerName = data.newOwnerDisplayName || data.newOwnerEmail;
+      toast({
+        title: "Ownership transferred",
+        description: `Tournament is now owned by ${ownerName}.`,
+      });
+      setTransferringTournament(null);
+      setTransferEmail("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Transfer failed",
+        description: error.message,
+        variant: "destructive",
+        duration: Infinity,
+      });
+    },
+  });
+
+  const handleTransferOwnership = () => {
+    if (!transferringTournament || !transferEmail.trim()) return;
+    doTransfer({ id: transferringTournament.id, email: transferEmail.trim() });
+  };
 
   const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials, reset: resetCredentials } = useMutation<any, Error, string>({
     mutationFn: async (tournamentId: string) => {
@@ -492,56 +531,79 @@ export function TournamentSelector() {
                   <span className="text-xs text-muted-foreground">{getTournamentDetails(tournament)}</span>
                 </div>
               </div>
-              {isMasterAdmin && (
+              {(isMasterAdmin || (user && tournament.userId === user.id)) && (
                 <div className="flex gap-1 flex-shrink-0">
+                  {isMasterAdmin && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewAdminCredentials(tournament);
+                      }}
+                      data-testid={`button-admin-url-${tournament.id}`}
+                      title="View admin credentials"
+                    >
+                      <Link2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                  {isMasterAdmin && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingTournament(tournament);
+                        form.reset({
+                          name: tournament.name,
+                          description: tournament.description || "",
+                          numberOfDivisions: tournament.numberOfDivisions,
+                          gamesPerMatch: tournament.gamesPerMatch,
+                          hasQuarterFinals: tournament.hasQuarterFinals,
+                          hasSemiFinals: tournament.hasSemiFinals,
+                          hasFinals: tournament.hasFinals,
+                          pointsForWin: tournament.pointsForWin ?? 2,
+                          pointsForDraw: tournament.pointsForDraw ?? 1,
+                          pointsForLoss: tournament.pointsForLoss ?? 0,
+                        });
+                      }}
+                      data-testid={`button-edit-tournament-${tournament.id}`}
+                      title="Edit tournament settings"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  )}
                   <Button
                     size="icon"
                     variant="ghost"
                     className="h-6 w-6"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleViewAdminCredentials(tournament);
+                      setTransferEmail("");
+                      setTransferringTournament(tournament);
                     }}
-                    data-testid={`button-admin-url-${tournament.id}`}
+                    data-testid={`button-transfer-tournament-${tournament.id}`}
+                    title="Transfer ownership"
                   >
-                    <Link2 className="h-3 w-3" />
+                    <UserRoundCheck className="h-3 w-3" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingTournament(tournament);
-                      form.reset({
-                        name: tournament.name,
-                        description: tournament.description || "",
-                        numberOfDivisions: tournament.numberOfDivisions,
-                        gamesPerMatch: tournament.gamesPerMatch,
-                        hasQuarterFinals: tournament.hasQuarterFinals,
-                        hasSemiFinals: tournament.hasSemiFinals,
-                        hasFinals: tournament.hasFinals,
-                        pointsForWin: tournament.pointsForWin ?? 2,
-                        pointsForDraw: tournament.pointsForDraw ?? 1,
-                        pointsForLoss: tournament.pointsForLoss ?? 0,
-                      });
-                    }}
-                    data-testid={`button-edit-tournament-${tournament.id}`}
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeletingTournament(tournament);
-                    }}
-                    data-testid={`button-delete-tournament-${tournament.id}`}
-                  >
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                  {isMasterAdmin && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingTournament(tournament);
+                      }}
+                      data-testid={`button-delete-tournament-${tournament.id}`}
+                      title="Delete tournament"
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               )}
             </DropdownMenuItem>
@@ -981,6 +1043,62 @@ export function TournamentSelector() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!transferringTournament} onOpenChange={(open) => {
+        if (!open) {
+          setTransferringTournament(null);
+          setTransferEmail("");
+        }
+      }}>
+        <DialogContent data-testid="dialog-transfer-tournament">
+          <DialogHeader>
+            <DialogTitle>Transfer Ownership — {transferringTournament?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enter the email address of the user you want to transfer this tournament to. They must already have an account. The new owner will have full control over this tournament.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="transfer-email">New Owner's Email</label>
+              <Input
+                id="transfer-email"
+                type="email"
+                placeholder="user@example.com"
+                value={transferEmail}
+                onChange={(e) => setTransferEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleTransferOwnership()}
+                data-testid="input-transfer-email"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> This action immediately reassigns tournament ownership. The new owner can manage and delete this tournament. You will lose ownership but can still access it via your admin link.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setTransferringTournament(null);
+                  setTransferEmail("");
+                }}
+                className="flex-1"
+                data-testid="button-cancel-transfer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleTransferOwnership}
+                disabled={!transferEmail.trim() || isTransferring}
+                className="flex-1"
+                data-testid="button-confirm-transfer"
+              >
+                {isTransferring ? "Transferring..." : "Transfer Ownership"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewingCredentials} onOpenChange={(open) => {
         if (!open) {
