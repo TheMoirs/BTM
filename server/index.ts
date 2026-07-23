@@ -68,9 +68,46 @@ async function initializeDatabase() {
   }
 }
 
+async function migrateOrphanedTournaments() {
+  const client = await pool.connect();
+  try {
+    const tableCheck = await client.query(`
+      SELECT COUNT(*) as cnt FROM information_schema.columns
+      WHERE table_name = 'tournaments' AND column_name = 'user_id'
+    `);
+    if (parseInt(tableCheck.rows[0].cnt) === 0) {
+      log("Skipping orphaned tournament migration: user_id column not yet present");
+      return;
+    }
+    const userResult = await client.query(
+      "SELECT id FROM users WHERE email = $1",
+      ['ali@themoirs.co.uk']
+    );
+    if (userResult.rows.length === 0) {
+      log("Skipping orphaned tournament migration: ali@themoirs.co.uk not registered yet");
+      return;
+    }
+    const userId = userResult.rows[0].id;
+    const updateResult = await client.query(
+      "UPDATE tournaments SET user_id = $1 WHERE user_id IS NULL",
+      [userId]
+    );
+    if (updateResult.rowCount && updateResult.rowCount > 0) {
+      log(`Migrated ${updateResult.rowCount} orphaned tournament(s) to ali@themoirs.co.uk`);
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    log(`Warning: Could not migrate orphaned tournaments: ${msg}`);
+  } finally {
+    client.release();
+  }
+}
+
 (async () => {
   // Initialize database constraints
   await initializeDatabase();
+  // Assign any pre-existing tournaments (userId=null) to ali@themoirs.co.uk
+  await migrateOrphanedTournaments();
   
   const server = await registerRoutes(app);
 
