@@ -87,6 +87,17 @@ async function initializeDatabase() {
   }
 }
 
+async function ensureRulesPdfColumns() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf_data TEXT`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf_name TEXT`);
+    log("Database initialized: tournaments.rules_pdf columns ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureShortLinkTinyUrl() {
   const client = await pool.connect();
   try {
@@ -173,6 +184,7 @@ async function migrateOrphanedTournaments() {
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links
+  await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users
   await ensureClerkUserIdColumn();

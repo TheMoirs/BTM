@@ -6,7 +6,7 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Users, FileText } from "lucide-react";
 import { HelpDialog } from "@/components/help-dialog";
 import {
   Table,
@@ -220,6 +220,18 @@ export default function Leaderboard() {
             View Teams
           </Button>
         </Link>
+        {(currentTournament as any).rulesPdfName && (
+          <a
+            href={`/api/tournaments/${currentTournament.id}/rules`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline" data-testid="button-view-rules">
+              <FileText className="h-4 w-4 mr-1" />
+              View Rules
+            </Button>
+          </a>
+        )}
         {selectedTeamId && (
           <Button
             variant="secondary"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,7 +43,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check, UserRoundCheck, Users, X } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil, UserRoundCheck, Users, X, FileText, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -55,12 +55,13 @@ export function TournamentSelector() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
-  const [viewingCredentials, setViewingCredentials] = useState<Tournament | null>(null);
   const [transferringTournament, setTransferringTournament] = useState<Tournament | null>(null);
   const [transferEmail, setTransferEmail] = useState("");
   const [sharingTournament, setSharingTournament] = useState<Tournament | null>(null);
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [rulesFile, setRulesFile] = useState<File | null>(null);
+  const [isUploadingRules, setIsUploadingRules] = useState(false);
+  const rulesFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isTournamentLocked = !!lockedTournamentId;
@@ -173,21 +174,6 @@ export function TournamentSelector() {
     doTransfer({ id: transferringTournament.id, email: transferEmail.trim() });
   };
 
-  const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials, reset: resetCredentials } = useMutation<any, Error, string>({
-    mutationFn: async (tournamentId: string) => {
-      const response = await apiRequest("GET", `/api/tournaments/${tournamentId}/admin-credentials`);
-      return await response.json();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch admin credentials",
-        variant: "destructive",
-        duration: Infinity,
-      });
-    }
-  });
-
   const form = useForm<InsertTournament>({
     resolver: zodResolver(insertTournamentSchema),
     defaultValues: {
@@ -261,28 +247,52 @@ export function TournamentSelector() {
     }
   };
 
-  const handleViewAdminCredentials = (tournament: Tournament) => {
-    resetCredentials(); // Clear previous credentials
-    setViewingCredentials(tournament);
-    fetchAdminCredentials(tournament.id);
+  const handleUploadRules = async () => {
+    if (!editingTournament || !rulesFile) return;
+    setIsUploadingRules(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(rulesFile);
+      });
+      const response = await apiRequest("POST", `/api/tournaments/${editingTournament.id}/rules`, {
+        pdfData: base64,
+        pdfName: rulesFile.name,
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Upload failed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      setRulesFile(null);
+      // Refresh editingTournament so the filename shows immediately
+      setEditingTournament({ ...editingTournament, rulesPdfName: rulesFile.name } as any);
+      toast({ title: "Rules uploaded", description: `${rulesFile.name} has been saved.` });
+    } catch (error) {
+      toast({ title: "Upload failed", description: error instanceof Error ? error.message : "Failed to upload rules", variant: "destructive", duration: Infinity });
+    } finally {
+      setIsUploadingRules(false);
+    }
   };
 
-  const copyToClipboard = async (text: string, field: string) => {
+  const handleRemoveRules = async () => {
+    if (!editingTournament) return;
+    setIsUploadingRules(true);
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-      toast({
-        title: "Copied to clipboard",
-        description: `${field} has been copied.`,
-      });
+      const response = await apiRequest("DELETE", `/api/tournaments/${editingTournament.id}/rules`);
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Failed to remove rules");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      setEditingTournament({ ...editingTournament, rulesPdfName: null, rulesPdfData: null } as any);
+      toast({ title: "Rules removed" });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to copy to clipboard",
-        variant: "destructive",
-        duration: Infinity,
-      });
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to remove rules", variant: "destructive", duration: Infinity });
+    } finally {
+      setIsUploadingRules(false);
     }
   };
 
@@ -583,21 +593,6 @@ export function TournamentSelector() {
               </div>
               {(isMasterAdmin || (user && (tournament.userId === user.id || (tournament as any).isShared))) && (
                 <div className="flex gap-1 flex-shrink-0">
-                  {isMasterAdmin && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewAdminCredentials(tournament);
-                      }}
-                      data-testid={`button-admin-url-${tournament.id}`}
-                      title="View admin credentials"
-                    >
-                      <Link2 className="h-3 w-3" />
-                    </Button>
-                  )}
                   <Button
                     size="icon"
                     variant="ghost"
@@ -1044,12 +1039,83 @@ export function TournamentSelector() {
                 </div>
               </div>
 
+              {/* Rules PDF */}
+              <div className="space-y-2">
+                <FormLabel>Tournament Rules (PDF)</FormLabel>
+                {(editingTournament as any)?.rulesPdfName && !rulesFile && (
+                  <div className="flex items-center gap-2 p-2 rounded-md border bg-muted text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="flex-1 truncate">{(editingTournament as any).rulesPdfName}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-destructive hover:text-destructive"
+                      onClick={handleRemoveRules}
+                      disabled={isUploadingRules}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+                {rulesFile && (
+                  <div className="flex items-center gap-2 p-2 rounded-md border bg-muted text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="flex-1 truncate">{rulesFile.name}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-destructive hover:text-destructive"
+                      onClick={() => setRulesFile(null)}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    ref={rulesFileInputRef}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setRulesFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => rulesFileInputRef.current?.click()}
+                    disabled={isUploadingRules}
+                  >
+                    Browse…
+                  </Button>
+                  {rulesFile && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleUploadRules}
+                      disabled={isUploadingRules}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      {isUploadingRules ? "Uploading…" : "Upload PDF"}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Upload a PDF containing the tournament rules (max ~7 MB).</p>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
                     setEditingTournament(null);
+                    setRulesFile(null);
                     form.reset();
                   }}
                   className="flex-1"
@@ -1240,102 +1306,6 @@ export function TournamentSelector() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!viewingCredentials} onOpenChange={(open) => {
-        if (!open) {
-          setViewingCredentials(null);
-          resetCredentials();
-        }
-      }}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-admin-credentials">
-          <DialogHeader>
-            <DialogTitle>Admin Credentials - {viewingCredentials?.name}</DialogTitle>
-          </DialogHeader>
-          {isFetchingCredentials ? (
-            <div className="py-8 text-center text-muted-foreground">Loading credentials...</div>
-          ) : adminCredentials ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Admin URL (Full Access)</label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(adminCredentials.adminUrl, "Admin URL")}
-                    data-testid="button-copy-admin-url"
-                  >
-                    {copiedField === "Admin URL" ? (
-                      <>
-                        <Check className="h-3 w-3 mr-2" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-2" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <Textarea
-                  value={adminCredentials.adminUrl}
-                  readOnly
-                  className="font-mono text-xs resize-none"
-                  rows={2}
-                  data-testid="input-admin-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Share this URL with tournament administrators. They will have full control over this tournament.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">View-Only URL (Read Access)</label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(adminCredentials.viewUrl, "View-Only URL")}
-                    data-testid="button-copy-view-url"
-                  >
-                    {copiedField === "View-Only URL" ? (
-                      <>
-                        <Check className="h-3 w-3 mr-2" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-2" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <Textarea
-                  value={adminCredentials.viewUrl}
-                  readOnly
-                  className="font-mono text-xs resize-none"
-                  rows={2}
-                  data-testid="input-view-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Share this URL with viewers. They can see tournament data but cannot make changes.
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setViewingCredentials(null)}
-                  className="flex-1"
-                  data-testid="button-close-credentials"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

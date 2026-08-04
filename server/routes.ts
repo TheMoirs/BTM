@@ -605,6 +605,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Rules PDF endpoints
+  app.post("/api/tournaments/:id/rules", async (req: any, res) => {
+    try {
+      if (!req.isAdminAccess) return res.status(403).json({ error: "Access denied" });
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin) {
+        const isOwner = tournament.userId === req.sessionUser?.userId;
+        const isCollab = !isOwner && await storage.isCollaborator(req.params.id, req.sessionUser?.userId);
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+      const { pdfData, pdfName } = req.body;
+      if (!pdfData || !pdfName) return res.status(400).json({ error: "pdfData and pdfName are required" });
+      if (typeof pdfData !== "string" || pdfData.length > 14_000_000) {
+        return res.status(400).json({ error: "PDF too large (max ~7MB)" });
+      }
+      await storage.updateTournamentRules(req.params.id, pdfData, pdfName);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save rules PDF" });
+    }
+  });
+
+  app.get("/api/tournaments/:id/rules", async (req: any, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament || !tournament.rulesPdfData) return res.status(404).json({ error: "No rules PDF found" });
+      const pdf = Buffer.from(tournament.rulesPdfData, "base64");
+      const filename = tournament.rulesPdfName || "rules.pdf";
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+      res.setHeader("Content-Length", pdf.length);
+      res.send(pdf);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to retrieve rules PDF" });
+    }
+  });
+
+  app.delete("/api/tournaments/:id/rules", async (req: any, res) => {
+    try {
+      if (!req.isAdminAccess) return res.status(403).json({ error: "Access denied" });
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin) {
+        const isOwner = tournament.userId === req.sessionUser?.userId;
+        const isCollab = !isOwner && await storage.isCollaborator(req.params.id, req.sessionUser?.userId);
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.clearTournamentRules(req.params.id);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove rules PDF" });
+    }
+  });
+
   app.post("/api/tournaments/:id/regenerate-token", async (req: any, res) => {
     try {
       // Require admin access or master admin for token regeneration

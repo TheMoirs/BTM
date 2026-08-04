@@ -42,11 +42,13 @@ export const tournaments = pgTable("tournaments", {
   pointsForLoss: integer("points_for_loss").notNull().default(0),
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
+  rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
+  rulesPdfName: text("rules_pdf_name"),   // original filename
   createdAt: timestamp("created_at").notNull().defaultNow(),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),

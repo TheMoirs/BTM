@@ -66,6 +66,10 @@ export interface IStorage {
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
 
+  // Rules PDF methods
+  updateTournamentRules(id: string, pdfData: string, pdfName: string): Promise<void>;
+  clearTournamentRules(id: string): Promise<void>;
+
   // Collaborator methods
   addCollaborator(tournamentId: string, userId: string): Promise<void>;
   removeCollaborator(tournamentId: string, userId: string): Promise<boolean>;
@@ -115,6 +119,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tournaments.id, id))
       .returning();
     return updatedTournament || undefined;
+  }
+
+  async updateTournamentRules(id: string, pdfData: string, pdfName: string): Promise<void> {
+    await db.update(tournaments).set({ rulesPdfData: pdfData, rulesPdfName: pdfName }).where(eq(tournaments.id, id));
+  }
+
+  async clearTournamentRules(id: string): Promise<void> {
+    await db.update(tournaments).set({ rulesPdfData: null, rulesPdfName: null }).where(eq(tournaments.id, id));
   }
 
   async transferTournamentOwnership(id: string, newUserId: string | null): Promise<Tournament | undefined> {
