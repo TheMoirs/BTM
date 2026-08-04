@@ -128,7 +128,7 @@ export function Navigation() {
           {/* Top Row: Title + Auth buttons */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <img src="/btm-logo.png" alt="BTM" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
+              <img src="/btm-logo.png" alt="BTM" className="h-10 w-10 rounded-md object-cover flex-shrink-0" />
               <h1 className="text-lg sm:text-xl font-semibold text-foreground">
                 Boules Tournament Manager
               </h1>
