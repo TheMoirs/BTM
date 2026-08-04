@@ -50,15 +50,20 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     // Don't remove tokens when URL doesn't have one - tokens persist across navigation
   }, [location]);
 
-  // Query the server to check actual access level
+  // Query the server to check actual access level.
+  // viewToken is included in the key so that switching between "no token" (admin
+  // session) and "view token" (share-link) always triggers a fresh fetch and is
+  // never served from the stale admin-session cache entry.
   const { data: accessLevel } = useQuery<{
     isMasterAdmin: boolean;
     isAdminAccess: boolean;
     isViewOnlyAccess: boolean;
     tournamentId: string | null;
   }>({
-    queryKey: ['/api/auth/check-access'],
-    enabled: true,
+    queryKey: ['/api/auth/check-access', viewToken],
+    // Wait until mounted so viewToken is read from the real URL / sessionStorage,
+    // not the pre-mount null placeholder.
+    enabled: mounted,
   });
 
   const isMasterAdmin = accessLevel?.isMasterAdmin ?? false;
