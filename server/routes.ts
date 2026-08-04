@@ -5,6 +5,7 @@ import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTour
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
+import { getAuth, clerkClient } from "@clerk/express";
 import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
 
@@ -90,21 +91,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success: true });
   });
 
-  app.patch("/api/auth/profile", async (req, res) => {
+  app.patch("/api/auth/profile", async (req: any, res) => {
     try {
-      const session = getSessionFromRequest(req);
-      if (!session) return res.status(401).json({ error: "Not authenticated" });
+      const { userId: clerkUserId } = getAuth(req);
+      let targetUser: Awaited<ReturnType<typeof storage.getUserById>>;
+
+      if (clerkUserId) {
+        targetUser = await storage.getUserByClerkId(clerkUserId);
+      } else {
+        const session = getSessionFromRequest(req);
+        if (!session) return res.status(401).json({ error: "Not authenticated" });
+        targetUser = await storage.getUserById(session.userId);
+      }
+
+      if (!targetUser || targetUser.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
 
       const { displayName } = req.body;
       const trimmed = typeof displayName === "string" ? displayName.trim() : null;
 
-      const user = await storage.getUserById(session.userId);
-      if (!user || user.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
-
-      const updated = await storage.updateUserProfile(user.id, trimmed || null);
+      const updated = await storage.updateUserProfile(targetUser.id, trimmed || null);
       if (!updated) return res.status(500).json({ error: "Failed to update profile" });
 
-      setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
+      // Only refresh legacy cookie when not using Clerk
+      if (!clerkUserId) {
+        setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
+      }
       console.log(`[AUTH] Display name updated for: ${updated.email}`);
       res.json({ user: { id: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin } });
     } catch (error) {
@@ -138,8 +149,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/user", async (req, res) => {
+  app.get("/api/auth/user", async (req: any, res) => {
     try {
+      // Check Clerk session first
+      const { userId: clerkUserId } = getAuth(req);
+      if (clerkUserId) {
+        let user = await storage.getUserByClerkId(clerkUserId);
+        if (!user) {
+          // JIT provision on first /api/auth/user call after social sign-in
+          try {
+            const clerkUser = await clerkClient.users.getUser(clerkUserId);
+            const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase();
+            const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null;
+            if (email) {
+              user = await storage.getUserByEmail(email) ?? undefined;
+              if (user) {
+                if (!user.clerkUserId) await storage.updateUserClerkId(user.id, clerkUserId);
+              } else {
+                try {
+                  user = await storage.createUserFromClerk(email, clerkUserId, displayName, email === SYSTEM_ADMIN_EMAIL);
+                } catch {
+                  user = await storage.getUserByEmail(email) ?? undefined;
+                }
+              }
+            }
+          } catch (e) {
+            console.error('[CLERK] JIT provision in /api/auth/user:', e);
+          }
+        }
+        if (user && !user.isBlocked) {
+          return res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+        }
+        return res.json({ user: null });
+      }
+      // Legacy cookie fallback
       const session = getSessionFromRequest(req);
       if (!session) return res.json({ user: null });
       const user = await storage.getUserById(session.userId);

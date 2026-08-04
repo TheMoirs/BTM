@@ -55,7 +55,10 @@ export interface IStorage {
   // User methods
   getUserById(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
   createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
+  createUserFromClerk(email: string, clerkUserId: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
+  updateUserClerkId(id: string, clerkUserId: string): Promise<void>;
   getAllUsers(): Promise<User[]>;
   setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
   updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined>;
@@ -887,6 +890,11 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByClerkId(clerkUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.clerkUserId, clerkUserId));
+    return user || undefined;
+  }
+
   async createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User> {
     const [user] = await db.insert(users).values({
       email: email.toLowerCase(),
@@ -896,6 +904,22 @@ export class DatabaseStorage implements IStorage {
       isBlocked: false,
     }).returning();
     return user;
+  }
+
+  async createUserFromClerk(email: string, clerkUserId: string, displayName: string | null, isSystemAdmin: boolean): Promise<User> {
+    const [user] = await db.insert(users).values({
+      email: email.toLowerCase(),
+      passwordHash: '__CLERK_AUTH__',
+      displayName,
+      isSystemAdmin,
+      isBlocked: false,
+      clerkUserId,
+    }).returning();
+    return user;
+  }
+
+  async updateUserClerkId(id: string, clerkUserId: string): Promise<void> {
+    await db.update(users).set({ clerkUserId }).where(eq(users.id, id));
   }
 
   async getAllUsers(): Promise<User[]> {

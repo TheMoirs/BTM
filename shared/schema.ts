@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   isSystemAdmin: boolean("is_system_admin").notNull().default(false),
   isBlocked: boolean("is_blocked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  clerkUserId: text("clerk_user_id"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

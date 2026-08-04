@@ -1,12 +1,21 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
+import cors from "cors";
+import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
 
 const app = express();
+
+// Clerk proxy must come before body parsers (streams raw bytes)
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
 app.use(cookieParser());
+app.use(cors({ credentials: true, origin: true }));
 
 declare module 'http' {
   interface IncomingMessage {
@@ -20,6 +29,16 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Clerk middleware — must come after body parsers and before routes
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  }))
+);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -76,6 +95,19 @@ async function ensureShortLinkTinyUrl() {
   } catch (error) {
     const msg = error instanceof Error ? error.message : JSON.stringify(error);
     log(`Warning: Could not add tiny_url column: ${msg}`);
+  } finally {
+    client.release();
+  }
+}
+
+async function ensureClerkUserIdColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_user_id TEXT`);
+    log("Database initialized: users.clerk_user_id column ensured");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    log(`Warning: Could not add clerk_user_id column: ${msg}`);
   } finally {
     client.release();
   }
@@ -142,6 +174,8 @@ async function migrateOrphanedTournaments() {
   await initializeDatabase();
   // Ensure tiny_url column on short_links
   await ensureShortLinkTinyUrl();
+  // Ensure Clerk user ID column on users
+  await ensureClerkUserIdColumn();
   // Ensure collaborators table exists
   await ensureCollaboratorsTable();
   // Assign any pre-existing tournaments (userId=null) to ali@themoirs.co.uk

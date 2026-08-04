@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
+import { useUser, useClerk } from "@clerk/react";
 
 export interface AuthUser {
   id: string;
@@ -10,67 +11,60 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (displayName: string | null) => Promise<{ success: boolean; error?: string }>;
+  // Kept for API compatibility — auth is now handled by Clerk's UI
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const { signOut } = useClerk();
+  const [localUser, setLocalUser] = useState<AuthUser | null>(null);
+  const [localLoading, setLocalLoading] = useState(true);
+  const prevClerkUserIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
+    if (!clerkLoaded) return;
+
+    if (!clerkUser) {
+      setLocalUser(null);
+      setLocalLoading(false);
+      prevClerkUserIdRef.current = undefined;
+      return;
+    }
+
+    // Only re-fetch if the Clerk user ID actually changed
+    if (prevClerkUserIdRef.current === clerkUser.id) return;
+    prevClerkUserIdRef.current = clerkUser.id;
+
+    setLocalLoading(true);
     fetch("/api/auth/user", { credentials: "include" })
       .then(r => r.ok ? r.json() : null)
-      .then(data => setUser(data?.user ?? null))
-      .catch(() => setUser(null))
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUser(data.user);
-        return { success: true };
-      }
-      return { success: false, error: data.error || "Login failed" };
-    } catch {
-      return { success: false, error: "Network error" };
-    }
-  };
-
-  const register = async (email: string, password: string, displayName?: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password, displayName }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUser(data.user);
-        return { success: true };
-      }
-      return { success: false, error: data.error || "Registration failed" };
-    } catch {
-      return { success: false, error: "Network error" };
-    }
-  };
+      .then(data => setLocalUser(data?.user ?? null))
+      .catch(() => setLocalUser(null))
+      .finally(() => setLocalLoading(false));
+  }, [clerkUser?.id, clerkLoaded]);
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    setUser(null);
+    await signOut();
+    setLocalUser(null);
+    prevClerkUserIdRef.current = undefined;
+    // Clear legacy cookie if present (no-op if not set)
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+  };
+
+  const login = async (_email: string, _password: string): Promise<{ success: boolean; error?: string }> => {
+    // Email/password is now handled by Clerk's <SignIn> component
+    return { success: false, error: "Please use the sign-in form" };
+  };
+
+  const register = async (_email: string, _password: string, _displayName?: string): Promise<{ success: boolean; error?: string }> => {
+    // Registration is now handled by Clerk's <SignUp> component
+    return { success: false, error: "Please use the sign-up form" };
   };
 
   const updateProfile = async (displayName: string | null): Promise<{ success: boolean; error?: string }> => {
@@ -83,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (res.ok) {
-        setUser(data.user);
+        setLocalUser(data.user);
         return { success: true };
       }
       return { success: false, error: data.error || "Failed to update profile" };
@@ -93,7 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{
+      user: localUser,
+      isLoading: !clerkLoaded || localLoading,
+      login,
+      register,
+      logout,
+      updateProfile,
+    }}>
       {children}
     </AuthContext.Provider>
   );

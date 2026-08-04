@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
+import { getAuth, clerkClient } from "@clerk/express";
 import { storage } from "./storage";
-import { getSessionFromRequest, clearAuthCookie } from "./sessionAuth";
+import { getSessionFromRequest, clearAuthCookie, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
 
 export interface SessionUser {
   userId: string;
@@ -17,11 +18,54 @@ export interface TokenRequest extends Request {
   sessionUser?: SessionUser;
 }
 
+async function jitProvisionClerkUser(clerkUserId: string) {
+  try {
+    const clerkUser = await clerkClient.users.getUser(clerkUserId);
+    const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase();
+    const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null;
+    if (!email) return null;
+    let user = await storage.getUserByEmail(email);
+    if (user) {
+      if (!user.clerkUserId) await storage.updateUserClerkId(user.id, clerkUserId);
+      return user;
+    }
+    try {
+      return await storage.createUserFromClerk(email, clerkUserId, displayName, email === SYSTEM_ADMIN_EMAIL);
+    } catch {
+      return await storage.getUserByEmail(email) ?? null;
+    }
+  } catch (e) {
+    console.error('[CLERK] JIT provision error:', e);
+    return null;
+  }
+}
+
 export async function validateTokenMiddleware(
   req: TokenRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  // ── 0. Check Clerk session (social / email via Clerk) ──────────────────
+  const { userId: clerkUserId } = getAuth(req as any);
+  if (clerkUserId) {
+    let user = await storage.getUserByClerkId(clerkUserId);
+    if (!user) user = await jitProvisionClerkUser(clerkUserId) ?? undefined;
+    if (user) {
+      if (user.isBlocked) {
+        res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+        return;
+      }
+      req.sessionUser = { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin };
+      if (user.isSystemAdmin) {
+        req.isMasterAdmin = true;
+        req.isAdminAccess = true;
+        req.isViewOnlyAccess = false;
+        next();
+        return;
+      }
+    }
+  }
+
   // ── 1. Check session cookie (email-based login) ────────────────────────
   const session = getSessionFromRequest(req);
   if (session) {
