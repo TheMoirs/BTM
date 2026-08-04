@@ -50,6 +50,7 @@ export interface IStorage {
   createShortLink(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink>;
   getShortLinkByCode(code: string): Promise<ShortLink | undefined>;
   getShortLinkForTournament(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink | undefined>;
+  updateShortLinkTinyUrl(id: string, tinyUrl: string): Promise<void>;
 
   // User methods
   getUserById(id: string): Promise<User | undefined>;
@@ -869,6 +870,10 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return shortLink || undefined;
+  }
+
+  async updateShortLinkTinyUrl(id: string, tinyUrl: string): Promise<void> {
+    await db.update(shortLinks).set({ tinyUrl }).where(eq(shortLinks.id, id));
   }
 
   // ── User methods ───────────────────────────────────────────────────────────

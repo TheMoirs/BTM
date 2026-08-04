@@ -613,13 +613,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shortLink = await storage.createShortLink(tournamentId, safeAccessType, targetPage);
       }
       
-      // Build the short URL
+      // Build the internal short URL
       const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const shortUrl = `${baseUrl}/s/${shortLink.code}`;
-      
+      const internalUrl = `${baseUrl}/s/${shortLink.code}`;
+
+      // Return a cached TinyURL if available, otherwise fetch one and cache it
+      let shareUrl = shortLink.tinyUrl || null;
+      if (!shareUrl) {
+        try {
+          const tinyRes = await fetch(
+            `https://tinyurl.com/api-create.php?url=${encodeURIComponent(internalUrl)}`,
+            { signal: AbortSignal.timeout(5000) }
+          );
+          const tinyText = (await tinyRes.text()).trim();
+          if (tinyText.startsWith('https://tinyurl.com/')) {
+            shareUrl = tinyText;
+            // Cache it so future requests skip the TinyURL call
+            await storage.updateShortLinkTinyUrl(shortLink.id, shareUrl);
+          }
+        } catch (err) {
+          console.warn('[SHORT_LINK] TinyURL fetch failed, falling back to internal URL:', err);
+        }
+      }
+      if (!shareUrl) shareUrl = internalUrl; // fallback if TinyURL unavailable
+
       res.json({ 
         code: shortLink.code,
-        shortUrl,
+        shortUrl: shareUrl,
         targetPage: shortLink.targetPage
       });
     } catch (error) {

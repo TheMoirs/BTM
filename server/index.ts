@@ -68,6 +68,19 @@ async function initializeDatabase() {
   }
 }
 
+async function ensureShortLinkTinyUrl() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE short_links ADD COLUMN IF NOT EXISTS tiny_url TEXT`);
+    log("Database initialized: short_links.tiny_url column ensured");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    log(`Warning: Could not add tiny_url column: ${msg}`);
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureCollaboratorsTable() {
   const client = await pool.connect();
   try {
@@ -127,6 +140,8 @@ async function migrateOrphanedTournaments() {
 (async () => {
   // Initialize database constraints
   await initializeDatabase();
+  // Ensure tiny_url column on short_links
+  await ensureShortLinkTinyUrl();
   // Ensure collaborators table exists
   await ensureCollaboratorsTable();
   // Assign any pre-existing tournaments (userId=null) to ali@themoirs.co.uk

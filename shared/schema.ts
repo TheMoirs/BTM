@@ -191,6 +191,7 @@ export const shortLinks = pgTable("short_links", {
   accessType: text("access_type").notNull().default("view"), // 'view' or 'admin'
   targetPage: text("target_page").notNull().default("leaderboard"), // 'leaderboard', 'teams', etc.
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  tinyUrl: text("tiny_url"), // cached external short URL (hides Replit domain for email sharing)
 });
 
 export const insertShortLinkSchema = createInsertSchema(shortLinks).omit({ id: true, createdAt: true }).extend({
