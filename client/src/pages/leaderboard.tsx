@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users } from "lucide-react";
@@ -33,6 +34,7 @@ const statusLabels = {
 
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
+  const { viewToken } = useViewMode();
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
@@ -206,7 +208,7 @@ export default function Leaderboard() {
         >
           All Match Results
         </Button>
-        <Link href="/teams">
+        <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
           <Button
             variant="outline"
             data-testid="button-view-teams"

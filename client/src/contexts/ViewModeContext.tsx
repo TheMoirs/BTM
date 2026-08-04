@@ -50,25 +50,53 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
     // Don't remove tokens when URL doesn't have one - tokens persist across navigation
   }, [location]);
 
-  // Query the server to check actual access level.
-  // viewToken is included in the key so that switching between "no token" (admin
-  // session) and "view token" (share-link) always triggers a fresh fetch and is
-  // never served from the stale admin-session cache entry.
+  // Query the server to check actual access level (sent WITH session cookie).
+  // Uses a custom queryFn so the viewToken is appended as a ?token= query
+  // parameter — NOT joined into the path (which is what the default getQueryFn
+  // would do with a two-element key like [url, token]).
+  // The key includes viewToken so a different token always triggers a fresh fetch
+  // and is never served from a stale admin-session cache entry.
   const { data: accessLevel } = useQuery<{
     isMasterAdmin: boolean;
     isAdminAccess: boolean;
     isViewOnlyAccess: boolean;
     tournamentId: string | null;
   }>({
-    queryKey: ['/api/auth/check-access', viewToken],
-    // Wait until mounted so viewToken is read from the real URL / sessionStorage,
-    // not the pre-mount null placeholder.
+    queryKey: ['check-access-session', viewToken],
+    queryFn: async () => {
+      const url = viewToken
+        ? `/api/auth/check-access?token=${encodeURIComponent(viewToken)}`
+        : '/api/auth/check-access';
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) return null;
+      return res.json();
+    },
     enabled: mounted,
+    staleTime: Infinity,
   });
 
+  // Token-only check (WITHOUT the session cookie) so that a logged-in admin
+  // who visits a view-only share link still gets isViewOnlyAccess:true.
+  // The middleware returns early with admin access for session users, which masks
+  // the token type in the session-based query above.
+  const [isTokenViewOnly, setIsTokenViewOnly] = useState(false);
+  useEffect(() => {
+    if (!viewToken || !mounted) {
+      setIsTokenViewOnly(false);
+      return;
+    }
+    fetch(`/api/auth/check-access?token=${encodeURIComponent(viewToken)}`, {
+      credentials: 'omit', // no session cookie — pure token check
+    })
+      .then(r => r.json())
+      .then(data => setIsTokenViewOnly(!!data.isViewOnlyAccess))
+      .catch(() => setIsTokenViewOnly(false));
+  }, [viewToken, mounted]);
+
   const isMasterAdmin = accessLevel?.isMasterAdmin ?? false;
-  // isReadOnly should be true ONLY if we have view-only access (not admin or master admin)
-  const isReadOnly = accessLevel?.isViewOnlyAccess ?? false;
+  // isReadOnly: true when the session reports view-only access OR when the token
+  // itself (checked without session) is a view token — covers system admins too.
+  const isReadOnly = isTokenViewOnly || (accessLevel?.isViewOnlyAccess ?? false);
 
   const getShareableLink = (tournament: Tournament, token?: string) => {
     // Use provided token, or fall back to stored viewToken, or tournament.viewToken

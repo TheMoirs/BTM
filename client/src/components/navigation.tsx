@@ -116,6 +116,7 @@ export function Navigation() {
       ];
 
   const getPathWithQuery = (path: string) => {
+    if (isReadOnly && viewToken) return `${path}?token=${encodeURIComponent(viewToken)}&view=readonly`;
     if (isReadOnly) return `${path}?view=readonly`;
     return path;
   };

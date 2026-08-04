@@ -75,8 +75,10 @@ function AppContent() {
 
   useEffect(() => {
     if (!urlToken) { setUrlTokenIsView(false); return; }
-    // Forward the full query string so the token middleware can validate the token type
-    fetch(`/api/auth/check-access${window.location.search}`, { credentials: "include" })
+    // Check token type WITHOUT the session cookie so that even a logged-in admin
+    // gets isViewOnlyAccess:true for a view token (the middleware early-returns
+    // admin access for session users, which would mask the token type).
+    fetch(`/api/auth/check-access${window.location.search}`, { credentials: "omit" })
       .then(r => r.json())
       .then(data => setUrlTokenIsView(!!data.isViewOnlyAccess))
       .catch(() => setUrlTokenIsView(false));
