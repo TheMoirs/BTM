@@ -16,13 +16,15 @@ export default function SignInPage() {
       </div>
 
       {/* Clerk sign-in — routing="path" is required for OAuth callbacks */}
-      <SignIn
-        routing="path"
-        path={`${basePath}/sign-in`}
-        signUpUrl={`${basePath}/sign-up`}
-        forceRedirectUrl={`${basePath}/teams`}
-        appearance={clerkAppearance}
-      />
+      <div className="flex justify-center w-full">
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up`}
+          forceRedirectUrl={`${basePath}/teams`}
+          appearance={clerkAppearance}
+        />
+      </div>
     </div>
   );
 }
