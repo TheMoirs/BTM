@@ -43,7 +43,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check, UserRoundCheck } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check, UserRoundCheck, Users, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -58,6 +58,8 @@ export function TournamentSelector() {
   const [viewingCredentials, setViewingCredentials] = useState<Tournament | null>(null);
   const [transferringTournament, setTransferringTournament] = useState<Tournament | null>(null);
   const [transferEmail, setTransferEmail] = useState("");
+  const [sharingTournament, setSharingTournament] = useState<Tournament | null>(null);
+  const [collaboratorEmail, setCollaboratorEmail] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -87,6 +89,54 @@ export function TournamentSelector() {
       };
     },
     enabled: !!deletingTournament,
+  });
+
+  // Fetch collaborators when sharing dialog is open
+  const { data: collaborators = [], refetch: refetchCollaborators } = useQuery<any[]>({
+    queryKey: ["/api/tournaments", sharingTournament?.id, "collaborators"],
+    queryFn: async () => {
+      if (!sharingTournament) return [];
+      const res = await apiRequest("GET", `/api/tournaments/${sharingTournament.id}/collaborators`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!sharingTournament,
+  });
+
+  const { mutate: doAddCollaborator, isPending: isAddingCollaborator } = useMutation<any, Error, { tournamentId: string; email: string }>({
+    mutationFn: async ({ tournamentId, email }) => {
+      const response = await apiRequest("POST", `/api/tournaments/${tournamentId}/collaborators`, { email });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Failed to add co-editor");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setCollaboratorEmail("");
+      refetchCollaborators();
+      toast({ title: "Co-editor added", description: "They can now manage this tournament." });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to add co-editor", description: error.message, variant: "destructive", duration: Infinity });
+    },
+  });
+
+  const { mutate: doRemoveCollaborator } = useMutation<any, Error, { tournamentId: string; userId: string }>({
+    mutationFn: async ({ tournamentId, userId }) => {
+      const response = await apiRequest("DELETE", `/api/tournaments/${tournamentId}/collaborators/${userId}`);
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Failed to remove co-editor");
+      }
+    },
+    onSuccess: () => {
+      refetchCollaborators();
+      toast({ title: "Co-editor removed" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to remove co-editor", description: error.message, variant: "destructive", duration: Infinity });
+    },
   });
 
   const { mutate: doTransfer, isPending: isTransferring } = useMutation<any, Error, { id: string; email: string }>({
@@ -531,7 +581,7 @@ export function TournamentSelector() {
                   <span className="text-xs text-muted-foreground">{getTournamentDetails(tournament)}</span>
                 </div>
               </div>
-              {(isMasterAdmin || (user && tournament.userId === user.id)) && (
+              {(isMasterAdmin || (user && (tournament.userId === user.id || (tournament as any).isShared))) && (
                 <div className="flex gap-1 flex-shrink-0">
                   {isMasterAdmin && (
                     <Button
@@ -573,33 +623,52 @@ export function TournamentSelector() {
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTransferEmail("");
-                      setTransferringTournament(tournament);
-                    }}
-                    data-testid={`button-transfer-tournament-${tournament.id}`}
-                    title="Transfer ownership"
-                  >
-                    <UserRoundCheck className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeletingTournament(tournament);
-                    }}
-                    data-testid={`button-delete-tournament-${tournament.id}`}
-                    title="Delete tournament"
-                  >
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                  {/* Share / co-editors — owner and master admin only, not collaborators */}
+                  {(isMasterAdmin || (user && tournament.userId === user.id)) && (
+                    <>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCollaboratorEmail("");
+                          setSharingTournament(tournament);
+                        }}
+                        data-testid={`button-share-tournament-${tournament.id}`}
+                        title="Share tournament (add co-editors)"
+                      >
+                        <Users className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTransferEmail("");
+                          setTransferringTournament(tournament);
+                        }}
+                        data-testid={`button-transfer-tournament-${tournament.id}`}
+                        title="Transfer ownership"
+                      >
+                        <UserRoundCheck className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingTournament(tournament);
+                        }}
+                        data-testid={`button-delete-tournament-${tournament.id}`}
+                        title="Delete tournament"
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </DropdownMenuItem>
@@ -1091,6 +1160,81 @@ export function TournamentSelector() {
               >
                 {isTransferring ? "Transferring..." : "Transfer Ownership"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Tournament / Co-editors dialog */}
+      <Dialog open={!!sharingTournament} onOpenChange={(open) => {
+        if (!open) { setSharingTournament(null); setCollaboratorEmail(""); }
+      }}>
+        <DialogContent data-testid="dialog-share-tournament">
+          <DialogHeader>
+            <DialogTitle>Co-editors — {sharingTournament?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Co-editors can add teams, manage matches, and update results. They cannot delete the tournament or manage co-editors.
+            </p>
+
+            {/* Add co-editor */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Add co-editor by email</label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="user@example.com"
+                  value={collaboratorEmail}
+                  onChange={(e) => setCollaboratorEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && sharingTournament && collaboratorEmail.trim()) {
+                      doAddCollaborator({ tournamentId: sharingTournament.id, email: collaboratorEmail.trim() });
+                    }
+                  }}
+                  data-testid="input-collaborator-email"
+                />
+                <Button
+                  type="button"
+                  disabled={!collaboratorEmail.trim() || isAddingCollaborator}
+                  onClick={() => sharingTournament && doAddCollaborator({ tournamentId: sharingTournament.id, email: collaboratorEmail.trim() })}
+                  data-testid="button-add-collaborator"
+                >
+                  {isAddingCollaborator ? "Adding…" : "Add"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Current co-editors list */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Current co-editors</label>
+              {collaborators.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No co-editors yet.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {collaborators.map((c: any) => (
+                    <li key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                      <div>
+                        <span className="font-medium">{c.displayName || c.email}</span>
+                        {c.displayName && <span className="ml-2 text-muted-foreground text-xs">{c.email}</span>}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => sharingTournament && doRemoveCollaborator({ tournamentId: sharingTournament.id, userId: c.id })}
+                        title="Remove co-editor"
+                      >
+                        <X className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setSharingTournament(null)} className="flex-1">Close</Button>
             </div>
           </div>
         </DialogContent>

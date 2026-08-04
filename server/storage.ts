@@ -1,4 +1,4 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users } from "@shared/schema";
+import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
@@ -61,6 +61,13 @@ export interface IStorage {
   updateUserProfile(id: string, displayName: string | null): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
+
+  // Collaborator methods
+  addCollaborator(tournamentId: string, userId: string): Promise<void>;
+  removeCollaborator(tournamentId: string, userId: string): Promise<boolean>;
+  getCollaborators(tournamentId: string): Promise<User[]>;
+  isCollaborator(tournamentId: string, userId: string): Promise<boolean>;
+  getTournamentsSharedWithUserId(userId: string): Promise<Tournament[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -912,6 +919,46 @@ export class DatabaseStorage implements IStorage {
 
   async getTournamentsByUserId(userId: string): Promise<Tournament[]> {
     return await db.select().from(tournaments).where(eq(tournaments.userId, userId)).orderBy(desc(tournaments.createdAt));
+  }
+
+  async getTournamentsSharedWithUserId(userId: string): Promise<Tournament[]> {
+    const rows = await db
+      .select({ tournament: tournaments })
+      .from(tournamentCollaborators)
+      .innerJoin(tournaments, eq(tournamentCollaborators.tournamentId, tournaments.id))
+      .where(eq(tournamentCollaborators.userId, userId))
+      .orderBy(desc(tournaments.createdAt));
+    return rows.map(r => r.tournament);
+  }
+
+  async addCollaborator(tournamentId: string, userId: string): Promise<void> {
+    await db.insert(tournamentCollaborators).values({ tournamentId, userId }).onConflictDoNothing();
+  }
+
+  async removeCollaborator(tournamentId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(tournamentCollaborators)
+      .where(and(eq(tournamentCollaborators.tournamentId, tournamentId), eq(tournamentCollaborators.userId, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getCollaborators(tournamentId: string): Promise<User[]> {
+    const rows = await db
+      .select({ user: users })
+      .from(tournamentCollaborators)
+      .innerJoin(users, eq(tournamentCollaborators.userId, users.id))
+      .where(eq(tournamentCollaborators.tournamentId, tournamentId))
+      .orderBy(tournamentCollaborators.createdAt);
+    return rows.map(r => r.user);
+  }
+
+  async isCollaborator(tournamentId: string, userId: string): Promise<boolean> {
+    const [row] = await db
+      .select()
+      .from(tournamentCollaborators)
+      .where(and(eq(tournamentCollaborators.tournamentId, tournamentId), eq(tournamentCollaborators.userId, userId)));
+    return !!row;
   }
 
   private generateShortCode(): string {

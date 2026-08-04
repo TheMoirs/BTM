@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result } from "@shared/schema";
+import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result, type Tournament } from "@shared/schema";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
@@ -222,9 +222,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { viewToken, adminToken, ...withoutTokens } = t;
         res.json([withoutTokens]);
       } else if (req.sessionUser) {
-        // Logged-in regular user sees their own tournaments
-        const ts = await storage.getTournamentsByUserId(req.sessionUser.userId);
-        res.json(ts.map(({ adminToken, viewToken, ...t }) => t));
+        // Logged-in regular user sees owned + shared-with-them tournaments
+        const [owned, shared] = await Promise.all([
+          storage.getTournamentsByUserId(req.sessionUser.userId),
+          storage.getTournamentsSharedWithUserId(req.sessionUser.userId),
+        ]);
+        // Deduplicate by id, mark shared ones
+        const seen = new Set<string>();
+        const all: Array<Omit<Tournament, 'adminToken' | 'viewToken'> & { isShared?: boolean }> = [];
+        for (const t of owned) {
+          if (!seen.has(t.id)) { seen.add(t.id); const { adminToken, viewToken, ...rest } = t; all.push(rest); }
+        }
+        for (const t of shared) {
+          if (!seen.has(t.id)) { seen.add(t.id); const { adminToken, viewToken, ...rest } = t; all.push({ ...rest, isShared: true }); }
+        }
+        res.json(all);
       } else {
         // No auth — empty list
         res.json([]);
@@ -313,10 +325,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (req.tokenTournamentId && req.params.id !== req.tokenTournamentId) {
           return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
         }
-        // Session-based access: user must own this tournament
+        // Session-based access: user must own or be a collaborator on this tournament
         if (req.sessionUser && !req.tokenTournamentId) {
           const tournament = await storage.getTournament(req.params.id);
-          if (!tournament || tournament.userId !== req.sessionUser.userId) {
+          if (!tournament) {
+            return res.status(404).json({ error: "Tournament not found" });
+          }
+          const isOwner = tournament.userId === req.sessionUser.userId;
+          const isCollab = !isOwner && await storage.isCollaborator(req.params.id, req.sessionUser.userId);
+          if (!isOwner && !isCollab) {
             return res.status(403).json({ error: "Access denied: you do not own this tournament" });
           }
         }
@@ -389,6 +406,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to transfer tournament ownership" });
       }
+    }
+  });
+
+  // ── Collaborator routes ────────────────────────────────────────────────────
+
+  // GET collaborators — owner or master admin only
+  app.get("/api/tournaments/:id/collaborators", async (req: any, res) => {
+    try {
+      if (!req.sessionUser && !req.isMasterAdmin) {
+        return res.status(403).json({ error: "Access denied: login required" });
+      }
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin && tournament.userId !== req.sessionUser?.userId) {
+        return res.status(403).json({ error: "Access denied: owner only" });
+      }
+      const collaborators = await storage.getCollaborators(req.params.id);
+      res.json(collaborators.map(({ passwordHash, ...u }) => u));
+    } catch {
+      res.status(500).json({ error: "Failed to fetch collaborators" });
+    }
+  });
+
+  // POST add collaborator by email — owner or master admin only
+  app.post("/api/tournaments/:id/collaborators", async (req: any, res) => {
+    try {
+      if (!req.sessionUser && !req.isMasterAdmin) {
+        return res.status(403).json({ error: "Access denied: login required" });
+      }
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin && tournament.userId !== req.sessionUser?.userId) {
+        return res.status(403).json({ error: "Access denied: owner only" });
+      }
+      const { email } = req.body;
+      if (typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ error: "A valid email address is required" });
+      }
+      const target = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!target) return res.status(404).json({ error: `No user found with email "${email.trim()}"` });
+      if (target.isBlocked) return res.status(400).json({ error: "Cannot add a blocked user as co-editor" });
+      if (target.id === tournament.userId) {
+        return res.status(400).json({ error: "That user already owns this tournament" });
+      }
+      await storage.addCollaborator(req.params.id, target.id);
+      const { passwordHash, ...safeUser } = target;
+      res.status(201).json(safeUser);
+    } catch {
+      res.status(500).json({ error: "Failed to add co-editor" });
+    }
+  });
+
+  // DELETE remove collaborator — owner or master admin only
+  app.delete("/api/tournaments/:id/collaborators/:userId", async (req: any, res) => {
+    try {
+      if (!req.sessionUser && !req.isMasterAdmin) {
+        return res.status(403).json({ error: "Access denied: login required" });
+      }
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin && tournament.userId !== req.sessionUser?.userId) {
+        return res.status(403).json({ error: "Access denied: owner only" });
+      }
+      const removed = await storage.removeCollaborator(req.params.id, req.params.userId);
+      if (!removed) return res.status(404).json({ error: "Co-editor not found" });
+      res.status(204).send();
+    } catch {
+      res.status(500).json({ error: "Failed to remove co-editor" });
     }
   });
 

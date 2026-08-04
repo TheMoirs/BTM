@@ -202,3 +202,16 @@ export const insertShortLinkSchema = createInsertSchema(shortLinks).omit({ id: t
 
 export type InsertShortLink = z.infer<typeof insertShortLinkSchema>;
 export type ShortLink = typeof shortLinks.$inferSelect;
+
+// ── Tournament Collaborators ───────────────────────────────────────────────
+// Users who can co-edit a tournament without owning it.
+export const tournamentCollaborators = pgTable("tournament_collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueCollaborator: unique().on(table.tournamentId, table.userId),
+}));
+
+export type TournamentCollaborator = typeof tournamentCollaborators.$inferSelect;

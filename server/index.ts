@@ -68,6 +68,27 @@ async function initializeDatabase() {
   }
 }
 
+async function ensureCollaboratorsTable() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tournament_collaborators (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        tournament_id VARCHAR NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+        user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE(tournament_id, user_id)
+      )
+    `);
+    log("Database initialized: tournament_collaborators table ensured");
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    log(`Warning: Could not create tournament_collaborators table: ${msg}`);
+  } finally {
+    client.release();
+  }
+}
+
 async function migrateOrphanedTournaments() {
   const client = await pool.connect();
   try {
@@ -106,6 +127,8 @@ async function migrateOrphanedTournaments() {
 (async () => {
   // Initialize database constraints
   await initializeDatabase();
+  // Ensure collaborators table exists
+  await ensureCollaboratorsTable();
   // Assign any pre-existing tournaments (userId=null) to ali@themoirs.co.uk
   await migrateOrphanedTournaments();
   
