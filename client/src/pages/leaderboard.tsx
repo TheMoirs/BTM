@@ -172,9 +172,12 @@ export default function Leaderboard() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
-          {isForecast ? "Forecast Leaderboard" : "Leaderboard"}
-        </h1>
+        <div className="flex items-center gap-3">
+          <img src="/btm-logo.png" alt="BTM" className="h-10 w-10 rounded-lg object-cover flex-shrink-0" />
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
+            {isForecast ? "Forecast Leaderboard" : "Leaderboard"}
+          </h1>
+        </div>
         <div className="flex flex-col gap-1">
           <p className="text-lg font-semibold">{currentTournament.name}</p>
           <p className="text-sm text-muted-foreground">

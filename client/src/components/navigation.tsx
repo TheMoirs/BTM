@@ -127,9 +127,12 @@ export function Navigation() {
         <div className="py-3 space-y-3">
           {/* Top Row: Title + Auth buttons */}
           <div className="flex items-center justify-between gap-2">
-            <h1 className="text-lg sm:text-xl font-semibold text-foreground">
-              Boules Tournament Manager
-            </h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <img src="/btm-logo.png" alt="BTM" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
+              <h1 className="text-lg sm:text-xl font-semibold text-foreground">
+                Boules Tournament Manager
+              </h1>
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               {/* Logged-in user section */}
               {user ? (

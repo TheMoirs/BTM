@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Trophy, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 function PasswordInput({
   id,
@@ -116,9 +116,7 @@ export default function Login() {
         {/* Logo / Title */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="bg-primary rounded-full p-3">
-              <Trophy className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <img src="/btm-logo.png" alt="BTM Logo" className="h-24 w-24 rounded-xl object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Boules Tournament Manager</h1>
           <p className="text-muted-foreground text-sm">Sign in to manage your tournaments</p>
