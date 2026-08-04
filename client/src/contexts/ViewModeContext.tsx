@@ -96,7 +96,10 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
   const isMasterAdmin = accessLevel?.isMasterAdmin ?? false;
   // isReadOnly: true when the session reports view-only access OR when the token
   // itself (checked without session) is a view token — covers system admins too.
-  const isReadOnly = isTokenViewOnly || (accessLevel?.isViewOnlyAccess ?? false);
+  // But never treat a session-authenticated admin as read-only, even if a stale
+  // view token is sitting in sessionStorage from a previous share-link visit.
+  const hasAdminSession = accessLevel?.isAdminAccess || accessLevel?.isMasterAdmin;
+  const isReadOnly = !hasAdminSession && (isTokenViewOnly || (accessLevel?.isViewOnlyAccess ?? false));
 
   const getShareableLink = (tournament: Tournament, token?: string) => {
     // Use provided token, or fall back to stored viewToken, or tournament.viewToken
