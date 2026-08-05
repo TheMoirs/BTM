@@ -87,6 +87,27 @@ async function initializeDatabase() {
   }
 }
 
+async function ensurePointsForNoShowColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS points_for_no_show INTEGER NOT NULL DEFAULT 0`);
+    log("Database initialized: tournaments.points_for_no_show column ensured");
+  } finally {
+    client.release();
+  }
+}
+
+async function ensureMatchNoShowColumns() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS team1_no_show BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS team2_no_show BOOLEAN NOT NULL DEFAULT false`);
+    log("Database initialized: matches.team_no_show columns ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureRulesPdfColumns() {
   const client = await pool.connect();
   try {
@@ -184,6 +205,8 @@ async function migrateOrphanedTournaments() {
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links
+  await ensurePointsForNoShowColumn();
+  await ensureMatchNoShowColumns();
   await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users

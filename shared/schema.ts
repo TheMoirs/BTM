@@ -37,9 +37,10 @@ export const tournaments = pgTable("tournaments", {
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
-  pointsForWin: integer("points_for_win").notNull().default(2),
-  pointsForDraw: integer("points_for_draw").notNull().default(1),
-  pointsForLoss: integer("points_for_loss").notNull().default(0),
+  pointsForWin: integer("points_for_win").notNull().default(3),
+  pointsForDraw: integer("points_for_draw").notNull().default(2),
+  pointsForLoss: integer("points_for_loss").notNull().default(1),
+  pointsForNoShow: integer("points_for_no_show").notNull().default(0),
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
@@ -56,9 +57,10 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   hasQuarterFinals: z.boolean().default(false),
   hasSemiFinals: z.boolean().default(false),
   hasFinals: z.boolean().default(true),
-  pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(2),
-  pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(1),
-  pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(0),
+  pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(3),
+  pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(2),
+  pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
+  pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
@@ -117,6 +119,8 @@ export const matches = pgTable("matches", {
   winnerId: varchar("winner_id"),
   matchDate: text("match_date"),
   division: text("division"),
+  team1NoShow: boolean("team1_no_show").notNull().default(false),
+  team2NoShow: boolean("team2_no_show").notNull().default(false),
 });
 
 // Note: A unique index exists on the database:
@@ -156,6 +160,8 @@ export const updateMatchScoreSchema = z.object({
   team1Game3Score: z.union([z.number().int().min(0), z.null()]),
   team2Game3Score: z.union([z.number().int().min(0), z.null()]),
   matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
+  team1NoShow: z.boolean().optional().default(false),
+  team2NoShow: z.boolean().optional().default(false),
 });
 
 export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;

@@ -983,49 +983,45 @@ export default function Results() {
       )}
 
       {results && results.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
+            data-testid="button-show-inline-leaderboard"
+          >
+            Leaderboard
+          </Button>
+          <Button
+            variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
+            data-testid="button-show-inline-forecast"
+          >
+            Forecast
+          </Button>
+          <Button
+            variant={!showInlineLeaderboard ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
+            data-testid="button-show-detailed-results"
+          >
+            Detailed Results
+          </Button>
+          <Button
+            variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
+            data-testid="button-show-all-matches"
+          >
+            All Match Results
+          </Button>
+          {selectedTeamId && (
             <Button
-              variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
-              data-testid="button-show-inline-leaderboard"
+              variant="secondary"
+              onClick={handleBackToLeaderboard}
+              data-testid="button-back-to-leaderboard"
             >
-              Leaderboard
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Leaderboard
             </Button>
-            <Button
-              variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
-              data-testid="button-show-inline-forecast"
-            >
-              Forecast
-            </Button>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={!showInlineLeaderboard ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
-              data-testid="button-show-detailed-results"
-            >
-              Detailed Results
-            </Button>
-            <Button
-              variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
-              data-testid="button-show-all-matches"
-            >
-              All Match Results
-            </Button>
-            {selectedTeamId && (
-              <Button
-                variant="secondary"
-                onClick={handleBackToLeaderboard}
-                data-testid="button-back-to-leaderboard"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back to Leaderboard
-              </Button>
-            )}
-          </div>
+          )}
         </div>
       )}
 

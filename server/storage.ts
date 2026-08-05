@@ -35,7 +35,9 @@ export interface IStorage {
     team2Game2Score: number | null,
     team1Game3Score: number | null,
     team2Game3Score: number | null,
-    matchDate: string | null
+    matchDate: string | null,
+    team1NoShow?: boolean,
+    team2NoShow?: boolean
   ): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
   deleteAllMatches(tournamentId?: string): Promise<boolean>;
@@ -424,7 +426,9 @@ export class DatabaseStorage implements IStorage {
     team2Game2Score: number | null,
     team1Game3Score: number | null,
     team2Game3Score: number | null,
-    matchDate: string | null
+    matchDate: string | null,
+    team1NoShow: boolean = false,
+    team2NoShow: boolean = false
   ): Promise<Match | undefined> {
     const match = await this.getMatch(id);
     if (!match) {
@@ -439,6 +443,66 @@ export class DatabaseStorage implements IStorage {
 
     // Cap gamesPerMatch at 3 since matches table only supports 3 games
     const gamesPerMatch = Math.min(tournament.gamesPerMatch, 3);
+    const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
+
+    // ── No-show path ────────────────────────────────────────────────────────
+    if (team1NoShow || team2NoShow) {
+      const noShowStatus = finalMatchDate ? "completed" : "in-progress";
+      const winnerId = team1NoShow ? match.team2Id : match.team1Id;
+
+      if (noShowStatus === "completed") {
+        await this.deleteResultsByMatchId(id);
+        const team1 = await this.getTeam(match.team1Id);
+        const team2 = await this.getTeam(match.team2Id);
+        if (team1 && team2) {
+          const t1Name = team1.teamDisplayId ? `${team1.name} (${team1.teamDisplayId})` : team1.name;
+          const t2Name = team2.teamDisplayId ? `${team2.name} (${team2.teamDisplayId})` : team2.name;
+          const matchInfo = `${t1Name} vs ${t2Name}`;
+          const pointsForNoShow = tournament.pointsForNoShow ?? 0;
+
+          // The team that showed up wins all games; the no-show team loses all games.
+          await this.createResult({
+            tournamentId: match.tournamentId, matchId: id, matchInfo,
+            matchDate: finalMatchDate, stage: match.stage, division: match.division || null,
+            teamName: t1Name,
+            gamesPlayed: gamesPerMatch,
+            gamesWon: team1NoShow ? 0 : gamesPerMatch,
+            gamesLost: team1NoShow ? gamesPerMatch : 0,
+            gamesDrawn: 0,
+            points: team1NoShow ? 0 : pointsForNoShow * gamesPerMatch,
+            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+          });
+          await this.createResult({
+            tournamentId: match.tournamentId, matchId: id, matchInfo,
+            matchDate: finalMatchDate, stage: match.stage, division: match.division || null,
+            teamName: t2Name,
+            gamesPlayed: gamesPerMatch,
+            gamesWon: team2NoShow ? 0 : gamesPerMatch,
+            gamesLost: team2NoShow ? gamesPerMatch : 0,
+            gamesDrawn: 0,
+            points: team2NoShow ? 0 : pointsForNoShow * gamesPerMatch,
+            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+          });
+        }
+      }
+
+      const [updatedMatch] = await db
+        .update(matches)
+        .set({
+          team1Game1Score: null, team2Game1Score: null,
+          team1Game2Score: null, team2Game2Score: null,
+          team1Game3Score: null, team2Game3Score: null,
+          matchDate: finalMatchDate,
+          status: noShowStatus,
+          winnerId: noShowStatus === "completed" ? winnerId : null,
+          team1NoShow,
+          team2NoShow,
+        })
+        .where(eq(matches.id, id))
+        .returning();
+      return updatedMatch || undefined;
+    }
+    // ── End no-show path ─────────────────────────────────────────────────────
 
     // Calculate winner based on games won
     let winnerId = null;
@@ -475,9 +539,6 @@ export class DatabaseStorage implements IStorage {
     if (team1Game1Score !== null && team2Game1Score !== null) completeGamesCount++;
     if (team1Game2Score !== null && team2Game2Score !== null) completeGamesCount++;
     if (team1Game3Score !== null && team2Game3Score !== null) completeGamesCount++;
-
-    // Determine the matchDate to use (new value or existing)
-    const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
       // Match is completed when at least one complete game has been played AND a date is entered
@@ -653,9 +714,11 @@ export class DatabaseStorage implements IStorage {
         team2Game2Score,
         team1Game3Score,
         team2Game3Score,
-        matchDate: matchDate !== undefined ? matchDate : match.matchDate,
+        matchDate: finalMatchDate,
         status,
         winnerId,
+        team1NoShow: false,
+        team2NoShow: false,
       })
       .where(eq(matches.id, id))
       .returning();

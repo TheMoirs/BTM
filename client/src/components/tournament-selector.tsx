@@ -184,9 +184,10 @@ export function TournamentSelector() {
       hasQuarterFinals: false,
       hasSemiFinals: false,
       hasFinals: true,
-      pointsForWin: 2,
-      pointsForDraw: 1,
-      pointsForLoss: 0,
+      pointsForWin: 3,
+      pointsForDraw: 2,
+      pointsForLoss: 1,
+      pointsForNoShow: 0,
     },
   });
 
@@ -463,7 +464,7 @@ export function TournamentSelector() {
               <div className="space-y-3">
                 <FormLabel>Point Values</FormLabel>
                 <FormDescription>Points awarded per game result</FormDescription>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="pointsForWin"
@@ -515,6 +516,25 @@ export function TournamentSelector() {
                             min={0}
                             onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
                             data-testid="input-points-for-loss"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pointsForNoShow"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">No-Show</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-points-for-no-show"
                           />
                         </FormControl>
                         <FormMessage />
@@ -608,9 +628,10 @@ export function TournamentSelector() {
                         hasQuarterFinals: tournament.hasQuarterFinals,
                         hasSemiFinals: tournament.hasSemiFinals,
                         hasFinals: tournament.hasFinals,
-                        pointsForWin: tournament.pointsForWin ?? 2,
-                        pointsForDraw: tournament.pointsForDraw ?? 1,
-                        pointsForLoss: tournament.pointsForLoss ?? 0,
+                        pointsForWin: tournament.pointsForWin ?? 3,
+                        pointsForDraw: tournament.pointsForDraw ?? 2,
+                        pointsForLoss: tournament.pointsForLoss ?? 1,
+                        pointsForNoShow: (tournament as any).pointsForNoShow ?? 0,
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}
@@ -978,7 +999,7 @@ export function TournamentSelector() {
               <div className="space-y-3">
                 <FormLabel>Point Values</FormLabel>
                 <FormDescription>Points awarded per game result</FormDescription>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="pointsForWin"
@@ -1030,6 +1051,25 @@ export function TournamentSelector() {
                             min={0}
                             onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
                             data-testid="input-edit-points-for-loss"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pointsForNoShow"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">No-Show</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-edit-points-for-no-show"
                           />
                         </FormControl>
                         <FormMessage />

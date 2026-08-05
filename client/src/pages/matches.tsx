@@ -93,6 +93,8 @@ type EditingMatch = {
   team1Game3Score: string;
   team2Game3Score: string;
   matchDate: string;
+  team1NoShow: boolean;
+  team2NoShow: boolean;
 };
 
 export default function Matches() {
@@ -376,6 +378,8 @@ export default function Matches() {
       team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
       team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
       matchDate: match.matchDate || "",
+      team1NoShow: (match as any).team1NoShow ?? false,
+      team2NoShow: (match as any).team2NoShow ?? false,
     });
   };
 
@@ -454,6 +458,35 @@ export default function Matches() {
   };
 
   const saveEditing = (matchId: string) => {
+    const team1NoShow = editingValues.team1NoShow ?? false;
+    const team2NoShow = editingValues.team2NoShow ?? false;
+    const matchDate = editingValues.matchDate?.trim() || null;
+
+    // Handle no-show: skip score validation and send directly
+    if (team1NoShow || team2NoShow) {
+      if (!matchDate) {
+        toast({
+          title: "Date Required",
+          description: "Please enter a match date for the no-show.",
+          variant: "destructive",
+          duration: Infinity,
+        });
+        return;
+      }
+      updateMutation.mutate({
+        id: matchId,
+        data: {
+          team1Game1Score: null, team2Game1Score: null,
+          team1Game2Score: null, team2Game2Score: null,
+          team1Game3Score: null, team2Game3Score: null,
+          matchDate,
+          team1NoShow,
+          team2NoShow,
+        },
+      });
+      return;
+    }
+
     // Parse all game scores, keeping null for empty values
     // Use !== "" to allow 0 as a valid score
     const team1Game1Score = editingValues.team1Game1Score?.trim() !== "" 
@@ -474,7 +507,7 @@ export default function Matches() {
     const team2Game3Score = editingValues.team2Game3Score?.trim() !== "" 
       ? parseInt(editingValues.team2Game3Score!) 
       : null;
-    const matchDate = editingValues.matchDate?.trim() || null;
+    // matchDate already declared above — reuse it
 
     // Validate that for each game, if one score is provided, both must be provided
     if ((team1Game1Score !== null && team2Game1Score === null) || 
@@ -566,6 +599,8 @@ export default function Matches() {
         team1Game3Score,
         team2Game3Score,
         matchDate,
+        team1NoShow: editingValues.team1NoShow ?? false,
+        team2NoShow: editingValues.team2NoShow ?? false,
       },
     });
   };
@@ -593,7 +628,7 @@ export default function Matches() {
       const gameNum = field.includes("Game1") ? "1" : field.includes("Game2") ? "2" : "3";
       const isTeam1 = field.includes("team1");
       const opponentField = (isTeam1 ? `team2Game${gameNum}Score` : `team1Game${gameNum}Score`) as keyof EditingMatch;
-      const opponentScore = currentValues[opponentField];
+      const opponentScore = currentValues[opponentField] as string | undefined;
       
       if (opponentScore && parseInt(opponentScore, 10) >= 13) {
         return { valid: false, message: "If one team scores 13, opponent must score less than 13" };
@@ -604,7 +639,7 @@ export default function Matches() {
     const gameNum = field.includes("Game1") ? "1" : field.includes("Game2") ? "2" : "3";
     const isTeam1 = field.includes("team1");
     const opponentField = (isTeam1 ? `team2Game${gameNum}Score` : `team1Game${gameNum}Score`) as keyof EditingMatch;
-    const opponentScore = currentValues[opponentField];
+    const opponentScore = currentValues[opponentField] as string | undefined;
     
     if (opponentScore && parseInt(opponentScore, 10) === 13 && numValue >= 13) {
       return { valid: false, message: "If opponent scores 13, this team must score less than 13" };
@@ -660,6 +695,8 @@ export default function Matches() {
         team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
         team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
         matchDate: match.matchDate || "",
+        team1NoShow: (match as any).team1NoShow ?? false,
+        team2NoShow: (match as any).team2NoShow ?? false,
       };
     });
     setAllEditingValues(initialValues);
@@ -746,6 +783,8 @@ export default function Matches() {
         team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
         team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
         matchDate: match.matchDate || "",
+        team1NoShow: (match as any).team1NoShow ?? false,
+        team2NoShow: (match as any).team2NoShow ?? false,
       };
     });
     setAllEditingValues(initialValues);
@@ -797,6 +836,27 @@ export default function Matches() {
         const team1Game3Score = values.team1Game3Score?.trim() !== "" ? parseInt(values.team1Game3Score!) : null;
         const team2Game3Score = values.team2Game3Score?.trim() !== "" ? parseInt(values.team2Game3Score!) : null;
         const matchDate = values.matchDate?.trim() || null;
+
+        const noShow1 = values.team1NoShow ?? false;
+        const noShow2 = values.team2NoShow ?? false;
+
+        // Handle no-show: skip score validation
+        if (noShow1 || noShow2) {
+          if (!matchDate) {
+            errors.push(`${matchLabel}: Match date is required for a no-show`);
+            continue;
+          }
+          await apiRequest("PATCH", `/api/matches/${match.id}/score`, {
+            team1Game1Score: null, team2Game1Score: null,
+            team1Game2Score: null, team2Game2Score: null,
+            team1Game3Score: null, team2Game3Score: null,
+            matchDate,
+            team1NoShow: noShow1,
+            team2NoShow: noShow2,
+          });
+          successCount++;
+          continue;
+        }
 
         // Check if any scores are entered
         const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
@@ -866,6 +926,8 @@ export default function Matches() {
           team1Game3Score,
           team2Game3Score,
           matchDate,
+          team1NoShow: values.team1NoShow ?? false,
+          team2NoShow: values.team2NoShow ?? false,
         });
 
         successCount++;
@@ -1801,7 +1863,34 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell data-testid={`text-team1-${match.id}`}>
-                          {getTeamName(match.team1Id)}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm">{getTeamName(match.team1Id)}</span>
+                            {shouldShowInputs && (
+                              <label className="flex items-center gap-1 text-xs cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={currentValues?.team1NoShow ?? false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    if (isEditingInBulk) {
+                                      setAllEditingValues(prev => ({
+                                        ...prev,
+                                        [match.id]: { ...prev[match.id], team1NoShow: checked, ...(checked ? { team2NoShow: false } : {}) }
+                                      }));
+                                    } else {
+                                      setEditingValues(prev => ({ ...prev, team1NoShow: checked, ...(checked ? { team2NoShow: false } : {}) }));
+                                    }
+                                  }}
+                                  disabled={currentValues?.team2NoShow === true}
+                                  className="cursor-pointer"
+                                />
+                                <span className="text-muted-foreground">NS</span>
+                              </label>
+                            )}
+                            {!shouldShowInputs && (match as any).team1NoShow && (
+                              <Badge variant="destructive" className="text-xs py-0 px-1">NS</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
@@ -1867,7 +1956,34 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell data-testid={`text-team2-${match.id}`}>
-                          {getTeamName(match.team2Id)}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm">{getTeamName(match.team2Id)}</span>
+                            {shouldShowInputs && (
+                              <label className="flex items-center gap-1 text-xs cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={currentValues?.team2NoShow ?? false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    if (isEditingInBulk) {
+                                      setAllEditingValues(prev => ({
+                                        ...prev,
+                                        [match.id]: { ...prev[match.id], team2NoShow: checked, ...(checked ? { team1NoShow: false } : {}) }
+                                      }));
+                                    } else {
+                                      setEditingValues(prev => ({ ...prev, team2NoShow: checked, ...(checked ? { team1NoShow: false } : {}) }));
+                                    }
+                                  }}
+                                  disabled={currentValues?.team1NoShow === true}
+                                  className="cursor-pointer"
+                                />
+                                <span className="text-muted-foreground">NS</span>
+                              </label>
+                            )}
+                            {!shouldShowInputs && (match as any).team2NoShow && (
+                              <Badge variant="destructive" className="text-xs py-0 px-1">NS</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
