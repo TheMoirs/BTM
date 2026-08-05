@@ -462,31 +462,6 @@ export default function Matches() {
     const team2NoShow = editingValues.team2NoShow ?? false;
     const matchDate = editingValues.matchDate?.trim() || null;
 
-    // Handle no-show: skip score validation and send directly
-    if (team1NoShow || team2NoShow) {
-      if (!matchDate) {
-        toast({
-          title: "Date Required",
-          description: "Please enter a match date for the no-show.",
-          variant: "destructive",
-          duration: Infinity,
-        });
-        return;
-      }
-      updateMutation.mutate({
-        id: matchId,
-        data: {
-          team1Game1Score: null, team2Game1Score: null,
-          team1Game2Score: null, team2Game2Score: null,
-          team1Game3Score: null, team2Game3Score: null,
-          matchDate,
-          team1NoShow,
-          team2NoShow,
-        },
-      });
-      return;
-    }
-
     // Parse all game scores, keeping null for empty values
     // Use !== "" to allow 0 as a valid score
     const team1Game1Score = editingValues.team1Game1Score?.trim() !== "" 
@@ -839,24 +814,6 @@ export default function Matches() {
 
         const noShow1 = values.team1NoShow ?? false;
         const noShow2 = values.team2NoShow ?? false;
-
-        // Handle no-show: skip score validation
-        if (noShow1 || noShow2) {
-          if (!matchDate) {
-            errors.push(`${matchLabel}: Match date is required for a no-show`);
-            continue;
-          }
-          await apiRequest("PATCH", `/api/matches/${match.id}/score`, {
-            team1Game1Score: null, team2Game1Score: null,
-            team1Game2Score: null, team2Game2Score: null,
-            team1Game3Score: null, team2Game3Score: null,
-            matchDate,
-            team1NoShow: noShow1,
-            team2NoShow: noShow2,
-          });
-          successCount++;
-          continue;
-        }
 
         // Check if any scores are entered
         const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
