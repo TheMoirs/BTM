@@ -70,7 +70,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const stageLabels = {
-  initial: "Initial",
+  initial: "Stage 1",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
@@ -275,7 +275,7 @@ export default function Matches() {
 
       // Map stage names for display
       const stageDisplayNames: Record<string, string> = {
-        "initial": "initial round",
+        "initial": "stage 1",
         "quarter-finals": "quarter-final",
         "semi-finals": "semi-final",
         "finals": "final",
@@ -1508,7 +1508,7 @@ export default function Matches() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="initial">Initial Stage</SelectItem>
+                              <SelectItem value="initial">Stage 1</SelectItem>
                               <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
                               <SelectItem value="semi-finals">Semi-Finals</SelectItem>
                               <SelectItem value="finals">Finals</SelectItem>
@@ -1548,7 +1548,7 @@ export default function Matches() {
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>
-                  <p>The Matches page lets you schedule games, record scores, and track match progress through tournament stages (Initial, Quarter-Finals, Semi-Finals, Finals).</p>
+                  <p>The Matches page lets you schedule games, record scores, and track match progress through tournament stages (Stage 1, Quarter-Finals, Semi-Finals, Finals).</p>
                 </div>
                 
                 <div>
@@ -1611,7 +1611,7 @@ export default function Matches() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Stages</SelectItem>
-                      <SelectItem value="initial">Initial</SelectItem>
+                      <SelectItem value="initial">Stage 1</SelectItem>
                       <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
                       <SelectItem value="semi-finals">Semi-Finals</SelectItem>
                       <SelectItem value="finals">Finals</SelectItem>

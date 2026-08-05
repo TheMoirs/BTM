@@ -58,7 +58,7 @@ type SortColumn = "matchInfo" | "matchDate" | "teamName" | "gamesPlayed" | "game
 type SortDirection = "asc" | "desc";
 
 const stageLabels = {
-  initial: "Initial",
+  initial: "Stage 1",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
@@ -950,7 +950,7 @@ export default function Results() {
                   <li><strong>Detailed Results:</strong> The default view shows individual game results from all completed matches</li>
                   <li><strong>Team Leaderboard:</strong> Click to see team rankings grouped by Stage and Division. Click team names to see their matches.</li>
                   <li><strong>All Match Results:</strong> View all matches with scores grouped by division</li>
-                  <li><strong>Stage Filter:</strong> Filter results by tournament stage (Initial, Quarter-Finals, Semi-Finals, Finals)</li>
+                  <li><strong>Stage Filter:</strong> Filter results by tournament stage (Stage 1, Quarter-Finals, Semi-Finals, Finals)</li>
                 </ul>
               </div>
               

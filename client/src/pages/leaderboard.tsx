@@ -20,7 +20,7 @@ import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision, applyForecastSort } from "@/lib/leaderboard";
 
 const stageLabels = {
-  initial: "Initial",
+  initial: "Stage 1",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
