@@ -61,6 +61,9 @@ export function TournamentSelector() {
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [isUploadingRules, setIsUploadingRules] = useState(false);
+  const [pendingEditData, setPendingEditData] = useState<InsertTournament | null>(null);
+  const [showRecalcConfirm, setShowRecalcConfirm] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   const rulesFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -210,17 +213,34 @@ export function TournamentSelector() {
     }
   };
 
-  const handleEditTournament = async (data: InsertTournament) => {
+  const doEditTournament = async (data: InsertTournament, recalculate = false) => {
     if (!editingTournament) return;
     try {
       await updateTournament(editingTournament.id, data);
+      if (recalculate) {
+        setIsRecalculating(true);
+        try {
+          const res = await apiRequest("POST", `/api/tournaments/${editingTournament.id}/recalculate-results`);
+          const { recalculated } = await res.json();
+          toast({
+            title: "Tournament updated",
+            description: `${data.name} updated. ${recalculated} match result${recalculated !== 1 ? "s" : ""} recalculated with new point values.`,
+          });
+        } finally {
+          setIsRecalculating(false);
+        }
+      } else {
+        toast({
+          title: "Tournament updated",
+          description: `${data.name} has been updated successfully.`,
+        });
+      }
       setEditingTournament(null);
+      setShowRecalcConfirm(false);
+      setPendingEditData(null);
       form.reset();
-      toast({
-        title: "Tournament updated",
-        description: `${data.name} has been updated successfully.`,
-      });
     } catch (error) {
+      setIsRecalculating(false);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update tournament",
@@ -228,6 +248,22 @@ export function TournamentSelector() {
         duration: Infinity,
       });
     }
+  };
+
+  const handleEditTournament = async (data: InsertTournament) => {
+    if (!editingTournament) return;
+    const pointValuesChanged =
+      data.pointsForWin !== (editingTournament.pointsForWin ?? 3) ||
+      data.pointsForDraw !== (editingTournament.pointsForDraw ?? 2) ||
+      data.pointsForLoss !== (editingTournament.pointsForLoss ?? 1) ||
+      data.pointsForNoShow !== ((editingTournament as any).pointsForNoShow ?? 0);
+
+    if (pointValuesChanged) {
+      setPendingEditData(data);
+      setShowRecalcConfirm(true);
+      return;
+    }
+    await doEditTournament(data, false);
   };
 
   const handleDeleteTournament = async (tournament: Tournament) => {
@@ -1210,6 +1246,30 @@ export function TournamentSelector() {
               disabled={!deletionCounts}
             >
               Delete Tournament
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRecalcConfirm} onOpenChange={(open) => {
+        if (!open) { setShowRecalcConfirm(false); setPendingEditData(null); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recalculate Results?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have changed one or more point values. All existing completed match results for this tournament will be recalculated using the new values. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRecalculating} onClick={() => { setShowRecalcConfirm(false); setPendingEditData(null); }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isRecalculating}
+              onClick={async () => { if (pendingEditData) await doEditTournament(pendingEditData, true); }}
+            >
+              {isRecalculating ? "Recalculating…" : "Update & Recalculate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

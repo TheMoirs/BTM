@@ -396,6 +396,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/tournaments/:id/recalculate-results", async (req: any, res) => {
+    try {
+      const tournamentId = req.params.id;
+      if (!req.isMasterAdmin && req.sessionUser) {
+        const tournament = await storage.getTournament(tournamentId);
+        if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+        const isOwner = tournament.userId === req.sessionUser.userId;
+        const isCollab = !isOwner && await storage.isCollaborator(tournamentId, req.sessionUser.userId);
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+
+      const allMatches = await storage.getAllMatches(tournamentId);
+      const completedMatches = allMatches.filter(m => m.status === "completed");
+
+      let recalculated = 0;
+      for (const match of completedMatches) {
+        await storage.updateMatchScore(
+          match.id,
+          match.team1Game1Score,
+          match.team2Game1Score,
+          match.team1Game2Score,
+          match.team2Game2Score,
+          match.team1Game3Score,
+          match.team2Game3Score,
+          match.matchDate,
+          (match as any).team1NoShow ?? false,
+          (match as any).team2NoShow ?? false,
+        );
+        recalculated++;
+      }
+
+      res.json({ recalculated });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to recalculate results" });
+    }
+  });
+
   app.patch("/api/tournaments/:id/transfer", async (req: any, res) => {
     try {
       const tournamentId = req.params.id;
