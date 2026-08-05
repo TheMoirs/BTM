@@ -82,7 +82,7 @@ const statusLabels = {
   completed: "Completed",
 };
 
-type SortColumn = "division" | "stage" | "status" | "matchDate" | "team1" | "team2";
+type SortColumn = "division" | "stage" | "status" | "matchDate" | "team1" | "team2" | "piste";
 type SortDirection = "asc" | "desc";
 
 type EditingMatch = {
@@ -1006,6 +1006,10 @@ export default function Matches() {
           aValue = a.matchDate || "9999-12-31";
           bValue = b.matchDate || "9999-12-31";
           break;
+        case "piste":
+          aValue = ((a as any).pisteId || "").toString().toLowerCase();
+          bValue = ((b as any).pisteId || "").toString().toLowerCase();
+          break;
         default:
           aValue = (a[sortColumn] || "").toString().toLowerCase();
           bValue = (b[sortColumn] || "").toString().toLowerCase();
@@ -1742,7 +1746,16 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     {!!(currentTournament as any)?.numberOfPistes && (
-                      <TableHead className="w-16 max-md:w-12 text-sm max-sm:text-xs">Piste</TableHead>
+                      <TableHead className="w-16 max-md:w-14 text-sm max-sm:text-xs">
+                        <button
+                          className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                          onClick={() => handleSort("piste")}
+                          data-testid="sort-piste"
+                        >
+                          Piste
+                          <SortIcon column="piste" />
+                        </button>
+                      </TableHead>
                     )}
                     <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
