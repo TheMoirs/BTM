@@ -361,12 +361,13 @@ export function TournamentSelector() {
             Create Tournament
           </Button>
         </DialogTrigger>
-        <DialogContent data-testid="dialog-create-tournament" className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-create-tournament" className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4 max-h-[calc(90vh-8rem)] overflow-y-auto">
+            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -603,7 +604,8 @@ export function TournamentSelector() {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4">
+              </div>
+              <div className="shrink-0 flex gap-2 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -762,12 +764,13 @@ export function TournamentSelector() {
       </DropdownMenu>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent data-testid="dialog-create-tournament" className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-create-tournament" className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4 max-h-[calc(90vh-8rem)] overflow-y-auto">
+            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -921,7 +924,8 @@ export function TournamentSelector() {
                 />
               </div>
 
-              <div className="flex gap-2 pt-4">
+              </div>
+              <div className="shrink-0 flex gap-2 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -941,12 +945,13 @@ export function TournamentSelector() {
       </Dialog>
 
       <Dialog open={!!editingTournament} onOpenChange={(open) => !open && setEditingTournament(null)}>
-        <DialogContent data-testid="dialog-edit-tournament" className="sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-edit-tournament" className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Edit Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleEditTournament)} className="space-y-4 max-h-[calc(90vh-8rem)] overflow-y-auto">
+            <form onSubmit={form.handleSubmit(handleEditTournament)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -1253,7 +1258,8 @@ export function TournamentSelector() {
                 <p className="text-xs text-muted-foreground">Upload a PDF containing the tournament rules (max ~7 MB).</p>
               </div>
 
-              <div className="flex gap-2 pt-4">
+              </div>
+              <div className="shrink-0 flex gap-2 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
