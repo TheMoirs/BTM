@@ -361,10 +361,11 @@ export function TournamentSelector() {
             Create Tournament
           </Button>
         </DialogTrigger>
-        <DialogContent data-testid="dialog-create-tournament" className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-create-tournament" className="max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-6 pb-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4">
               <FormField
@@ -619,6 +620,7 @@ export function TournamentSelector() {
               </div>
             </form>
           </Form>
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -762,10 +764,11 @@ export function TournamentSelector() {
       </DropdownMenu>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent data-testid="dialog-create-tournament" className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-create-tournament" className="max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-6 pb-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4">
               <FormField
@@ -937,14 +940,16 @@ export function TournamentSelector() {
               </div>
             </form>
           </Form>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingTournament} onOpenChange={(open) => !open && setEditingTournament(null)}>
-        <DialogContent data-testid="dialog-edit-tournament" className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-edit-tournament" className="max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Edit Tournament</DialogTitle>
           </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-6 pb-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleEditTournament)} className="space-y-4">
               <FormField
@@ -1273,6 +1278,7 @@ export function TournamentSelector() {
               </div>
             </form>
           </Form>
+          </div>
         </DialogContent>
       </Dialog>
 
