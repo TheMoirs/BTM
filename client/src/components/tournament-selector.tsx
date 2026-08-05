@@ -191,6 +191,7 @@ export function TournamentSelector() {
       pointsForDraw: 2,
       pointsForLoss: 1,
       pointsForNoShow: 0,
+      numberOfPistes: null,
     },
   });
 
@@ -437,6 +438,28 @@ export function TournamentSelector() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="numberOfPistes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Pistes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                        placeholder="Leave blank if not applicable"
+                        data-testid="input-number-of-pistes"
+                      />
+                    </FormControl>
+                    <FormDescription>When set, a Piste column appears in Matches and Results.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="space-y-3">
                 <FormLabel>Tournament Stages</FormLabel>
                 <FormField
@@ -668,6 +691,7 @@ export function TournamentSelector() {
                         pointsForDraw: tournament.pointsForDraw ?? 2,
                         pointsForLoss: tournament.pointsForLoss ?? 1,
                         pointsForNoShow: (tournament as any).pointsForNoShow ?? 0,
+                        numberOfPistes: (tournament as any).numberOfPistes ?? null,
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}
@@ -810,6 +834,28 @@ export function TournamentSelector() {
                       />
                     </FormControl>
                     <FormDescription>Number of games in each match (1-5)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="numberOfPistes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Pistes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                        placeholder="Leave blank if not applicable"
+                        data-testid="input-number-of-pistes"
+                      />
+                    </FormControl>
+                    <FormDescription>When set, a Piste column appears in Matches and Results.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -967,6 +1013,28 @@ export function TournamentSelector() {
                       />
                     </FormControl>
                     <FormDescription>Number of games in each match (1-5)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="numberOfPistes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Pistes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                        placeholder="Leave blank if not applicable"
+                        data-testid="input-edit-number-of-pistes"
+                      />
+                    </FormControl>
+                    <FormDescription>When set, a Piste column appears in Matches and Results.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

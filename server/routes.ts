@@ -1596,7 +1596,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.team2Game3Score,
         validatedData.matchDate ?? null,
         validatedData.team1NoShow ?? false,
-        validatedData.team2NoShow ?? false
+        validatedData.team2NoShow ?? false,
+        validatedData.pisteId ?? null
       );
       if (!match) {
         return res.status(404).json({ error: "Match not found" });

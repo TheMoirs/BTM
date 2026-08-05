@@ -37,7 +37,8 @@ export interface IStorage {
     team2Game3Score: number | null,
     matchDate: string | null,
     team1NoShow?: boolean,
-    team2NoShow?: boolean
+    team2NoShow?: boolean,
+    pisteId?: string | null
   ): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
   deleteAllMatches(tournamentId?: string): Promise<boolean>;
@@ -428,7 +429,8 @@ export class DatabaseStorage implements IStorage {
     team2Game3Score: number | null,
     matchDate: string | null,
     team1NoShow: boolean = false,
-    team2NoShow: boolean = false
+    team2NoShow: boolean = false,
+    pisteId: string | null = null
   ): Promise<Match | undefined> {
     const match = await this.getMatch(id);
     if (!match) {
@@ -500,6 +502,7 @@ export class DatabaseStorage implements IStorage {
           winnerId: noShowStatus === "completed" ? winnerId : null,
           team1NoShow,
           team2NoShow,
+          pisteId,
         })
         .where(eq(matches.id, id))
         .returning();
@@ -722,6 +725,7 @@ export class DatabaseStorage implements IStorage {
         winnerId,
         team1NoShow: false,
         team2NoShow: false,
+        pisteId,
       })
       .where(eq(matches.id, id))
       .returning();

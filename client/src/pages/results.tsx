@@ -1125,6 +1125,9 @@ export default function Results() {
                               <TableHead className="text-sm max-sm:text-xs">Stage</TableHead>
                               <TableHead className="text-sm max-sm:text-xs">Status</TableHead>
                               <TableHead className="text-sm max-sm:text-xs">Date</TableHead>
+                              {!!(currentTournament as any)?.numberOfPistes && (
+                                <TableHead className="text-sm max-sm:text-xs">Piste</TableHead>
+                              )}
                               <TableHead className="text-sm max-sm:text-xs">Team 1</TableHead>
                               <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
                               <TableHead className="text-center text-sm max-sm:text-xs">G2</TableHead>
@@ -1164,6 +1167,11 @@ export default function Results() {
                                       })
                                     : '-'}
                                 </TableCell>
+                                {!!(currentTournament as any)?.numberOfPistes && (
+                                  <TableCell className="text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 font-mono" data-testid={`text-inline-piste-${match.id}`}>
+                                    {(match as any).pisteId || '—'}
+                                  </TableCell>
+                                )}
                                 <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team1-${match.id}`}>
                                   <div className="flex items-center gap-1">
                                     <span>{getTeamName(match.team1Id)}</span>

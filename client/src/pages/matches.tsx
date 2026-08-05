@@ -95,6 +95,7 @@ type EditingMatch = {
   matchDate: string;
   team1NoShow: boolean;
   team2NoShow: boolean;
+  pisteId: string;
 };
 
 export default function Matches() {
@@ -380,6 +381,7 @@ export default function Matches() {
       matchDate: match.matchDate || "",
       team1NoShow: (match as any).team1NoShow ?? false,
       team2NoShow: (match as any).team2NoShow ?? false,
+      pisteId: (match as any).pisteId ?? "",
     });
   };
 
@@ -398,6 +400,7 @@ export default function Matches() {
   ) => {
     const fieldOrder = [
       "matchDate",
+      "pisteId",
       "team1Game1Score",
       "team1Game2Score",
       "team1Game3Score",
@@ -576,6 +579,7 @@ export default function Matches() {
         matchDate,
         team1NoShow: editingValues.team1NoShow ?? false,
         team2NoShow: editingValues.team2NoShow ?? false,
+        pisteId: editingValues.pisteId?.trim() || null,
       },
     });
   };
@@ -672,6 +676,7 @@ export default function Matches() {
         matchDate: match.matchDate || "",
         team1NoShow: (match as any).team1NoShow ?? false,
         team2NoShow: (match as any).team2NoShow ?? false,
+        pisteId: (match as any).pisteId ?? "",
       };
     });
     setAllEditingValues(initialValues);
@@ -760,6 +765,7 @@ export default function Matches() {
         matchDate: match.matchDate || "",
         team1NoShow: (match as any).team1NoShow ?? false,
         team2NoShow: (match as any).team2NoShow ?? false,
+        pisteId: (match as any).pisteId ?? "",
       };
     });
     setAllEditingValues(initialValues);
@@ -885,6 +891,7 @@ export default function Matches() {
           matchDate,
           team1NoShow: values.team1NoShow ?? false,
           team2NoShow: values.team2NoShow ?? false,
+          pisteId: values.pisteId?.trim() || null,
         });
 
         successCount++;
@@ -1734,6 +1741,9 @@ export default function Matches() {
                         <SortIcon column="matchDate" />
                       </button>
                     </TableHead>
+                    {!!(currentTournament as any)?.numberOfPistes && (
+                      <TableHead className="w-16 max-md:w-12 text-sm max-sm:text-xs">Piste</TableHead>
+                    )}
                     <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1819,6 +1829,27 @@ export default function Matches() {
                             <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
+                        {!!(currentTournament as any)?.numberOfPistes && (
+                          <TableCell data-testid={`text-piste-${match.id}`}>
+                            {shouldShowInputs ? (
+                              <Input
+                                value={currentValues?.pisteId ?? ""}
+                                onChange={(e) => updateValue("pisteId", e.target.value)}
+                                onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "pisteId", matchIndex, divisionMatches.length, division)}
+                                className="h-8 w-14"
+                                placeholder="—"
+                                data-testid={`input-edit-piste-${match.id}`}
+                                data-field-name="pisteId"
+                                data-match-index={matchIndex}
+                                data-division={division}
+                              />
+                            ) : (match as any).pisteId ? (
+                              <span className="text-sm font-mono">{(match as any).pisteId}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell data-testid={`text-team1-${match.id}`}>
                           <div className="flex items-center gap-1 min-w-0">
                             <span className="text-sm truncate">{getTeamName(match.team1Id)}</span>

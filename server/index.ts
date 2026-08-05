@@ -108,6 +108,26 @@ async function ensureMatchNoShowColumns() {
   }
 }
 
+async function ensureNumberOfPistesColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS number_of_pistes INTEGER`);
+    log("Database initialized: tournaments.number_of_pistes column ensured");
+  } finally {
+    client.release();
+  }
+}
+
+async function ensureMatchPisteIdColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS piste_id TEXT`);
+    log("Database initialized: matches.piste_id column ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureRulesPdfColumns() {
   const client = await pool.connect();
   try {
@@ -207,6 +227,8 @@ async function migrateOrphanedTournaments() {
   // Ensure tiny_url column on short_links
   await ensurePointsForNoShowColumn();
   await ensureMatchNoShowColumns();
+  await ensureNumberOfPistesColumn();
+  await ensureMatchPisteIdColumn();
   await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users

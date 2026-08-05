@@ -34,6 +34,7 @@ export const tournaments = pgTable("tournaments", {
   description: text("description"),
   numberOfDivisions: integer("number_of_divisions").notNull().default(2),
   gamesPerMatch: integer("games_per_match").notNull().default(3),
+  numberOfPistes: integer("number_of_pistes"),
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
@@ -61,6 +62,7 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(2),
   pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
   pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
+  numberOfPistes: z.number().int().min(1).nullable().optional(),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
@@ -119,6 +121,7 @@ export const matches = pgTable("matches", {
   winnerId: varchar("winner_id"),
   matchDate: text("match_date"),
   division: text("division"),
+  pisteId: text("piste_id"),
   team1NoShow: boolean("team1_no_show").notNull().default(false),
   team2NoShow: boolean("team2_no_show").notNull().default(false),
 });
@@ -162,6 +165,7 @@ export const updateMatchScoreSchema = z.object({
   matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   team1NoShow: z.boolean().optional().default(false),
   team2NoShow: z.boolean().optional().default(false),
+  pisteId: z.string().nullable().optional(),
 });
 
 export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;
