@@ -141,6 +141,30 @@ export default function Results() {
     }
   };
 
+  // Map matchId → {team1NoShow, team2NoShow, team1Id, team2Id} for NS indicator lookup
+  const matchNoShowMap = useMemo(() => {
+    const map = new Map<string, { team1NoShow: boolean; team2NoShow: boolean; team1Id: string; team2Id: string }>();
+    (matches || []).forEach(m => {
+      map.set(m.id, {
+        team1NoShow: (m as any).team1NoShow ?? false,
+        team2NoShow: (m as any).team2NoShow ?? false,
+        team1Id: m.team1Id,
+        team2Id: m.team2Id,
+      });
+    });
+    return map;
+  }, [matches]);
+
+  // Map team display name → teamId for NS lookup in detailed results
+  const teamDisplayNameToId = useMemo(() => {
+    const map = new Map<string, string>();
+    (teams || []).forEach(t => {
+      const displayName = t.teamDisplayId ? `${t.name} (${t.teamDisplayId})` : t.name;
+      map.set(displayName, t.id);
+    });
+    return map;
+  }, [teams]);
+
   const filteredResults = useMemo(() => {
     if (!results) return [];
     if (stageFilter === "all") return results;
@@ -1141,7 +1165,10 @@ export default function Results() {
                                     : '-'}
                                 </TableCell>
                                 <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team1-${match.id}`}>
-                                  {getTeamName(match.team1Id)}
+                                  <div className="flex items-center gap-1">
+                                    <span>{getTeamName(match.team1Id)}</span>
+                                    {(match as any).team1NoShow && <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
                                   <span className="font-mono">
@@ -1159,7 +1186,10 @@ export default function Results() {
                                   </span>
                                 </TableCell>
                                 <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team2-${match.id}`}>
-                                  {getTeamName(match.team2Id)}
+                                  <div className="flex items-center gap-1">
+                                    <span>{getTeamName(match.team2Id)}</span>
+                                    {(match as any).team2NoShow && <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
                                   <span className="font-mono">
@@ -1449,7 +1479,20 @@ export default function Results() {
                       {divisionResults.map((result) => (
                         <TableRow key={result.id} data-testid={`row-result-${result.id}`}>
                           <TableCell data-testid={`text-team-${result.id}`}>
-                            {result.teamName}
+                            {(() => {
+                              const md = matchNoShowMap.get((result as any).matchId);
+                              const teamId = teamDisplayNameToId.get(result.teamName);
+                              const isNoShow = md && teamId && (
+                                (md.team1Id === teamId && md.team1NoShow) ||
+                                (md.team2Id === teamId && md.team2NoShow)
+                              );
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <span>{result.teamName}</span>
+                                  {isNoShow && <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>}
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell data-testid={`text-match-${result.id}`}>
                             {result.matchInfo}

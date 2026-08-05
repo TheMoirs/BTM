@@ -1820,10 +1820,10 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell data-testid={`text-team1-${match.id}`}>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm">{getTeamName(match.team1Id)}</span>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-sm truncate">{getTeamName(match.team1Id)}</span>
                             {shouldShowInputs && (
-                              <label className="flex items-center gap-1 text-xs cursor-pointer select-none">
+                              <label className="flex items-center gap-0.5 text-xs cursor-pointer select-none shrink-0">
                                 <input
                                   type="checkbox"
                                   checked={currentValues?.team1NoShow ?? false}
@@ -1845,7 +1845,7 @@ export default function Matches() {
                               </label>
                             )}
                             {!shouldShowInputs && (match as any).team1NoShow && (
-                              <Badge variant="destructive" className="text-xs py-0 px-1">NS</Badge>
+                              <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -1913,10 +1913,10 @@ export default function Matches() {
                           )}
                         </TableCell>
                         <TableCell data-testid={`text-team2-${match.id}`}>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-sm">{getTeamName(match.team2Id)}</span>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-sm truncate">{getTeamName(match.team2Id)}</span>
                             {shouldShowInputs && (
-                              <label className="flex items-center gap-1 text-xs cursor-pointer select-none">
+                              <label className="flex items-center gap-0.5 text-xs cursor-pointer select-none shrink-0">
                                 <input
                                   type="checkbox"
                                   checked={currentValues?.team2NoShow ?? false}
@@ -1938,7 +1938,7 @@ export default function Matches() {
                               </label>
                             )}
                             {!shouldShowInputs && (match as any).team2NoShow && (
-                              <Badge variant="destructive" className="text-xs py-0 px-1">NS</Badge>
+                              <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>
                             )}
                           </div>
                         </TableCell>

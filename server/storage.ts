@@ -489,9 +489,12 @@ export class DatabaseStorage implements IStorage {
       const [updatedMatch] = await db
         .update(matches)
         .set({
-          team1Game1Score: null, team2Game1Score: null,
-          team1Game2Score: null, team2Game2Score: null,
-          team1Game3Score: null, team2Game3Score: null,
+          team1Game1Score,
+          team2Game1Score,
+          team1Game2Score,
+          team2Game2Score,
+          team1Game3Score,
+          team2Game3Score,
           matchDate: finalMatchDate,
           status: noShowStatus,
           winnerId: noShowStatus === "completed" ? winnerId : null,
