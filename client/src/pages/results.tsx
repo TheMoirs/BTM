@@ -58,7 +58,7 @@ type SortColumn = "matchInfo" | "matchDate" | "teamName" | "gamesPlayed" | "game
 type SortDirection = "asc" | "desc";
 
 const stageLabels = {
-  initial: "Initial",
+  initial: "Stage 1",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
@@ -140,6 +140,30 @@ export default function Results() {
       setSortDirection("asc");
     }
   };
+
+  // Map matchId → {team1NoShow, team2NoShow, team1Id, team2Id} for NS indicator lookup
+  const matchNoShowMap = useMemo(() => {
+    const map = new Map<string, { team1NoShow: boolean; team2NoShow: boolean; team1Id: string; team2Id: string }>();
+    (matches || []).forEach(m => {
+      map.set(m.id, {
+        team1NoShow: (m as any).team1NoShow ?? false,
+        team2NoShow: (m as any).team2NoShow ?? false,
+        team1Id: m.team1Id,
+        team2Id: m.team2Id,
+      });
+    });
+    return map;
+  }, [matches]);
+
+  // Map team display name → teamId for NS lookup in detailed results
+  const teamDisplayNameToId = useMemo(() => {
+    const map = new Map<string, string>();
+    (teams || []).forEach(t => {
+      const displayName = t.teamDisplayId ? `${t.name} (${t.teamDisplayId})` : t.name;
+      map.set(displayName, t.id);
+    });
+    return map;
+  }, [teams]);
 
   const filteredResults = useMemo(() => {
     if (!results) return [];
@@ -926,7 +950,7 @@ export default function Results() {
                   <li><strong>Detailed Results:</strong> The default view shows individual game results from all completed matches</li>
                   <li><strong>Team Leaderboard:</strong> Click to see team rankings grouped by Stage and Division. Click team names to see their matches.</li>
                   <li><strong>All Match Results:</strong> View all matches with scores grouped by division</li>
-                  <li><strong>Stage Filter:</strong> Filter results by tournament stage (Initial, Quarter-Finals, Semi-Finals, Finals)</li>
+                  <li><strong>Stage Filter:</strong> Filter results by tournament stage (Stage 1, Quarter-Finals, Semi-Finals, Finals)</li>
                 </ul>
               </div>
               
@@ -983,49 +1007,45 @@ export default function Results() {
       )}
 
       {results && results.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
+            data-testid="button-show-inline-leaderboard"
+          >
+            Leaderboard
+          </Button>
+          <Button
+            variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
+            data-testid="button-show-inline-forecast"
+          >
+            Forecast
+          </Button>
+          <Button
+            variant={!showInlineLeaderboard ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
+            data-testid="button-show-detailed-results"
+          >
+            Detailed Results
+          </Button>
+          <Button
+            variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
+            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
+            data-testid="button-show-all-matches"
+          >
+            All Match Results
+          </Button>
+          {selectedTeamId && (
             <Button
-              variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
-              data-testid="button-show-inline-leaderboard"
+              variant="secondary"
+              onClick={handleBackToLeaderboard}
+              data-testid="button-back-to-leaderboard"
             >
-              Leaderboard
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Leaderboard
             </Button>
-            <Button
-              variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
-              data-testid="button-show-inline-forecast"
-            >
-              Forecast
-            </Button>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={!showInlineLeaderboard ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
-              data-testid="button-show-detailed-results"
-            >
-              Detailed Results
-            </Button>
-            <Button
-              variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
-              onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
-              data-testid="button-show-all-matches"
-            >
-              All Match Results
-            </Button>
-            {selectedTeamId && (
-              <Button
-                variant="secondary"
-                onClick={handleBackToLeaderboard}
-                data-testid="button-back-to-leaderboard"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back to Leaderboard
-              </Button>
-            )}
-          </div>
+          )}
         </div>
       )}
 
@@ -1105,6 +1125,9 @@ export default function Results() {
                               <TableHead className="text-sm max-sm:text-xs">Stage</TableHead>
                               <TableHead className="text-sm max-sm:text-xs">Status</TableHead>
                               <TableHead className="text-sm max-sm:text-xs">Date</TableHead>
+                              {!!(currentTournament as any)?.numberOfPistes && (
+                                <TableHead className="text-sm max-sm:text-xs">Piste</TableHead>
+                              )}
                               <TableHead className="text-sm max-sm:text-xs">Team 1</TableHead>
                               <TableHead className="text-center text-sm max-sm:text-xs">G1</TableHead>
                               <TableHead className="text-center text-sm max-sm:text-xs">G2</TableHead>
@@ -1144,8 +1167,16 @@ export default function Results() {
                                       })
                                     : '-'}
                                 </TableCell>
+                                {!!(currentTournament as any)?.numberOfPistes && (
+                                  <TableCell className="text-sm max-sm:text-xs py-2 max-sm:py-1 px-1 font-mono" data-testid={`text-inline-piste-${match.id}`}>
+                                    {(match as any).pisteId || '—'}
+                                  </TableCell>
+                                )}
                                 <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team1-${match.id}`}>
-                                  {getTeamName(match.team1Id)}
+                                  <div className="flex items-center gap-1">
+                                    <span>{getTeamName(match.team1Id)}</span>
+                                    {(match as any).team1NoShow && <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
                                   <span className="font-mono">
@@ -1163,7 +1194,10 @@ export default function Results() {
                                   </span>
                                 </TableCell>
                                 <TableCell className="font-medium text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-team2-${match.id}`}>
-                                  {getTeamName(match.team2Id)}
+                                  <div className="flex items-center gap-1">
+                                    <span>{getTeamName(match.team2Id)}</span>
+                                    {(match as any).team2NoShow && <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1">
                                   <span className="font-mono">
@@ -1453,7 +1487,20 @@ export default function Results() {
                       {divisionResults.map((result) => (
                         <TableRow key={result.id} data-testid={`row-result-${result.id}`}>
                           <TableCell data-testid={`text-team-${result.id}`}>
-                            {result.teamName}
+                            {(() => {
+                              const md = matchNoShowMap.get((result as any).matchId);
+                              const teamId = teamDisplayNameToId.get(result.teamName);
+                              const isNoShow = md && teamId && (
+                                (md.team1Id === teamId && md.team1NoShow) ||
+                                (md.team2Id === teamId && md.team2NoShow)
+                              );
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <span>{result.teamName}</span>
+                                  {isNoShow && <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>}
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell data-testid={`text-match-${result.id}`}>
                             {result.matchInfo}

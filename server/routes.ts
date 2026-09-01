@@ -1,11 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result } from "@shared/schema";
+import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result, type Tournament } from "@shared/schema";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
-import { masterAdminSessions } from "./masterAdminSessions";
+import { getAuth, clerkClient } from "@clerk/express";
+import bcrypt from "bcryptjs";
+import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Short URL redirect endpoint (before token middleware - no auth required)
@@ -38,57 +40,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Master admin authentication endpoint (before token middleware)
-  app.post("/api/auth/master-admin", async (req, res) => {
+  // ── Email/password auth routes (before token middleware) ─────────────────
+  app.post("/api/auth/register", async (req, res) => {
     try {
-      const { password } = req.body;
-      const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
-      
-      if (!masterPassword) {
-        console.error("[SECURITY] Master admin attempted but MASTER_ADMIN_PASSWORD not configured");
-        return res.status(503).json({ error: "Master admin not configured" });
-      }
-      
-      if (password === masterPassword) {
-        const sessionToken = masterAdminSessions.createSession();
-        console.log(`[AUDIT] Master admin login successful - active sessions: ${masterAdminSessions.getActiveSessionCount()}`);
-        res.json({ success: true, sessionToken });
-      } else {
-        console.warn("[SECURITY] Failed master admin login attempt - invalid password");
-        res.status(401).json({ error: "Invalid password" });
-      }
+      const { email, password, displayName } = req.body;
+      if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+      if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await storage.getUserByEmail(normalizedEmail);
+      if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+
+      const isSystemAdmin = normalizedEmail === SYSTEM_ADMIN_EMAIL;
+      const passwordHash = await bcrypt.hash(password, 12);
+      const user = await storage.createUser(normalizedEmail, passwordHash, displayName?.trim() || null, isSystemAdmin);
+
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin });
+      console.log(`[AUTH] Registered: ${user.email} (sysAdmin: ${isSystemAdmin})`);
+      res.status(201).json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
     } catch (error) {
-      console.error("[ERROR] Master admin authentication error:", error);
-      res.status(500).json({ error: "Authentication failed" });
+      console.error("[AUTH] Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      if (!user) return res.status(401).json({ error: "Invalid email or password" });
+      if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+      const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
+      console.log(`[AUTH] Login: ${user.email}`);
+      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (_req, res) => {
+    clearAuthCookie(res);
+    res.json({ success: true });
+  });
+
+  app.patch("/api/auth/profile", async (req: any, res) => {
+    try {
+      const { userId: clerkUserId } = getAuth(req);
+      let targetUser: Awaited<ReturnType<typeof storage.getUserById>>;
+
+      if (clerkUserId) {
+        targetUser = await storage.getUserByClerkId(clerkUserId);
+      } else {
+        const session = getSessionFromRequest(req);
+        if (!session) return res.status(401).json({ error: "Not authenticated" });
+        targetUser = await storage.getUserById(session.userId);
+      }
+
+      if (!targetUser || targetUser.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
+
+      const { displayName } = req.body;
+      const trimmed = typeof displayName === "string" ? displayName.trim() : null;
+
+      const updated = await storage.updateUserProfile(targetUser.id, trimmed || null);
+      if (!updated) return res.status(500).json({ error: "Failed to update profile" });
+
+      // Only refresh legacy cookie when not using Clerk
+      if (!clerkUserId) {
+        setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
+      }
+      console.log(`[AUTH] Display name updated for: ${updated.email}`);
+      res.json({ user: { id: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Update profile error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  app.patch("/api/auth/password", async (req, res) => {
+    try {
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
+      if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+
+      const user = await storage.getUserById(session.userId);
+      if (!user || user.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, newHash);
+      console.log(`[AUTH] Password changed for: ${user.email}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Change password error:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  app.get("/api/auth/user", async (req: any, res) => {
+    try {
+      // Check Clerk session first
+      const { userId: clerkUserId } = getAuth(req);
+      if (clerkUserId) {
+        let user = await storage.getUserByClerkId(clerkUserId);
+        if (!user) {
+          // JIT provision on first /api/auth/user call after social sign-in
+          try {
+            const clerkUser = await clerkClient.users.getUser(clerkUserId);
+            const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase();
+            const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null;
+            if (email) {
+              user = await storage.getUserByEmail(email) ?? undefined;
+              if (user) {
+                if (!user.clerkUserId) await storage.updateUserClerkId(user.id, clerkUserId);
+              } else {
+                try {
+                  user = await storage.createUserFromClerk(email, clerkUserId, displayName, email === SYSTEM_ADMIN_EMAIL);
+                } catch {
+                  user = await storage.getUserByEmail(email) ?? undefined;
+                }
+              }
+            }
+          } catch (e) {
+            console.error('[CLERK] JIT provision in /api/auth/user:', e);
+          }
+        }
+        if (user && !user.isBlocked) {
+          return res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+        }
+        return res.json({ user: null });
+      }
+      // Legacy cookie fallback
+      const session = getSessionFromRequest(req);
+      if (!session) return res.json({ user: null });
+      const user = await storage.getUserById(session.userId);
+      if (!user || user.isBlocked) { clearAuthCookie(res); return res.json({ user: null }); }
+      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+    } catch {
+      res.status(500).json({ error: "Failed to get user" });
     }
   });
 
   app.use(validateTokenMiddleware);
 
+  // ── Admin routes (system admin only) ──────────────────────────────────────
+  app.get("/api/admin/users", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const allUsers = await storage.getAllUsers();
+      const withCounts = await Promise.all(allUsers.map(async u => {
+        const ts = await storage.getTournamentsByUserId(u.id);
+        const { passwordHash: _ph, ...safe } = u;
+        return { ...safe, tournamentCount: ts.length };
+      }));
+      res.json(withCounts);
+    } catch {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/block", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const { isBlocked } = req.body;
+      const user = await storage.setUserBlocked(req.params.id, isBlocked);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch {
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.post("/api/admin/users/:id/reset-password", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const { newPassword } = req.body;
+      if (!newPassword || newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
+      const user = await storage.getUserById(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, newHash);
+      console.log(`[AUDIT] Admin reset password for: ${user.email}`);
+      res.json({ success: true });
+    } catch {
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      if (req.sessionUser?.userId === req.params.id) return res.status(400).json({ error: "Cannot delete your own account" });
+      const deleted = await storage.deleteUser(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "User not found" });
+      res.status(204).send();
+    } catch {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
   // Tournament routes
   app.get("/api/tournaments", async (req: any, res) => {
     try {
-      // Master admin gets all tournaments
       if (req.isMasterAdmin) {
-        const tournaments = await storage.getAllTournaments();
-        // Strip sensitive tokens from all tournaments
-        const tournamentsWithoutTokens = tournaments.map(({ adminToken, viewToken, ...tournament }) => tournament);
-        res.json(tournamentsWithoutTokens);
-      }
-      // If accessing with a token, only return the associated tournament
-      else if (req.tokenTournamentId) {
-        const tournament = await storage.getTournament(req.tokenTournamentId);
-        if (!tournament) {
-          return res.status(404).json({ error: "Tournament not found" });
+        // System admin / master admin sees all
+        const ts = await storage.getAllTournaments();
+        res.json(ts.map(({ adminToken, viewToken, ...t }) => t));
+      } else if (req.tokenTournamentId) {
+        // Token-based share link — only the specific tournament
+        const t = await storage.getTournament(req.tokenTournamentId);
+        if (!t) return res.status(404).json({ error: "Tournament not found" });
+        const { viewToken, adminToken, ...withoutTokens } = t;
+        res.json([withoutTokens]);
+      } else if (req.sessionUser) {
+        // Logged-in regular user sees owned + shared-with-them tournaments
+        const [owned, shared] = await Promise.all([
+          storage.getTournamentsByUserId(req.sessionUser.userId),
+          storage.getTournamentsSharedWithUserId(req.sessionUser.userId),
+        ]);
+        // Deduplicate by id, mark shared ones
+        const seen = new Set<string>();
+        const all: Array<Omit<Tournament, 'adminToken' | 'viewToken'> & { isShared?: boolean }> = [];
+        for (const t of owned) {
+          if (!seen.has(t.id)) { seen.add(t.id); const { adminToken, viewToken, ...rest } = t; all.push(rest); }
         }
-        // Strip sensitive tokens from response
-        const { viewToken, adminToken, ...tournamentWithoutTokens } = tournament;
-        res.json([tournamentWithoutTokens]);
+        for (const t of shared) {
+          if (!seen.has(t.id)) { seen.add(t.id); const { adminToken, viewToken, ...rest } = t; all.push({ ...rest, isShared: true }); }
+        }
+        res.json(all);
       } else {
-        const tournaments = await storage.getAllTournaments();
-        // Strip sensitive tokens from all tournaments
-        const tournamentsWithoutTokens = tournaments.map(({ adminToken, viewToken, ...tournament }) => tournament);
-        res.json(tournamentsWithoutTokens);
+        // No auth — empty list
+        res.json([]);
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch tournaments" });
@@ -144,14 +338,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tournaments", async (req: any, res) => {
     try {
-      // CRITICAL: Only master admins can create tournaments
-      if (!req.isMasterAdmin) {
+      // Allow master admin OR any logged-in user
+      if (!req.isMasterAdmin && !req.sessionUser) {
         console.warn("[SECURITY] Unauthorized attempt to create tournament");
-        return res.status(403).json({ error: "Access denied: master admin access required" });
+        return res.status(403).json({ error: "Access denied: login required to create tournaments" });
       }
-      
+
       const validatedData = insertTournamentSchema.parse(req.body);
-      const tournament = await storage.createTournament(validatedData);
+      const userId = req.sessionUser?.userId || null;
+      const tournament = await storage.createTournament(validatedData, userId);
       res.status(201).json(tournament);
     } catch (error) {
       if (error instanceof Error) {
@@ -164,13 +359,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/tournaments/:id", async (req: any, res) => {
     try {
-      // Require admin access for tournament updates
       if (!req.isAdminAccess) {
-        return res.status(403).json({ error: "Access denied: admin token required" });
+        return res.status(403).json({ error: "Access denied: login required" });
       }
-      // Master admin can update any tournament, otherwise verify tournament ownership
-      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
-        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      // Master admin can update any tournament
+      if (!req.isMasterAdmin) {
+        // Token-based access: token must match this tournament
+        if (req.tokenTournamentId && req.params.id !== req.tokenTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Session-based access: user must own or be a collaborator on this tournament
+        if (req.sessionUser && !req.tokenTournamentId) {
+          const tournament = await storage.getTournament(req.params.id);
+          if (!tournament) {
+            return res.status(404).json({ error: "Tournament not found" });
+          }
+          const isOwner = tournament.userId === req.sessionUser.userId;
+          const isCollab = !isOwner && await storage.isCollaborator(req.params.id, req.sessionUser.userId);
+          if (!isOwner && !isCollab) {
+            return res.status(403).json({ error: "Access denied: you do not own this tournament" });
+          }
+        }
       }
       const validatedData = insertTournamentSchema.parse(req.body);
       const tournament = await storage.updateTournament(req.params.id, validatedData);
@@ -187,15 +396,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/tournaments/:id/recalculate-results", async (req: any, res) => {
+    try {
+      const tournamentId = req.params.id;
+      if (!req.isMasterAdmin && req.sessionUser) {
+        const tournament = await storage.getTournament(tournamentId);
+        if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+        const isOwner = tournament.userId === req.sessionUser.userId;
+        const isCollab = !isOwner && await storage.isCollaborator(tournamentId, req.sessionUser.userId);
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+
+      const allMatches = await storage.getAllMatches(tournamentId);
+      const completedMatches = allMatches.filter(m => m.status === "completed");
+
+      let recalculated = 0;
+      for (const match of completedMatches) {
+        await storage.updateMatchScore(
+          match.id,
+          match.team1Game1Score,
+          match.team2Game1Score,
+          match.team1Game2Score,
+          match.team2Game2Score,
+          match.team1Game3Score,
+          match.team2Game3Score,
+          match.matchDate,
+          (match as any).team1NoShow ?? false,
+          (match as any).team2NoShow ?? false,
+        );
+        recalculated++;
+      }
+
+      res.json({ recalculated });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to recalculate results" });
+    }
+  });
+
+  app.patch("/api/tournaments/:id/transfer", async (req: any, res) => {
+    try {
+      const tournamentId = req.params.id;
+
+      // Allow master admin OR the logged-in user who owns this tournament
+      const isTournamentOwner = req.sessionUser && (() => {
+        // We'll verify ownership after fetching the tournament
+        return true;
+      })();
+
+      if (!req.isMasterAdmin && !isTournamentOwner) {
+        return res.status(403).json({ error: "Access denied: master admin or tournament owner required" });
+      }
+
+      const tournament = await storage.getTournament(tournamentId);
+      if (!tournament) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      // Non-master-admin users must own the tournament
+      if (!req.isMasterAdmin) {
+        if (!req.sessionUser || tournament.userId !== req.sessionUser.userId) {
+          return res.status(403).json({ error: "Access denied: you do not own this tournament" });
+        }
+      }
+
+      const { email } = req.body;
+      if (typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ error: "A valid email address is required" });
+      }
+
+      const targetUser = await storage.getUserByEmail(email.trim());
+      if (!targetUser) {
+        return res.status(404).json({ error: `No user found with email "${email.trim()}"` });
+      }
+
+      if (targetUser.isBlocked) {
+        return res.status(400).json({ error: "Cannot transfer to a blocked user account" });
+      }
+
+      const updated = await storage.transferTournamentOwnership(tournamentId, targetUser.id);
+      if (!updated) {
+        return res.status(404).json({ error: "Tournament not found" });
+      }
+
+      console.log(`[AUDIT] Tournament ${tournamentId} (${tournament.name}) ownership transferred to user ${targetUser.id} (${targetUser.email})`);
+      res.json({ success: true, newOwnerEmail: targetUser.email, newOwnerDisplayName: targetUser.displayName });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to transfer tournament ownership" });
+      }
+    }
+  });
+
+  // ── Collaborator routes ────────────────────────────────────────────────────
+
+  // GET collaborators — owner or master admin only
+  app.get("/api/tournaments/:id/collaborators", async (req: any, res) => {
+    try {
+      if (!req.sessionUser && !req.isMasterAdmin) {
+        return res.status(403).json({ error: "Access denied: login required" });
+      }
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin && tournament.userId !== req.sessionUser?.userId) {
+        return res.status(403).json({ error: "Access denied: owner only" });
+      }
+      const collaborators = await storage.getCollaborators(req.params.id);
+      res.json(collaborators.map(({ passwordHash, ...u }) => u));
+    } catch {
+      res.status(500).json({ error: "Failed to fetch collaborators" });
+    }
+  });
+
+  // POST add collaborator by email — owner or master admin only
+  app.post("/api/tournaments/:id/collaborators", async (req: any, res) => {
+    try {
+      if (!req.sessionUser && !req.isMasterAdmin) {
+        return res.status(403).json({ error: "Access denied: login required" });
+      }
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin && tournament.userId !== req.sessionUser?.userId) {
+        return res.status(403).json({ error: "Access denied: owner only" });
+      }
+      const { email } = req.body;
+      if (typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ error: "A valid email address is required" });
+      }
+      const target = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!target) return res.status(404).json({ error: `No user found with email "${email.trim()}"` });
+      if (target.isBlocked) return res.status(400).json({ error: "Cannot add a blocked user as co-editor" });
+      if (target.id === tournament.userId) {
+        return res.status(400).json({ error: "That user already owns this tournament" });
+      }
+      await storage.addCollaborator(req.params.id, target.id);
+      const { passwordHash, ...safeUser } = target;
+      res.status(201).json(safeUser);
+    } catch {
+      res.status(500).json({ error: "Failed to add co-editor" });
+    }
+  });
+
+  // DELETE remove collaborator — owner or master admin only
+  app.delete("/api/tournaments/:id/collaborators/:userId", async (req: any, res) => {
+    try {
+      if (!req.sessionUser && !req.isMasterAdmin) {
+        return res.status(403).json({ error: "Access denied: login required" });
+      }
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin && tournament.userId !== req.sessionUser?.userId) {
+        return res.status(403).json({ error: "Access denied: owner only" });
+      }
+      const removed = await storage.removeCollaborator(req.params.id, req.params.userId);
+      if (!removed) return res.status(404).json({ error: "Co-editor not found" });
+      res.status(204).send();
+    } catch {
+      res.status(500).json({ error: "Failed to remove co-editor" });
+    }
+  });
+
   app.delete("/api/tournaments/:id", async (req: any, res) => {
     try {
-      // Require admin access for tournament deletion
       if (!req.isAdminAccess) {
-        return res.status(403).json({ error: "Access denied: admin token required" });
+        return res.status(403).json({ error: "Access denied: login required" });
       }
-      // Master admin can delete any tournament, otherwise verify tournament ownership
-      if (!req.isMasterAdmin && req.params.id !== req.tokenTournamentId) {
-        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      if (!req.isMasterAdmin) {
+        // Token-based access: token must match this tournament
+        if (req.tokenTournamentId && req.params.id !== req.tokenTournamentId) {
+          return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        }
+        // Session-based access: user must own this tournament
+        if (req.sessionUser && !req.tokenTournamentId) {
+          const tournament = await storage.getTournament(req.params.id);
+          if (!tournament || tournament.userId !== req.sessionUser.userId) {
+            return res.status(403).json({ error: "Access denied: you do not own this tournament" });
+          }
+        }
       }
       const deleted = await storage.deleteTournament(req.params.id);
       if (!deleted) {
@@ -213,7 +591,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isMasterAdmin: req.isMasterAdmin || false,
       isAdminAccess: req.isAdminAccess || false,
       isViewOnlyAccess: req.isViewOnlyAccess || false,
-      tournamentId: req.tokenTournamentId || null
+      tournamentId: req.tokenTournamentId || null,
+      user: req.sessionUser ? {
+        id: req.sessionUser.userId,
+        email: req.sessionUser.email,
+        displayName: req.sessionUser.displayName,
+        isSystemAdmin: req.sessionUser.isSystemAdmin,
+      } : null,
     });
   });
 
@@ -255,6 +639,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(`[ERROR] Failed to retrieve admin credentials:`, error);
       res.status(500).json({ error: "Failed to retrieve admin credentials" });
+    }
+  });
+
+  // Rules PDF endpoints
+  app.post("/api/tournaments/:id/rules", async (req: any, res) => {
+    try {
+      if (!req.isAdminAccess) return res.status(403).json({ error: "Access denied" });
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin) {
+        const isOwner = tournament.userId === req.sessionUser?.userId;
+        const isCollab = !isOwner && await storage.isCollaborator(req.params.id, req.sessionUser?.userId);
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+      const { pdfData, pdfName } = req.body;
+      if (!pdfData || !pdfName) return res.status(400).json({ error: "pdfData and pdfName are required" });
+      if (typeof pdfData !== "string" || pdfData.length > 14_000_000) {
+        return res.status(400).json({ error: "PDF too large (max ~7MB)" });
+      }
+      await storage.updateTournamentRules(req.params.id, pdfData, pdfName);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save rules PDF" });
+    }
+  });
+
+  app.get("/api/tournaments/:id/rules", async (req: any, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament || !tournament.rulesPdfData) return res.status(404).json({ error: "No rules PDF found" });
+      const pdf = Buffer.from(tournament.rulesPdfData, "base64");
+      const filename = tournament.rulesPdfName || "rules.pdf";
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+      res.setHeader("Content-Length", pdf.length);
+      res.send(pdf);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to retrieve rules PDF" });
+    }
+  });
+
+  app.delete("/api/tournaments/:id/rules", async (req: any, res) => {
+    try {
+      if (!req.isAdminAccess) return res.status(403).json({ error: "Access denied" });
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ error: "Tournament not found" });
+      if (!req.isMasterAdmin) {
+        const isOwner = tournament.userId === req.sessionUser?.userId;
+        const isCollab = !isOwner && await storage.isCollaborator(req.params.id, req.sessionUser?.userId);
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.clearTournamentRules(req.params.id);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove rules PDF" });
     }
   });
 
@@ -309,13 +748,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shortLink = await storage.createShortLink(tournamentId, safeAccessType, targetPage);
       }
       
-      // Build the short URL
+      // Build the internal short URL
       const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const shortUrl = `${baseUrl}/s/${shortLink.code}`;
-      
+      const shareUrl = `${baseUrl}/s/${shortLink.code}`;
+
       res.json({ 
         code: shortLink.code,
-        shortUrl,
+        shortUrl: shareUrl,
         targetPage: shortLink.targetPage
       });
     } catch (error) {
@@ -1155,7 +1594,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.team2Game2Score,
         validatedData.team1Game3Score,
         validatedData.team2Game3Score,
-        validatedData.matchDate ?? null
+        validatedData.matchDate ?? null,
+        validatedData.team1NoShow ?? false,
+        validatedData.team2NoShow ?? false,
+        validatedData.pisteId ?? null
       );
       if (!match) {
         return res.status(404).json({ error: "Match not found" });

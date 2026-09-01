@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useTournament } from "@/contexts/TournamentContext";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Users, FileText } from "lucide-react";
 import { HelpDialog } from "@/components/help-dialog";
 import {
   Table,
@@ -19,7 +20,7 @@ import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision, applyForecastSort } from "@/lib/leaderboard";
 
 const stageLabels = {
-  initial: "Initial",
+  initial: "Stage 1",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
@@ -33,6 +34,7 @@ const statusLabels = {
 
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
+  const { viewToken } = useViewMode();
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
@@ -170,9 +172,12 @@ export default function Leaderboard() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
-          {isForecast ? "Forecast Leaderboard" : "Leaderboard"}
-        </h1>
+        <div className="flex items-center gap-3">
+          <img src="/btm-logo.png" alt="BTM" className="h-14 w-14 rounded-lg object-cover flex-shrink-0" />
+          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
+            {isForecast ? "Forecast Leaderboard" : "Leaderboard"}
+          </h1>
+        </div>
         <div className="flex flex-col gap-1">
           <p className="text-lg font-semibold">{currentTournament.name}</p>
           <p className="text-sm text-muted-foreground">
@@ -206,7 +211,7 @@ export default function Leaderboard() {
         >
           All Match Results
         </Button>
-        <Link href="/teams">
+        <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
           <Button
             variant="outline"
             data-testid="button-view-teams"
@@ -215,6 +220,18 @@ export default function Leaderboard() {
             View Teams
           </Button>
         </Link>
+        {(currentTournament as any).rulesPdfName && (
+          <a
+            href={`/api/tournaments/${currentTournament.id}/rules`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline" data-testid="button-view-rules">
+              <FileText className="h-4 w-4 mr-1" />
+              View Rules
+            </Button>
+          </a>
+        )}
         {selectedTeamId && (
           <Button
             variant="secondary"

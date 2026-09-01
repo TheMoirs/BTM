@@ -1,4 +1,4 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, teams, matches, results, tournaments, shortLinks } from "@shared/schema";
+import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
@@ -8,8 +8,9 @@ export interface IStorage {
   getAllTournaments(): Promise<Tournament[]>;
   getTournament(id: string): Promise<Tournament | undefined>;
   getLatestTournament(): Promise<Tournament | undefined>;
-  createTournament(tournament: InsertTournament): Promise<Tournament>;
+  createTournament(tournament: InsertTournament, userId?: string): Promise<Tournament>;
   updateTournament(id: string, tournament: InsertTournament): Promise<Tournament | undefined>;
+  transferTournamentOwnership(id: string, newUserId: string | null): Promise<Tournament | undefined>;
   deleteTournament(id: string): Promise<boolean>;
   regenerateViewToken(id: string): Promise<Tournament | undefined>;
   regenerateAdminToken(id: string): Promise<Tournament | undefined>;
@@ -34,7 +35,10 @@ export interface IStorage {
     team2Game2Score: number | null,
     team1Game3Score: number | null,
     team2Game3Score: number | null,
-    matchDate: string | null
+    matchDate: string | null,
+    team1NoShow?: boolean,
+    team2NoShow?: boolean,
+    pisteId?: string | null
   ): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
   deleteAllMatches(tournamentId?: string): Promise<boolean>;
@@ -49,6 +53,32 @@ export interface IStorage {
   createShortLink(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink>;
   getShortLinkByCode(code: string): Promise<ShortLink | undefined>;
   getShortLinkForTournament(tournamentId: string, accessType: string, targetPage: string): Promise<ShortLink | undefined>;
+  updateShortLinkTinyUrl(id: string, tinyUrl: string): Promise<void>;
+
+  // User methods
+  getUserById(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
+  createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
+  createUserFromClerk(email: string, clerkUserId: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
+  updateUserClerkId(id: string, clerkUserId: string): Promise<void>;
+  getAllUsers(): Promise<User[]>;
+  setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
+  updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined>;
+  updateUserProfile(id: string, displayName: string | null): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  getTournamentsByUserId(userId: string): Promise<Tournament[]>;
+
+  // Rules PDF methods
+  updateTournamentRules(id: string, pdfData: string, pdfName: string): Promise<void>;
+  clearTournamentRules(id: string): Promise<void>;
+
+  // Collaborator methods
+  addCollaborator(tournamentId: string, userId: string): Promise<void>;
+  removeCollaborator(tournamentId: string, userId: string): Promise<boolean>;
+  getCollaborators(tournamentId: string): Promise<User[]>;
+  isCollaborator(tournamentId: string, userId: string): Promise<boolean>;
+  getTournamentsSharedWithUserId(userId: string): Promise<Tournament[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -67,13 +97,14 @@ export class DatabaseStorage implements IStorage {
     return tournament || undefined;
   }
 
-  async createTournament(insertTournament: InsertTournament): Promise<Tournament> {
+  async createTournament(insertTournament: InsertTournament, userId?: string): Promise<Tournament> {
     const [tournament] = await db
       .insert(tournaments)
       .values({
         ...insertTournament,
         adminToken: generateViewToken(),
         viewToken: generateViewToken(),
+        userId: userId || null,
       })
       .returning();
     return tournament;
@@ -88,6 +119,23 @@ export class DatabaseStorage implements IStorage {
     const [updatedTournament] = await db
       .update(tournaments)
       .set(insertTournament)
+      .where(eq(tournaments.id, id))
+      .returning();
+    return updatedTournament || undefined;
+  }
+
+  async updateTournamentRules(id: string, pdfData: string, pdfName: string): Promise<void> {
+    await db.update(tournaments).set({ rulesPdfData: pdfData, rulesPdfName: pdfName }).where(eq(tournaments.id, id));
+  }
+
+  async clearTournamentRules(id: string): Promise<void> {
+    await db.update(tournaments).set({ rulesPdfData: null, rulesPdfName: null }).where(eq(tournaments.id, id));
+  }
+
+  async transferTournamentOwnership(id: string, newUserId: string | null): Promise<Tournament | undefined> {
+    const [updatedTournament] = await db
+      .update(tournaments)
+      .set({ userId: newUserId })
       .where(eq(tournaments.id, id))
       .returning();
     return updatedTournament || undefined;
@@ -379,7 +427,10 @@ export class DatabaseStorage implements IStorage {
     team2Game2Score: number | null,
     team1Game3Score: number | null,
     team2Game3Score: number | null,
-    matchDate: string | null
+    matchDate: string | null,
+    team1NoShow: boolean = false,
+    team2NoShow: boolean = false,
+    pisteId: string | null = null
   ): Promise<Match | undefined> {
     const match = await this.getMatch(id);
     if (!match) {
@@ -394,6 +445,70 @@ export class DatabaseStorage implements IStorage {
 
     // Cap gamesPerMatch at 3 since matches table only supports 3 games
     const gamesPerMatch = Math.min(tournament.gamesPerMatch, 3);
+    const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
+
+    // ── No-show path ────────────────────────────────────────────────────────
+    if (team1NoShow || team2NoShow) {
+      const noShowStatus = finalMatchDate ? "completed" : "in-progress";
+      const winnerId = team1NoShow ? match.team2Id : match.team1Id;
+
+      if (noShowStatus === "completed") {
+        await this.deleteResultsByMatchId(id);
+        const team1 = await this.getTeam(match.team1Id);
+        const team2 = await this.getTeam(match.team2Id);
+        if (team1 && team2) {
+          const t1Name = team1.teamDisplayId ? `${team1.name} (${team1.teamDisplayId})` : team1.name;
+          const t2Name = team2.teamDisplayId ? `${team2.name} (${team2.teamDisplayId})` : team2.name;
+          const matchInfo = `${t1Name} vs ${t2Name}`;
+          const pointsForNoShow = tournament.pointsForNoShow ?? 0;
+
+          // The team that showed up wins all games; the no-show team loses all games.
+          await this.createResult({
+            tournamentId: match.tournamentId, matchId: id, matchInfo,
+            matchDate: finalMatchDate, stage: match.stage, division: match.division || null,
+            teamName: t1Name,
+            gamesPlayed: gamesPerMatch,
+            gamesWon: team1NoShow ? 0 : gamesPerMatch,
+            gamesLost: team1NoShow ? gamesPerMatch : 0,
+            gamesDrawn: 0,
+            points: team1NoShow ? 0 : pointsForNoShow * gamesPerMatch,
+            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+          });
+          await this.createResult({
+            tournamentId: match.tournamentId, matchId: id, matchInfo,
+            matchDate: finalMatchDate, stage: match.stage, division: match.division || null,
+            teamName: t2Name,
+            gamesPlayed: gamesPerMatch,
+            gamesWon: team2NoShow ? 0 : gamesPerMatch,
+            gamesLost: team2NoShow ? gamesPerMatch : 0,
+            gamesDrawn: 0,
+            points: team2NoShow ? 0 : pointsForNoShow * gamesPerMatch,
+            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+          });
+        }
+      }
+
+      const [updatedMatch] = await db
+        .update(matches)
+        .set({
+          team1Game1Score,
+          team2Game1Score,
+          team1Game2Score,
+          team2Game2Score,
+          team1Game3Score,
+          team2Game3Score,
+          matchDate: finalMatchDate,
+          status: noShowStatus,
+          winnerId: noShowStatus === "completed" ? winnerId : null,
+          team1NoShow,
+          team2NoShow,
+          pisteId,
+        })
+        .where(eq(matches.id, id))
+        .returning();
+      return updatedMatch || undefined;
+    }
+    // ── End no-show path ─────────────────────────────────────────────────────
 
     // Calculate winner based on games won
     let winnerId = null;
@@ -430,9 +545,6 @@ export class DatabaseStorage implements IStorage {
     if (team1Game1Score !== null && team2Game1Score !== null) completeGamesCount++;
     if (team1Game2Score !== null && team2Game2Score !== null) completeGamesCount++;
     if (team1Game3Score !== null && team2Game3Score !== null) completeGamesCount++;
-
-    // Determine the matchDate to use (new value or existing)
-    const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     if (hasAnyScores) {
       // Match is completed when at least one complete game has been played AND a date is entered
@@ -608,9 +720,12 @@ export class DatabaseStorage implements IStorage {
         team2Game2Score,
         team1Game3Score,
         team2Game3Score,
-        matchDate: matchDate !== undefined ? matchDate : match.matchDate,
+        matchDate: finalMatchDate,
         status,
         winnerId,
+        team1NoShow: false,
+        team2NoShow: false,
+        pisteId,
       })
       .where(eq(matches.id, id))
       .returning();
@@ -840,6 +955,121 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return shortLink || undefined;
+  }
+
+  async updateShortLinkTinyUrl(id: string, tinyUrl: string): Promise<void> {
+    await db.update(shortLinks).set({ tinyUrl }).where(eq(shortLinks.id, id));
+  }
+
+  // ── User methods ───────────────────────────────────────────────────────────
+  async getUserById(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return user || undefined;
+  }
+
+  async getUserByClerkId(clerkUserId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.clerkUserId, clerkUserId));
+    return user || undefined;
+  }
+
+  async createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User> {
+    const [user] = await db.insert(users).values({
+      email: email.toLowerCase(),
+      passwordHash,
+      displayName,
+      isSystemAdmin,
+      isBlocked: false,
+    }).returning();
+    return user;
+  }
+
+  async createUserFromClerk(email: string, clerkUserId: string, displayName: string | null, isSystemAdmin: boolean): Promise<User> {
+    const [user] = await db.insert(users).values({
+      email: email.toLowerCase(),
+      passwordHash: '__CLERK_AUTH__',
+      displayName,
+      isSystemAdmin,
+      isBlocked: false,
+      clerkUserId,
+    }).returning();
+    return user;
+  }
+
+  async updateUserClerkId(id: string, clerkUserId: string): Promise<void> {
+    await db.update(users).set({ clerkUserId }).where(eq(users.id, id));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ isBlocked }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async updateUserProfile(id: string, displayName: string | null): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ displayName }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getTournamentsByUserId(userId: string): Promise<Tournament[]> {
+    return await db.select().from(tournaments).where(eq(tournaments.userId, userId)).orderBy(desc(tournaments.createdAt));
+  }
+
+  async getTournamentsSharedWithUserId(userId: string): Promise<Tournament[]> {
+    const rows = await db
+      .select({ tournament: tournaments })
+      .from(tournamentCollaborators)
+      .innerJoin(tournaments, eq(tournamentCollaborators.tournamentId, tournaments.id))
+      .where(eq(tournamentCollaborators.userId, userId))
+      .orderBy(desc(tournaments.createdAt));
+    return rows.map(r => r.tournament);
+  }
+
+  async addCollaborator(tournamentId: string, userId: string): Promise<void> {
+    await db.insert(tournamentCollaborators).values({ tournamentId, userId }).onConflictDoNothing();
+  }
+
+  async removeCollaborator(tournamentId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(tournamentCollaborators)
+      .where(and(eq(tournamentCollaborators.tournamentId, tournamentId), eq(tournamentCollaborators.userId, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getCollaborators(tournamentId: string): Promise<User[]> {
+    const rows = await db
+      .select({ user: users })
+      .from(tournamentCollaborators)
+      .innerJoin(users, eq(tournamentCollaborators.userId, users.id))
+      .where(eq(tournamentCollaborators.tournamentId, tournamentId))
+      .orderBy(tournamentCollaborators.createdAt);
+    return rows.map(r => r.user);
+  }
+
+  async isCollaborator(tournamentId: string, userId: string): Promise<boolean> {
+    const [row] = await db
+      .select()
+      .from(tournamentCollaborators)
+      .where(and(eq(tournamentCollaborators.tournamentId, tournamentId), eq(tournamentCollaborators.userId, userId)));
+    return !!row;
   }
 
   private generateShortCode(): string {

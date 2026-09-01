@@ -1448,7 +1448,7 @@ export default function Teams() {
               data-testid="button-email-captains"
             >
               <Mail className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Email</span>
+              <span className="hidden sm:inline">Email All</span>
             </Button>
             {!isReadOnly && (
               <>
@@ -1720,7 +1720,7 @@ export default function Teams() {
               data-testid="button-share-view"
             >
               <Share2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share View"}</span>
+              <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Teams"}</span>
             </Button>
             <Link href="/leaderboard">
               <Button

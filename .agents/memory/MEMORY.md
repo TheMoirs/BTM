@@ -1,0 +1,1 @@
+- [Auth system design](auth-system.md) — stateless JWT in httpOnly cookie alongside existing URL-token system; both coexist.

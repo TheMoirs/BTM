@@ -55,13 +55,12 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Generates cryptographically secure 6-character codes
         - Share buttons visible to all users (not just admins)
         - Tournament existence validated before link creation
-- **Three-Tier Security System**: Comprehensive access control with Master Admin, Admin tokens, and View tokens.
-    - **Master Admin**: Password-based authentication using `MASTER_ADMIN_PASSWORD` environment variable.
+- **Three-Tier Security System**: Comprehensive access control with System Admin (email-based), Admin tokens, and View tokens.
+    - **System Admin**: Email/password authentication via the login page. System admin accounts are flagged in the database.
         - Full control over ALL tournaments (view, edit, delete any tournament)
         - Can retrieve admin URLs for any tournament via dedicated endpoint
-        - Session-based authentication with `master_` prefixed tokens
         - Bypasses all tournament-specific access restrictions
-        - UI shows "Master Admin" badge in navigation
+        - UI shows "System Admin" badge in navigation
         - Special endpoint GET `/api/tournaments/:id/admin-credentials` (master admin only):
             - Returns shareable admin and view URLs containing tokens
             - URLs are designed to be distributed to tournament organizers and viewers
@@ -77,8 +76,8 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - Each tournament has two unique tokens (cryptographically secure 32-character random strings):
         - `adminToken`: Created on tournament creation, retrievable only by master admin
         - `viewToken`: Created on tournament creation, shareable for public viewing
-    - **Token Usage**: Tokens included as query parameter: `?token={adminToken|viewToken|master_session}&tournament={id}`
-    - **Token Persistence**: Tokens stored in localStorage to survive SPA navigation and page reloads
+    - **Token Usage**: Tokens included as query parameter: `?token={adminToken|viewToken}&tournament={id}`
+    - **Token Persistence**: Tokens stored in sessionStorage to survive page refreshes within the same tab
     - **Tournament Locking**: When accessing via admin/view token URL, tournament selection is automatically locked to prevent 403 errors:
         - TournamentProvider queries `/api/auth/check-access` to get token's associated tournament ID
         - Tournament selection prioritizes locked tournament (highest priority in selection logic)
@@ -103,9 +102,9 @@ Boules Tournament Manager is a web application designed to manage multiple boule
     - **Error Handling**: Invalid tokens return 401; cross-tournament access returns 403; missing resources return 404
     - **Token Regeneration**: Admin tokens can regenerate view tokens via `/api/tournaments/:id/regenerate-token`
     - **UI Integration**: Automatically detects token presence, hides editing controls in view-only mode, displays access level badges (Master Admin, Admin Access, View Only)
-    - **Master Admin Features**:
-        - Login/logout UI in navigation bar
-        - Link icon button next to each tournament in selector (master admin only)
+    - **System Admin Features**:
+        - Login/logout UI in navigation bar (email-based login page)
+        - Link icon button next to each tournament in selector (system admin only)
         - Dialog displaying both admin and view URLs with copy buttons
         - Can switch between any tournament without restrictions
     - **Security Guarantees**:
@@ -113,9 +112,8 @@ Boules Tournament Manager is a web application designed to manage multiple boule
         - Each token grants access to only one specific tournament
         - Cross-tournament access completely blocked at all levels
         - Multi-layer defense: middleware + route handlers enforce isolation
-        - Master admin sessions use cryptographically secure tokens with 24h expiration
-        - Master admin endpoint includes audit logging for all credential retrievals
-        - Master admin can retrieve shareable URLs to distribute to tournament organizers
+        - System admin endpoint includes audit logging for all credential retrievals
+        - System admin can retrieve shareable URLs to distribute to tournament organizers
 - **Team Deletion Warning**: Displays specific counts of affected matches and results before confirming team deletion.
 - **Tournament Deletion Warning**: Shows counts of teams and matches that will be deleted, with disabled submit button until counts load.
 - **PDF Generation**: All PDF reports display tournament name as bold main title, followed by optional description, then report type and timestamp. Data starts near top of page, intelligent page break logic prevents division data from splitting across pages. Dual-mode handling for desktop (preview dialog) and mobile (direct open/share via Web Share API or Data URI).

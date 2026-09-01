@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,20 +43,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2, Pencil, Link2, Copy, Check } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil, UserRoundCheck, Users, X, FileText, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament, lockedTournamentId } = useTournament();
   const { isReadOnly, isMasterAdmin } = useViewMode();
+  const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
-  const [viewingCredentials, setViewingCredentials] = useState<Tournament | null>(null);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-  const { toast} = useToast();
+  const [transferringTournament, setTransferringTournament] = useState<Tournament | null>(null);
+  const [transferEmail, setTransferEmail] = useState("");
+  const [sharingTournament, setSharingTournament] = useState<Tournament | null>(null);
+  const [collaboratorEmail, setCollaboratorEmail] = useState("");
+  const [rulesFile, setRulesFile] = useState<File | null>(null);
+  const [isUploadingRules, setIsUploadingRules] = useState(false);
+  const [pendingEditData, setPendingEditData] = useState<InsertTournament | null>(null);
+  const [showRecalcConfirm, setShowRecalcConfirm] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const rulesFileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isTournamentLocked = !!lockedTournamentId;
 
   const { data: tournaments } = useQuery<Tournament[]>({
@@ -84,20 +95,87 @@ export function TournamentSelector() {
     enabled: !!deletingTournament,
   });
 
-  const { data: adminCredentials, mutate: fetchAdminCredentials, isPending: isFetchingCredentials, reset: resetCredentials } = useMutation<any, Error, string>({
-    mutationFn: async (tournamentId: string) => {
-      const response = await apiRequest("GET", `/api/tournaments/${tournamentId}/admin-credentials`);
-      return await response.json();
+  // Fetch collaborators when sharing dialog is open
+  const { data: collaborators = [], refetch: refetchCollaborators } = useQuery<any[]>({
+    queryKey: ["/api/tournaments", sharingTournament?.id, "collaborators"],
+    queryFn: async () => {
+      if (!sharingTournament) return [];
+      const res = await apiRequest("GET", `/api/tournaments/${sharingTournament.id}/collaborators`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!sharingTournament,
+  });
+
+  const { mutate: doAddCollaborator, isPending: isAddingCollaborator } = useMutation<any, Error, { tournamentId: string; email: string }>({
+    mutationFn: async ({ tournamentId, email }) => {
+      const response = await apiRequest("POST", `/api/tournaments/${tournamentId}/collaborators`, { email });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Failed to add co-editor");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setCollaboratorEmail("");
+      refetchCollaborators();
+      toast({ title: "Co-editor added", description: "They can now manage this tournament." });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to add co-editor", description: error.message, variant: "destructive", duration: Infinity });
+    },
+  });
+
+  const { mutate: doRemoveCollaborator } = useMutation<any, Error, { tournamentId: string; userId: string }>({
+    mutationFn: async ({ tournamentId, userId }) => {
+      const response = await apiRequest("DELETE", `/api/tournaments/${tournamentId}/collaborators/${userId}`);
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Failed to remove co-editor");
+      }
+    },
+    onSuccess: () => {
+      refetchCollaborators();
+      toast({ title: "Co-editor removed" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to remove co-editor", description: error.message, variant: "destructive", duration: Infinity });
+    },
+  });
+
+  const { mutate: doTransfer, isPending: isTransferring } = useMutation<any, Error, { id: string; email: string }>({
+    mutationFn: async ({ id, email }) => {
+      const response = await apiRequest("PATCH", `/api/tournaments/${id}/transfer`, { email });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Transfer failed");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      const ownerName = data.newOwnerDisplayName || data.newOwnerEmail;
+      toast({
+        title: "Ownership transferred",
+        description: `Tournament is now owned by ${ownerName}.`,
+      });
+      setTransferringTournament(null);
+      setTransferEmail("");
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch admin credentials",
+        title: "Transfer failed",
+        description: error.message,
         variant: "destructive",
         duration: Infinity,
       });
-    }
+    },
   });
+
+  const handleTransferOwnership = () => {
+    if (!transferringTournament || !transferEmail.trim()) return;
+    doTransfer({ id: transferringTournament.id, email: transferEmail.trim() });
+  };
 
   const form = useForm<InsertTournament>({
     resolver: zodResolver(insertTournamentSchema),
@@ -109,9 +187,11 @@ export function TournamentSelector() {
       hasQuarterFinals: false,
       hasSemiFinals: false,
       hasFinals: true,
-      pointsForWin: 2,
-      pointsForDraw: 1,
-      pointsForLoss: 0,
+      pointsForWin: 3,
+      pointsForDraw: 2,
+      pointsForLoss: 1,
+      pointsForNoShow: 0,
+      numberOfPistes: null,
     },
   });
 
@@ -134,17 +214,34 @@ export function TournamentSelector() {
     }
   };
 
-  const handleEditTournament = async (data: InsertTournament) => {
+  const doEditTournament = async (data: InsertTournament, recalculate = false) => {
     if (!editingTournament) return;
     try {
       await updateTournament(editingTournament.id, data);
+      if (recalculate) {
+        setIsRecalculating(true);
+        try {
+          const res = await apiRequest("POST", `/api/tournaments/${editingTournament.id}/recalculate-results`);
+          const { recalculated } = await res.json();
+          toast({
+            title: "Tournament updated",
+            description: `${data.name} updated. ${recalculated} match result${recalculated !== 1 ? "s" : ""} recalculated with new point values.`,
+          });
+        } finally {
+          setIsRecalculating(false);
+        }
+      } else {
+        toast({
+          title: "Tournament updated",
+          description: `${data.name} has been updated successfully.`,
+        });
+      }
       setEditingTournament(null);
+      setShowRecalcConfirm(false);
+      setPendingEditData(null);
       form.reset();
-      toast({
-        title: "Tournament updated",
-        description: `${data.name} has been updated successfully.`,
-      });
     } catch (error) {
+      setIsRecalculating(false);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update tournament",
@@ -152,6 +249,22 @@ export function TournamentSelector() {
         duration: Infinity,
       });
     }
+  };
+
+  const handleEditTournament = async (data: InsertTournament) => {
+    if (!editingTournament) return;
+    const pointValuesChanged =
+      data.pointsForWin !== (editingTournament.pointsForWin ?? 3) ||
+      data.pointsForDraw !== (editingTournament.pointsForDraw ?? 2) ||
+      data.pointsForLoss !== (editingTournament.pointsForLoss ?? 1) ||
+      data.pointsForNoShow !== ((editingTournament as any).pointsForNoShow ?? 0);
+
+    if (pointValuesChanged) {
+      setPendingEditData(data);
+      setShowRecalcConfirm(true);
+      return;
+    }
+    await doEditTournament(data, false);
   };
 
   const handleDeleteTournament = async (tournament: Tournament) => {
@@ -172,28 +285,52 @@ export function TournamentSelector() {
     }
   };
 
-  const handleViewAdminCredentials = (tournament: Tournament) => {
-    resetCredentials(); // Clear previous credentials
-    setViewingCredentials(tournament);
-    fetchAdminCredentials(tournament.id);
+  const handleUploadRules = async () => {
+    if (!editingTournament || !rulesFile) return;
+    setIsUploadingRules(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(rulesFile);
+      });
+      const response = await apiRequest("POST", `/api/tournaments/${editingTournament.id}/rules`, {
+        pdfData: base64,
+        pdfName: rulesFile.name,
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Upload failed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      setRulesFile(null);
+      // Refresh editingTournament so the filename shows immediately
+      setEditingTournament({ ...editingTournament, rulesPdfName: rulesFile.name } as any);
+      toast({ title: "Rules uploaded", description: `${rulesFile.name} has been saved.` });
+    } catch (error) {
+      toast({ title: "Upload failed", description: error instanceof Error ? error.message : "Failed to upload rules", variant: "destructive", duration: Infinity });
+    } finally {
+      setIsUploadingRules(false);
+    }
   };
 
-  const copyToClipboard = async (text: string, field: string) => {
+  const handleRemoveRules = async () => {
+    if (!editingTournament) return;
+    setIsUploadingRules(true);
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedField(field);
-      setTimeout(() => setCopiedField(null), 2000);
-      toast({
-        title: "Copied to clipboard",
-        description: `${field} has been copied.`,
-      });
+      const response = await apiRequest("DELETE", `/api/tournaments/${editingTournament.id}/rules`);
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Failed to remove rules");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/tournaments"] });
+      setEditingTournament({ ...editingTournament, rulesPdfName: null, rulesPdfData: null } as any);
+      toast({ title: "Rules removed" });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to copy to clipboard",
-        variant: "destructive",
-        duration: Infinity,
-      });
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to remove rules", variant: "destructive", duration: Infinity });
+    } finally {
+      setIsUploadingRules(false);
     }
   };
 
@@ -206,8 +343,8 @@ export function TournamentSelector() {
   };
 
   if (!currentTournament) {
-    // Only master admin can create tournaments
-    if (!isMasterAdmin) {
+    // Any logged-in user can create a tournament
+    if (!isMasterAdmin && !user) {
       return (
         <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-muted text-muted-foreground" data-testid="tournament-display-empty">
           <Trophy className="h-4 w-4" />
@@ -224,12 +361,13 @@ export function TournamentSelector() {
             Create Tournament
           </Button>
         </DialogTrigger>
-        <DialogContent data-testid="dialog-create-tournament">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-create-tournament" className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -296,6 +434,28 @@ export function TournamentSelector() {
                       />
                     </FormControl>
                     <FormDescription>Number of games in each match (1-5)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="numberOfPistes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Pistes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                        placeholder="Leave blank if not applicable"
+                        data-testid="input-number-of-pistes"
+                      />
+                    </FormControl>
+                    <FormDescription>When set, a Piste column appears in Matches and Results.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -364,7 +524,7 @@ export function TournamentSelector() {
               <div className="space-y-3">
                 <FormLabel>Point Values</FormLabel>
                 <FormDescription>Points awarded per game result</FormDescription>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="pointsForWin"
@@ -422,10 +582,30 @@ export function TournamentSelector() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="pointsForNoShow"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">No-Show</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-points-for-no-show"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4">
+              </div>
+              <div className="shrink-0 flex gap-2 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -492,20 +672,8 @@ export function TournamentSelector() {
                   <span className="text-xs text-muted-foreground">{getTournamentDetails(tournament)}</span>
                 </div>
               </div>
-              {isMasterAdmin && (
+              {(isMasterAdmin || (user && (tournament.userId === user.id || (tournament as any).isShared))) && (
                 <div className="flex gap-1 flex-shrink-0">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewAdminCredentials(tournament);
-                    }}
-                    data-testid={`button-admin-url-${tournament.id}`}
-                  >
-                    <Link2 className="h-3 w-3" />
-                  </Button>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -521,32 +689,69 @@ export function TournamentSelector() {
                         hasQuarterFinals: tournament.hasQuarterFinals,
                         hasSemiFinals: tournament.hasSemiFinals,
                         hasFinals: tournament.hasFinals,
-                        pointsForWin: tournament.pointsForWin ?? 2,
-                        pointsForDraw: tournament.pointsForDraw ?? 1,
-                        pointsForLoss: tournament.pointsForLoss ?? 0,
+                        pointsForWin: tournament.pointsForWin ?? 3,
+                        pointsForDraw: tournament.pointsForDraw ?? 2,
+                        pointsForLoss: tournament.pointsForLoss ?? 1,
+                        pointsForNoShow: (tournament as any).pointsForNoShow ?? 0,
+                        numberOfPistes: (tournament as any).numberOfPistes ?? null,
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}
+                    title="Edit tournament settings"
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeletingTournament(tournament);
-                    }}
-                    data-testid={`button-delete-tournament-${tournament.id}`}
-                  >
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                  {/* Share / co-editors — owner and master admin only, not collaborators */}
+                  {(isMasterAdmin || (user && tournament.userId === user.id)) && (
+                    <>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCollaboratorEmail("");
+                          setSharingTournament(tournament);
+                        }}
+                        data-testid={`button-share-tournament-${tournament.id}`}
+                        title="Share tournament (add co-editors)"
+                      >
+                        <Users className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTransferEmail("");
+                          setTransferringTournament(tournament);
+                        }}
+                        data-testid={`button-transfer-tournament-${tournament.id}`}
+                        title="Transfer ownership"
+                      >
+                        <UserRoundCheck className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingTournament(tournament);
+                        }}
+                        data-testid={`button-delete-tournament-${tournament.id}`}
+                        title="Delete tournament"
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </DropdownMenuItem>
           ))}
-          {isMasterAdmin && (
+          {(isMasterAdmin || user) && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setIsCreateOpen(true)} data-testid="button-create-new-tournament">
@@ -559,12 +764,13 @@ export function TournamentSelector() {
       </DropdownMenu>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent data-testid="dialog-create-tournament">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-create-tournament" className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -636,6 +842,28 @@ export function TournamentSelector() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="numberOfPistes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Pistes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                        placeholder="Leave blank if not applicable"
+                        data-testid="input-number-of-pistes"
+                      />
+                    </FormControl>
+                    <FormDescription>When set, a Piste column appears in Matches and Results.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="space-y-3">
                 <FormLabel>Tournament Stages</FormLabel>
                 <FormField
@@ -696,7 +924,8 @@ export function TournamentSelector() {
                 />
               </div>
 
-              <div className="flex gap-2 pt-4">
+              </div>
+              <div className="shrink-0 flex gap-2 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -716,12 +945,13 @@ export function TournamentSelector() {
       </Dialog>
 
       <Dialog open={!!editingTournament} onOpenChange={(open) => !open && setEditingTournament(null)}>
-        <DialogContent data-testid="dialog-edit-tournament">
-          <DialogHeader>
+        <DialogContent data-testid="dialog-edit-tournament" className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle>Edit Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleEditTournament)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(handleEditTournament)} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -793,6 +1023,28 @@ export function TournamentSelector() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="numberOfPistes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Pistes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                        placeholder="Leave blank if not applicable"
+                        data-testid="input-edit-number-of-pistes"
+                      />
+                    </FormControl>
+                    <FormDescription>When set, a Piste column appears in Matches and Results.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="space-y-3">
                 <FormLabel>Tournament Stages</FormLabel>
                 <FormField
@@ -856,7 +1108,7 @@ export function TournamentSelector() {
               <div className="space-y-3">
                 <FormLabel>Point Values</FormLabel>
                 <FormDescription>Points awarded per game result</FormDescription>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <FormField
                     control={form.control}
                     name="pointsForWin"
@@ -914,15 +1166,106 @@ export function TournamentSelector() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="pointsForNoShow"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">No-Show</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            min={0}
+                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
+                            data-testid="input-edit-points-for-no-show"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4">
+              {/* Rules PDF */}
+              <div className="space-y-2">
+                <FormLabel>Tournament Rules (PDF)</FormLabel>
+                {(editingTournament as any)?.rulesPdfName && !rulesFile && (
+                  <div className="flex items-center gap-2 p-2 rounded-md border bg-muted text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="flex-1 truncate">{(editingTournament as any).rulesPdfName}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-destructive hover:text-destructive"
+                      onClick={handleRemoveRules}
+                      disabled={isUploadingRules}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+                {rulesFile && (
+                  <div className="flex items-center gap-2 p-2 rounded-md border bg-muted text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="flex-1 truncate">{rulesFile.name}</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-destructive hover:text-destructive"
+                      onClick={() => setRulesFile(null)}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    ref={rulesFileInputRef}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setRulesFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => rulesFileInputRef.current?.click()}
+                    disabled={isUploadingRules}
+                  >
+                    Browse…
+                  </Button>
+                  {rulesFile && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleUploadRules}
+                      disabled={isUploadingRules}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      {isUploadingRules ? "Uploading…" : "Upload PDF"}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Upload a PDF containing the tournament rules (max ~7 MB).</p>
+              </div>
+
+              </div>
+              <div className="shrink-0 flex gap-2 px-6 pb-6 pt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => {
                     setEditingTournament(null);
+                    setRulesFile(null);
                     form.reset();
                   }}
                   className="flex-1"
@@ -982,102 +1325,161 @@ export function TournamentSelector() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!viewingCredentials} onOpenChange={(open) => {
+      <AlertDialog open={showRecalcConfirm} onOpenChange={(open) => {
+        if (!open) { setShowRecalcConfirm(false); setPendingEditData(null); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recalculate Results?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have changed one or more point values. All existing completed match results for this tournament will be recalculated using the new values. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRecalculating} onClick={() => { setShowRecalcConfirm(false); setPendingEditData(null); }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isRecalculating}
+              onClick={async () => { if (pendingEditData) await doEditTournament(pendingEditData, true); }}
+            >
+              {isRecalculating ? "Recalculating…" : "Update & Recalculate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!transferringTournament} onOpenChange={(open) => {
         if (!open) {
-          setViewingCredentials(null);
-          resetCredentials();
+          setTransferringTournament(null);
+          setTransferEmail("");
         }
       }}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-admin-credentials">
+        <DialogContent data-testid="dialog-transfer-tournament">
           <DialogHeader>
-            <DialogTitle>Admin Credentials - {viewingCredentials?.name}</DialogTitle>
+            <DialogTitle>Transfer Ownership — {transferringTournament?.name}</DialogTitle>
           </DialogHeader>
-          {isFetchingCredentials ? (
-            <div className="py-8 text-center text-muted-foreground">Loading credentials...</div>
-          ) : adminCredentials ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Admin URL (Full Access)</label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(adminCredentials.adminUrl, "Admin URL")}
-                    data-testid="button-copy-admin-url"
-                  >
-                    {copiedField === "Admin URL" ? (
-                      <>
-                        <Check className="h-3 w-3 mr-2" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-2" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <Textarea
-                  value={adminCredentials.adminUrl}
-                  readOnly
-                  className="font-mono text-xs resize-none"
-                  rows={2}
-                  data-testid="input-admin-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Share this URL with tournament administrators. They will have full control over this tournament.
-                </p>
-              </div>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enter the email address of the user you want to transfer this tournament to. They must already have an account. The new owner will have full control over this tournament.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="transfer-email">New Owner's Email</label>
+              <Input
+                id="transfer-email"
+                type="email"
+                placeholder="user@example.com"
+                value={transferEmail}
+                onChange={(e) => setTransferEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleTransferOwnership()}
+                data-testid="input-transfer-email"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> This action immediately reassigns tournament ownership. The new owner can manage and delete this tournament. You will lose ownership but can still access it via your admin link.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setTransferringTournament(null);
+                  setTransferEmail("");
+                }}
+                className="flex-1"
+                data-testid="button-cancel-transfer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleTransferOwnership}
+                disabled={!transferEmail.trim() || isTransferring}
+                className="flex-1"
+                data-testid="button-confirm-transfer"
+              >
+                {isTransferring ? "Transferring..." : "Transfer Ownership"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">View-Only URL (Read Access)</label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => copyToClipboard(adminCredentials.viewUrl, "View-Only URL")}
-                    data-testid="button-copy-view-url"
-                  >
-                    {copiedField === "View-Only URL" ? (
-                      <>
-                        <Check className="h-3 w-3 mr-2" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-2" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <Textarea
-                  value={adminCredentials.viewUrl}
-                  readOnly
-                  className="font-mono text-xs resize-none"
-                  rows={2}
-                  data-testid="input-view-url"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Share this URL with viewers. They can see tournament data but cannot make changes.
-                </p>
-              </div>
+      {/* Share Tournament / Co-editors dialog */}
+      <Dialog open={!!sharingTournament} onOpenChange={(open) => {
+        if (!open) { setSharingTournament(null); setCollaboratorEmail(""); }
+      }}>
+        <DialogContent data-testid="dialog-share-tournament">
+          <DialogHeader>
+            <DialogTitle>Co-editors — {sharingTournament?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Co-editors can add teams, manage matches, and update results. They cannot delete the tournament or manage co-editors.
+            </p>
 
-              <div className="flex gap-2 pt-4">
+            {/* Add co-editor */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Add co-editor by email</label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="user@example.com"
+                  value={collaboratorEmail}
+                  onChange={(e) => setCollaboratorEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && sharingTournament && collaboratorEmail.trim()) {
+                      doAddCollaborator({ tournamentId: sharingTournament.id, email: collaboratorEmail.trim() });
+                    }
+                  }}
+                  data-testid="input-collaborator-email"
+                />
                 <Button
-                  variant="outline"
-                  onClick={() => setViewingCredentials(null)}
-                  className="flex-1"
-                  data-testid="button-close-credentials"
+                  type="button"
+                  disabled={!collaboratorEmail.trim() || isAddingCollaborator}
+                  onClick={() => sharingTournament && doAddCollaborator({ tournamentId: sharingTournament.id, email: collaboratorEmail.trim() })}
+                  data-testid="button-add-collaborator"
                 >
-                  Close
+                  {isAddingCollaborator ? "Adding…" : "Add"}
                 </Button>
               </div>
             </div>
-          ) : null}
+
+            {/* Current co-editors list */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Current co-editors</label>
+              {collaborators.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No co-editors yet.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {collaborators.map((c: any) => (
+                    <li key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                      <div>
+                        <span className="font-medium">{c.displayName || c.email}</span>
+                        {c.displayName && <span className="ml-2 text-muted-foreground text-xs">{c.email}</span>}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => sharingTournament && doRemoveCollaborator({ tournamentId: sharingTournament.id, userId: c.id })}
+                        title="Remove co-editor"
+                      >
+                        <X className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setSharingTournament(null)} className="flex-1">Close</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
+
     </>
   );
 }

@@ -70,7 +70,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const stageLabels = {
-  initial: "Initial",
+  initial: "Stage 1",
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
@@ -82,7 +82,7 @@ const statusLabels = {
   completed: "Completed",
 };
 
-type SortColumn = "division" | "stage" | "status" | "matchDate" | "team1" | "team2";
+type SortColumn = "division" | "stage" | "status" | "matchDate" | "team1" | "team2" | "piste";
 type SortDirection = "asc" | "desc";
 
 type EditingMatch = {
@@ -93,11 +93,15 @@ type EditingMatch = {
   team1Game3Score: string;
   team2Game3Score: string;
   matchDate: string;
+  team1NoShow: boolean;
+  team2NoShow: boolean;
+  pisteId: string;
 };
 
 export default function Matches() {
   const { currentTournament } = useTournament();
   const { isReadOnly } = useViewMode();
+  const gamesPerMatch = (currentTournament as any)?.gamesPerMatch ?? 3;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<EditingMatch>>({});
@@ -272,7 +276,7 @@ export default function Matches() {
 
       // Map stage names for display
       const stageDisplayNames: Record<string, string> = {
-        "initial": "initial round",
+        "initial": "stage 1",
         "quarter-finals": "quarter-final",
         "semi-finals": "semi-final",
         "finals": "final",
@@ -376,6 +380,9 @@ export default function Matches() {
       team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
       team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
       matchDate: match.matchDate || "",
+      team1NoShow: (match as any).team1NoShow ?? false,
+      team2NoShow: (match as any).team2NoShow ?? false,
+      pisteId: (match as any).pisteId ?? "",
     });
   };
 
@@ -394,6 +401,7 @@ export default function Matches() {
   ) => {
     const fieldOrder = [
       "matchDate",
+      "pisteId",
       "team1Game1Score",
       "team1Game2Score",
       "team1Game3Score",
@@ -454,6 +462,10 @@ export default function Matches() {
   };
 
   const saveEditing = (matchId: string) => {
+    const team1NoShow = editingValues.team1NoShow ?? false;
+    const team2NoShow = editingValues.team2NoShow ?? false;
+    const matchDate = editingValues.matchDate?.trim() || null;
+
     // Parse all game scores, keeping null for empty values
     // Use !== "" to allow 0 as a valid score
     const team1Game1Score = editingValues.team1Game1Score?.trim() !== "" 
@@ -474,7 +486,7 @@ export default function Matches() {
     const team2Game3Score = editingValues.team2Game3Score?.trim() !== "" 
       ? parseInt(editingValues.team2Game3Score!) 
       : null;
-    const matchDate = editingValues.matchDate?.trim() || null;
+    // matchDate already declared above — reuse it
 
     // Validate that for each game, if one score is provided, both must be provided
     if ((team1Game1Score !== null && team2Game1Score === null) || 
@@ -566,6 +578,9 @@ export default function Matches() {
         team1Game3Score,
         team2Game3Score,
         matchDate,
+        team1NoShow: editingValues.team1NoShow ?? false,
+        team2NoShow: editingValues.team2NoShow ?? false,
+        pisteId: editingValues.pisteId?.trim() || null,
       },
     });
   };
@@ -593,7 +608,7 @@ export default function Matches() {
       const gameNum = field.includes("Game1") ? "1" : field.includes("Game2") ? "2" : "3";
       const isTeam1 = field.includes("team1");
       const opponentField = (isTeam1 ? `team2Game${gameNum}Score` : `team1Game${gameNum}Score`) as keyof EditingMatch;
-      const opponentScore = currentValues[opponentField];
+      const opponentScore = currentValues[opponentField] as string | undefined;
       
       if (opponentScore && parseInt(opponentScore, 10) >= 13) {
         return { valid: false, message: "If one team scores 13, opponent must score less than 13" };
@@ -604,7 +619,7 @@ export default function Matches() {
     const gameNum = field.includes("Game1") ? "1" : field.includes("Game2") ? "2" : "3";
     const isTeam1 = field.includes("team1");
     const opponentField = (isTeam1 ? `team2Game${gameNum}Score` : `team1Game${gameNum}Score`) as keyof EditingMatch;
-    const opponentScore = currentValues[opponentField];
+    const opponentScore = currentValues[opponentField] as string | undefined;
     
     if (opponentScore && parseInt(opponentScore, 10) === 13 && numValue >= 13) {
       return { valid: false, message: "If opponent scores 13, this team must score less than 13" };
@@ -660,6 +675,9 @@ export default function Matches() {
         team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
         team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
         matchDate: match.matchDate || "",
+        team1NoShow: (match as any).team1NoShow ?? false,
+        team2NoShow: (match as any).team2NoShow ?? false,
+        pisteId: (match as any).pisteId ?? "",
       };
     });
     setAllEditingValues(initialValues);
@@ -746,6 +764,9 @@ export default function Matches() {
         team1Game3Score: match.team1Game3Score !== null ? match.team1Game3Score.toString() : "",
         team2Game3Score: match.team2Game3Score !== null ? match.team2Game3Score.toString() : "",
         matchDate: match.matchDate || "",
+        team1NoShow: (match as any).team1NoShow ?? false,
+        team2NoShow: (match as any).team2NoShow ?? false,
+        pisteId: (match as any).pisteId ?? "",
       };
     });
     setAllEditingValues(initialValues);
@@ -797,6 +818,9 @@ export default function Matches() {
         const team1Game3Score = values.team1Game3Score?.trim() !== "" ? parseInt(values.team1Game3Score!) : null;
         const team2Game3Score = values.team2Game3Score?.trim() !== "" ? parseInt(values.team2Game3Score!) : null;
         const matchDate = values.matchDate?.trim() || null;
+
+        const noShow1 = values.team1NoShow ?? false;
+        const noShow2 = values.team2NoShow ?? false;
 
         // Check if any scores are entered
         const hasAnyScores = team1Game1Score !== null || team2Game1Score !== null ||
@@ -866,6 +890,9 @@ export default function Matches() {
           team1Game3Score,
           team2Game3Score,
           matchDate,
+          team1NoShow: values.team1NoShow ?? false,
+          team2NoShow: values.team2NoShow ?? false,
+          pisteId: values.pisteId?.trim() || null,
         });
 
         successCount++;
@@ -979,6 +1006,10 @@ export default function Matches() {
         case "matchDate":
           aValue = a.matchDate || "9999-12-31";
           bValue = b.matchDate || "9999-12-31";
+          break;
+        case "piste":
+          aValue = ((a as any).pisteId || "").toString().toLowerCase();
+          bValue = ((b as any).pisteId || "").toString().toLowerCase();
           break;
         default:
           aValue = (a[sortColumn] || "").toString().toLowerCase();
@@ -1478,7 +1509,7 @@ export default function Matches() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="initial">Initial Stage</SelectItem>
+                              <SelectItem value="initial">Stage 1</SelectItem>
                               <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
                               <SelectItem value="semi-finals">Semi-Finals</SelectItem>
                               <SelectItem value="finals">Finals</SelectItem>
@@ -1518,7 +1549,7 @@ export default function Matches() {
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>
-                  <p>The Matches page lets you schedule games, record scores, and track match progress through tournament stages (Initial, Quarter-Finals, Semi-Finals, Finals).</p>
+                  <p>The Matches page lets you schedule games, record scores, and track match progress through tournament stages (Stage 1, Quarter-Finals, Semi-Finals, Finals).</p>
                 </div>
                 
                 <div>
@@ -1581,7 +1612,7 @@ export default function Matches() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Stages</SelectItem>
-                      <SelectItem value="initial">Initial</SelectItem>
+                      <SelectItem value="initial">Stage 1</SelectItem>
                       <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
                       <SelectItem value="semi-finals">Semi-Finals</SelectItem>
                       <SelectItem value="finals">Finals</SelectItem>
@@ -1682,7 +1713,7 @@ export default function Matches() {
                 <CardContent>
             <div className="overflow-x-auto">
               <div className="rounded-md border">
-              <Table>
+              <Table className="min-w-max">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[100px] max-md:w-16 text-sm max-sm:text-xs">
@@ -1715,6 +1746,18 @@ export default function Matches() {
                         <SortIcon column="matchDate" />
                       </button>
                     </TableHead>
+                    {!!(currentTournament as any)?.numberOfPistes && (
+                      <TableHead className="w-16 max-md:w-14 text-sm max-sm:text-xs">
+                        <button
+                          className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                          onClick={() => handleSort("piste")}
+                          data-testid="sort-piste"
+                        >
+                          Piste
+                          <SortIcon column="piste" />
+                        </button>
+                      </TableHead>
+                    )}
                     <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1726,8 +1769,8 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>
+                    {gamesPerMatch >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
+                    {gamesPerMatch >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
                     <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -1739,8 +1782,8 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>
-                    <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>
+                    {gamesPerMatch >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
+                    {gamesPerMatch >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
                     {!isReadOnly && (
                       <TableHead className="w-20 max-md:w-16 text-right text-sm max-sm:text-xs">Actions</TableHead>
                     )}
@@ -1800,8 +1843,56 @@ export default function Matches() {
                             <span className="text-muted-foreground text-sm">—</span>
                           )}
                         </TableCell>
+                        {!!(currentTournament as any)?.numberOfPistes && (
+                          <TableCell data-testid={`text-piste-${match.id}`}>
+                            {shouldShowInputs ? (
+                              <Input
+                                value={currentValues?.pisteId ?? ""}
+                                onChange={(e) => updateValue("pisteId", e.target.value)}
+                                onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "pisteId", matchIndex, divisionMatches.length, division)}
+                                className="h-8 w-14"
+                                placeholder="—"
+                                data-testid={`input-edit-piste-${match.id}`}
+                                data-field-name="pisteId"
+                                data-match-index={matchIndex}
+                                data-division={division}
+                              />
+                            ) : (match as any).pisteId ? (
+                              <span className="text-sm font-mono">{(match as any).pisteId}</span>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell data-testid={`text-team1-${match.id}`}>
-                          {getTeamName(match.team1Id)}
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-sm truncate">{getTeamName(match.team1Id)}</span>
+                            {shouldShowInputs && (
+                              <label className="flex items-center gap-0.5 text-xs cursor-pointer select-none shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={currentValues?.team1NoShow ?? false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    if (isEditingInBulk) {
+                                      setAllEditingValues(prev => ({
+                                        ...prev,
+                                        [match.id]: { ...prev[match.id], team1NoShow: checked, ...(checked ? { team2NoShow: false } : {}) }
+                                      }));
+                                    } else {
+                                      setEditingValues(prev => ({ ...prev, team1NoShow: checked, ...(checked ? { team2NoShow: false } : {}) }));
+                                    }
+                                  }}
+                                  disabled={currentValues?.team2NoShow === true}
+                                  className="cursor-pointer"
+                                />
+                                <span className="text-muted-foreground">NS</span>
+                              </label>
+                            )}
+                            {!shouldShowInputs && (match as any).team1NoShow && (
+                              <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
@@ -1824,6 +1915,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
+                        {gamesPerMatch >= 2 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -1845,6 +1937,8 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
+                        )}
+                        {gamesPerMatch >= 3 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -1866,8 +1960,36 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
+                        )}
                         <TableCell data-testid={`text-team2-${match.id}`}>
-                          {getTeamName(match.team2Id)}
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-sm truncate">{getTeamName(match.team2Id)}</span>
+                            {shouldShowInputs && (
+                              <label className="flex items-center gap-0.5 text-xs cursor-pointer select-none shrink-0">
+                                <input
+                                  type="checkbox"
+                                  checked={currentValues?.team2NoShow ?? false}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    if (isEditingInBulk) {
+                                      setAllEditingValues(prev => ({
+                                        ...prev,
+                                        [match.id]: { ...prev[match.id], team2NoShow: checked, ...(checked ? { team1NoShow: false } : {}) }
+                                      }));
+                                    } else {
+                                      setEditingValues(prev => ({ ...prev, team2NoShow: checked, ...(checked ? { team1NoShow: false } : {}) }));
+                                    }
+                                  }}
+                                  disabled={currentValues?.team1NoShow === true}
+                                  className="cursor-pointer"
+                                />
+                                <span className="text-muted-foreground">NS</span>
+                              </label>
+                            )}
+                            {!shouldShowInputs && (match as any).team2NoShow && (
+                              <Badge variant="destructive" className="text-xs py-0 px-1 shrink-0">NS</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
@@ -1890,6 +2012,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
+                        {gamesPerMatch >= 2 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -1911,6 +2034,8 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
+                        )}
+                        {gamesPerMatch >= 3 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -1932,6 +2057,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
+                        )}
                         {!isReadOnly && (
                           <TableCell className="text-right">
                             {isEditAllMode ? (

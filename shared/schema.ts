@@ -4,24 +4,53 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 
+// ── Users ─────────────────────────────────────────────────────────────────
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name"),
+  isSystemAdmin: boolean("is_system_admin").notNull().default(false),
+  isBlocked: boolean("is_blocked").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  clerkUserId: text("clerk_user_id"),
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true, createdAt: true, passwordHash: true, isSystemAdmin: true, isBlocked: true,
+}).extend({
+  email: z.string().email("Valid email required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  displayName: z.string().transform(v => v === "" ? null : v).nullable().optional(),
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+// ── Tournaments ───────────────────────────────────────────────────────────
 export const tournaments = pgTable("tournaments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
   numberOfDivisions: integer("number_of_divisions").notNull().default(2),
   gamesPerMatch: integer("games_per_match").notNull().default(3),
+  numberOfPistes: integer("number_of_pistes"),
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
-  pointsForWin: integer("points_for_win").notNull().default(2),
-  pointsForDraw: integer("points_for_draw").notNull().default(1),
-  pointsForLoss: integer("points_for_loss").notNull().default(0),
+  pointsForWin: integer("points_for_win").notNull().default(3),
+  pointsForDraw: integer("points_for_draw").notNull().default(2),
+  pointsForLoss: integer("points_for_loss").notNull().default(1),
+  pointsForNoShow: integer("points_for_no_show").notNull().default(0),
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
+  rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
+  rulesPdfName: text("rules_pdf_name"),   // original filename
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),
@@ -29,9 +58,11 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   hasQuarterFinals: z.boolean().default(false),
   hasSemiFinals: z.boolean().default(false),
   hasFinals: z.boolean().default(true),
-  pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(2),
-  pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(1),
-  pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(0),
+  pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(3),
+  pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(2),
+  pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
+  pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
+  numberOfPistes: z.number().int().min(1).nullable().optional(),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
@@ -90,6 +121,9 @@ export const matches = pgTable("matches", {
   winnerId: varchar("winner_id"),
   matchDate: text("match_date"),
   division: text("division"),
+  pisteId: text("piste_id"),
+  team1NoShow: boolean("team1_no_show").notNull().default(false),
+  team2NoShow: boolean("team2_no_show").notNull().default(false),
 });
 
 // Note: A unique index exists on the database:
@@ -129,6 +163,9 @@ export const updateMatchScoreSchema = z.object({
   team1Game3Score: z.union([z.number().int().min(0), z.null()]),
   team2Game3Score: z.union([z.number().int().min(0), z.null()]),
   matchDate: z.string().transform(val => val === "" ? null : val).nullable().optional(),
+  team1NoShow: z.boolean().optional().default(false),
+  team2NoShow: z.boolean().optional().default(false),
+  pisteId: z.string().nullable().optional(),
 });
 
 export type UpdateMatchScore = z.infer<typeof updateMatchScoreSchema>;
@@ -167,6 +204,7 @@ export const shortLinks = pgTable("short_links", {
   accessType: text("access_type").notNull().default("view"), // 'view' or 'admin'
   targetPage: text("target_page").notNull().default("leaderboard"), // 'leaderboard', 'teams', etc.
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  tinyUrl: text("tiny_url"), // cached external short URL (hides Replit domain for email sharing)
 });
 
 export const insertShortLinkSchema = createInsertSchema(shortLinks).omit({ id: true, createdAt: true }).extend({
@@ -178,3 +216,16 @@ export const insertShortLinkSchema = createInsertSchema(shortLinks).omit({ id: t
 
 export type InsertShortLink = z.infer<typeof insertShortLinkSchema>;
 export type ShortLink = typeof shortLinks.$inferSelect;
+
+// ── Tournament Collaborators ───────────────────────────────────────────────
+// Users who can co-edit a tournament without owning it.
+export const tournamentCollaborators = pgTable("tournament_collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueCollaborator: unique().on(table.tournamentId, table.userId),
+}));
+
+export type TournamentCollaborator = typeof tournamentCollaborators.$inferSelect;
