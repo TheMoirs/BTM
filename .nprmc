@@ -1,0 +1,6 @@
+audit=false
+fund=false
+fetch-timeout=300000
+fetch-retries=5
+fetch-retry-mintimeout=20000
+fetch-retry-maxtimeout=120000
