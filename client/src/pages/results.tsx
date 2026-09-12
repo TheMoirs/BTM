@@ -291,6 +291,8 @@ export default function Results() {
           scoreAgainst: 0,
           scoreDifference: 0,
           position: null,
+          avgPoints: null,
+          avgScoreDifference: null,
         });
       }
 
