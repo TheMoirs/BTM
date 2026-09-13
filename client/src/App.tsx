@@ -32,7 +32,7 @@ const clerkPubKey = publishableKeyFromHost(
 // Use the server's same-origin proxy in production. A separately configured
 // proxy hostname can fail TLS on hosted environments before Clerk can load.
 const clerkProxyUrl = import.meta.env.PROD
-  ? "/api/__clerk"
+  ? `${window.location.origin}/api/__clerk`
   : undefined;
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
