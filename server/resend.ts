@@ -1,42 +1,25 @@
 import { Resend } from 'resend';
 
-let connectionSettings: any;
-
-async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
-
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
-
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  if (!connectionSettings || (!connectionSettings.settings.api_key)) {
-    throw new Error('Resend not connected');
-  }
-  return {apiKey: connectionSettings.settings.api_key, fromEmail: connectionSettings.settings.from_email};
-}
-
-// WARNING: Never cache this client.
-// Access tokens expire, so a new client must be created each time.
-// Always call this function again to get a fresh client.
+// Plain env-var based Resend client — replaces the old Replit Connector
+// lookup (REPLIT_CONNECTORS_HOSTNAME / REPL_IDENTITY), which only works
+// inside a Replit repl/deployment and throws on Render.
+//
+// Required env vars:
+//   RESEND_API_KEY   - from https://resend.com/api-keys
+//   RESEND_FROM_EMAIL - a sender address verified on your Resend domain
+//                        (falls back to Resend's shared onboarding address
+//                        if unset, which only works for testing)
+//
+// Kept as an async function (and the original export name) so existing
+// call sites don't need to change.
 export async function getUncachableResendClient() {
-  const credentials = await getCredentials();
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY is not set');
+  }
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
   return {
-    client: new Resend(credentials.apiKey),
-    fromEmail: connectionSettings.settings.from_email
+    client: new Resend(apiKey),
+    fromEmail,
   };
 }
