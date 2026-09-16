@@ -466,7 +466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const targetUser = await storage.getUserByEmail(email.trim());
       if (!targetUser) {
-        return res.status(404).json({ error: `No user found with email "${email.trim()}"` });
+        return res.status(404).json({ error: `${email.trim()} does not have a BTM account. Get them to create one before transferring ownership to them.` });
       }
 
       if (targetUser.isBlocked) {
@@ -525,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "A valid email address is required" });
       }
       const target = await storage.getUserByEmail(email.trim().toLowerCase());
-      if (!target) return res.status(404).json({ error: `No user found with email "${email.trim()}"` });
+      if (!target) return res.status(404).json({ error: `${email.trim()} does not have a BTM account. Get them to create one before setting them as a co-editor.` });
       if (target.isBlocked) return res.status(400).json({ error: "Cannot add a blocked user as co-editor" });
       if (target.id === tournament.userId) {
         return res.status(400).json({ error: "That user already owns this tournament" });
