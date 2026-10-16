@@ -1062,6 +1062,28 @@ export default function Teams() {
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
     
+    // Measure column content so the table fits its contents.
+    // Email, Phone and ID are sized to their longest value so they never wrap;
+    // the remaining columns ('auto') share the rest of the page width and wrap if needed.
+    const allTeams = filteredGroupedByDivision.flatMap(([, divisionTeams]) => divisionTeams);
+    const cellPaddingX = 2 * 2; // cellPadding on both sides
+    const measureColumn = (header: string, values: string[]) => {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      let width = doc.getTextWidth(header);
+      doc.setFont('helvetica', 'normal');
+      values.forEach((value) => {
+        width = Math.max(width, doc.getTextWidth(value));
+      });
+      return width + cellPaddingX + 1; // +1mm slack to avoid rounding wraps
+    };
+    const idWidth = measureColumn('ID', allTeams.map((team) => team.teamDisplayId || '—'));
+    const phoneWidth = measureColumn('Phone', allTeams.map((team) => team.captainPhone || ''));
+    const emailWidth = Math.min(
+      measureColumn('Email', allTeams.map((team) => team.captainEmail || '—')),
+      110, // safety cap so one extreme address can't squeeze everything else
+    );
+    
     // Add tournament name as main title
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
@@ -1128,14 +1150,15 @@ export default function Teams() {
           textColor: 255,
           fontStyle: 'bold',
         },
+        tableWidth: 'auto', // fill the page between the left and right margins
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 42 },
-          2: { cellWidth: 30 },
-          3: { cellWidth: 38 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 45 },
-          6: { cellWidth: 47 },
+          0: { cellWidth: idWidth },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 'auto' },
+          4: { cellWidth: phoneWidth },
+          5: { cellWidth: emailWidth },
+          6: { cellWidth: 'auto' },
         },
         didDrawPage: function (data) {
           if (!isFirstPageForDivision) {
