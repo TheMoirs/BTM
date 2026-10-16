@@ -168,7 +168,7 @@ function getMailtoUrl(email: string, tournamentName: string): string {
 
 export default function Teams() {
   const { currentTournament } = useTournament();
-  const { isReadOnly } = useViewMode();
+  const { isReadOnly, viewToken } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
@@ -1795,7 +1795,8 @@ export default function Teams() {
               </Button>
               </>
             )}
-            <Link href="/leaderboard">
+            {/* Keep the access token in the URL so the leaderboard address can be copied and shared */}
+            <Link href={viewToken ? `/leaderboard?token=${encodeURIComponent(viewToken)}&view=readonly` : "/leaderboard"}>
               <Button
                 variant="outline"
                 size="sm"
