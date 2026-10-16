@@ -1481,24 +1481,29 @@ export default function Teams() {
                 </Button>
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openPdfViewer}
-              data-testid="button-download"
-            >
-              <FileDown className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Download</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEmailCaptains}
-              data-testid="button-email-captains"
-            >
-              <Mail className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Email All</span>
-            </Button>
+            {/* Hidden for view-only (not logged in) visitors */}
+            {!isReadOnly && (
+              <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openPdfViewer}
+                data-testid="button-download"
+              >
+                <FileDown className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEmailCaptains}
+                data-testid="button-email-captains"
+              >
+                <Mail className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Email All</span>
+              </Button>
+              </>
+            )}
             {!isReadOnly && (
               <>
                 {teams && teams.length > 0 && !isEditAllMode && (
@@ -1761,16 +1766,21 @@ export default function Teams() {
                 )}
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyShareLink}
-              disabled={isSharingLink}
-              data-testid="button-share-view"
-            >
-              <Share2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Teams"}</span>
-            </Button>
+            {/* Hidden for view-only (not logged in) visitors */}
+            {!isReadOnly && (
+              <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyShareLink}
+                disabled={isSharingLink}
+                data-testid="button-share-view"
+              >
+                <Share2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Teams"}</span>
+              </Button>
+              </>
+            )}
             <Link href="/leaderboard">
               <Button
                 variant="outline"
