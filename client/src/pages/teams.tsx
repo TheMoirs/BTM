@@ -1465,6 +1465,9 @@ export default function Teams() {
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               {isReadOnly ? "View registered teams and captain contact details" : "Manage registered teams and captain contact details"}
             </p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Click the captain's phone number or email to send them a message.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {!isReadOnly && (
