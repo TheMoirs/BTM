@@ -125,32 +125,39 @@ function openWhatsApp(phone: string): void {
   // On desktop: try the app protocol first, fall back to web if app doesn't open
   const protocolUrl = `whatsapp://send?phone=${formatted}`;
   
-  // Track if app opened by monitoring visibility change
+  // Detect that the WhatsApp app opened. On a PC the browser window usually stays
+  // visible behind the app, so 'visibilitychange' never fires — but the window does
+  // lose focus ('blur') when the app takes over. Listen for both.
   let appOpened = false;
   let fallbackTimer: ReturnType<typeof setTimeout>;
   
+  const cleanup = () => {
+    window.removeEventListener('blur', handleAppOpened);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+  const handleAppOpened = () => {
+    appOpened = true;
+    clearTimeout(fallbackTimer);
+    cleanup();
+  };
   const handleVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') {
-      // App opened successfully, cancel fallback
-      appOpened = true;
-      clearTimeout(fallbackTimer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }
+    if (document.visibilityState === 'hidden') handleAppOpened();
   };
   
+  window.addEventListener('blur', handleAppOpened);
   document.addEventListener('visibilitychange', handleVisibilityChange);
   
   // Try to open the app
   window.location.href = protocolUrl;
   
-  // If app doesn't open within 1.5 seconds, fall back to web URL
+  // If the app hasn't taken focus within 2.5 seconds, assume it isn't installed
+  // and open the web page instead (allows time for the browser's "Open WhatsApp?" prompt)
   fallbackTimer = setTimeout(() => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    cleanup();
     if (!appOpened) {
-      // App didn't open, show the install prompt page
       window.open(waWebUrl, '_blank');
     }
-  }, 1500);
+  }, 2500);
 }
 
 // Helper function to create mailto URL with tournament subject
@@ -728,6 +735,32 @@ export default function Teams() {
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
+  // Edit All: ArrowUp / ArrowDown moves to the same column in the previous / next row
+  // (across divisions, in on-screen order). In the multi-line Other Players box the
+  // arrows only jump rows when the cursor is already on the first / last line.
+  const handleEditAllKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+    const column = target.getAttribute?.("data-editall-col");
+    if (!column) return;
+    if (target instanceof HTMLTextAreaElement) {
+      const before = target.value.slice(0, target.selectionStart ?? 0);
+      const after = target.value.slice(target.selectionEnd ?? 0);
+      if (e.key === "ArrowUp" && before.includes("\n")) return;
+      if (e.key === "ArrowDown" && after.includes("\n")) return;
+    }
+    const cells = Array.from(
+      document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(`[data-editall-col="${column}"]`)
+    );
+    const index = cells.indexOf(target);
+    const next = cells[e.key === "ArrowUp" ? index - 1 : index + 1];
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    next.select();
+  };
+
   const updateAllEditingValue = (teamId: string, field: keyof EditingTeam, value: string | string[]) => {
     setAllEditingValues(prev => ({
       ...prev,
@@ -1056,6 +1089,10 @@ export default function Teams() {
       <ArrowDown className="h-4 w-4 ml-1" />
     );
   };
+
+  // Hide the ID column when no team has an ID, unless someone is editing (so IDs can be added)
+  const showIdColumn =
+    isEditAllMode || editingRowId !== null || (teams ?? []).some((team) => !!team.teamDisplayId);
 
   const generatePDFDocument = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
@@ -1418,7 +1455,7 @@ export default function Teams() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8`}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <div className="flex items-center gap-3">
@@ -1431,6 +1468,9 @@ export default function Teams() {
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               {isReadOnly ? "View registered teams and captain contact details" : "Manage registered teams and captain contact details"}
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Click the captain's phone number or email to send them a message.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1455,24 +1495,29 @@ export default function Teams() {
                 </Button>
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openPdfViewer}
-              data-testid="button-download"
-            >
-              <FileDown className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Download</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleEmailCaptains}
-              data-testid="button-email-captains"
-            >
-              <Mail className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Email All</span>
-            </Button>
+            {/* Hidden for view-only (not logged in) visitors */}
+            {!isReadOnly && (
+              <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openPdfViewer}
+                data-testid="button-download"
+              >
+                <FileDown className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEmailCaptains}
+                data-testid="button-email-captains"
+              >
+                <Mail className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Email All</span>
+              </Button>
+              </>
+            )}
             {!isReadOnly && (
               <>
                 {teams && teams.length > 0 && !isEditAllMode && (
@@ -1735,16 +1780,21 @@ export default function Teams() {
                 )}
               </>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyShareLink}
-              disabled={isSharingLink}
-              data-testid="button-share-view"
-            >
-              <Share2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Teams"}</span>
-            </Button>
+            {/* Hidden for view-only (not logged in) visitors */}
+            {!isReadOnly && (
+              <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyShareLink}
+                disabled={isSharingLink}
+                data-testid="button-share-view"
+              >
+                <Share2 className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Teams"}</span>
+              </Button>
+              </>
+            )}
             <Link href="/leaderboard">
               <Button
                 variant="outline"
@@ -1898,7 +1948,7 @@ export default function Teams() {
           <div className="space-y-6">
             {filteredGroupedByDivision.map(([division, divisionTeams]) => (
               <Card key={division}>
-                <CardHeader>
+                <CardHeader className="px-3 py-3 sm:p-6">
                   <CardTitle className="text-xl flex items-center gap-2">
                     {division !== 'No Division' && (
                       <Badge variant="default" className="text-lg px-3 py-1">
@@ -1913,13 +1963,21 @@ export default function Teams() {
                     </span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-2 pb-2 sm:px-6 sm:pb-6">
               <div className="overflow-x-auto">
                 <div className="rounded-md border">
-                <Table>
+                <Table
+                  onKeyDown={isEditAllMode ? handleEditAllKeyDown : undefined}
+                  className={
+                    isEditAllMode
+                      ? "[&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-3"
+                      : // Tighter cells on mobile so more columns fit; normal spacing from sm up
+                        "[&_td]:px-2 [&_td]:py-2 [&_th]:px-3 [&_th]:h-10 sm:[&_td]:p-4 sm:[&_th]:px-4 sm:[&_th]:h-12"
+                  }
+                >
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">
+                    <TableHead className="sm:w-[100px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("division")}
@@ -1929,17 +1987,19 @@ export default function Teams() {
                         <SortIcon column="division" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[80px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("teamDisplayId")}
-                        data-testid="sort-team-id"
-                      >
-                        ID
-                        <SortIcon column="teamDisplayId" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[200px]">
+                    {showIdColumn && (
+                      <TableHead className="sm:w-[80px]">
+                        <button
+                          className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                          onClick={() => handleSort("teamDisplayId")}
+                          data-testid="sort-team-id"
+                        >
+                          ID
+                          <SortIcon column="teamDisplayId" />
+                        </button>
+                      </TableHead>
+                    )}
+                    <TableHead className="sm:w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("name")}
@@ -1949,7 +2009,7 @@ export default function Teams() {
                         <SortIcon column="name" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="sm:w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("homePiste")}
@@ -1959,7 +2019,7 @@ export default function Teams() {
                         <SortIcon column="homePiste" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="sm:w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("captainName")}
@@ -1969,7 +2029,7 @@ export default function Teams() {
                         <SortIcon column="captainName" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[150px]">
+                    <TableHead className="sm:w-[150px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("captainPhone")}
@@ -1979,7 +2039,7 @@ export default function Teams() {
                         <SortIcon column="captainPhone" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[200px]">
+                    <TableHead className="sm:w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("captainEmail")}
@@ -1989,7 +2049,7 @@ export default function Teams() {
                         <SortIcon column="captainEmail" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[200px]">
+                    <TableHead className="sm:w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("otherPlayers")}
@@ -2000,7 +2060,9 @@ export default function Teams() {
                       </button>
                     </TableHead>
                     {!isReadOnly && (
-                      <TableHead className="w-[120px] text-right">Actions</TableHead>
+                      <TableHead className={isEditAllMode ? "w-[44px]" : "sm:w-[120px] text-right"}>
+                        {isEditAllMode ? "" : "Actions"}
+                      </TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -2023,6 +2085,7 @@ export default function Teams() {
                               onChange={(e) => updateValue("division", e.target.value)}
                               maxLength={1}
                               className="h-8 w-16 uppercase"
+                              data-editall-col="division"
                               data-testid={`input-edit-division-${team.id}`}
                             />
                           ) : (
@@ -2035,28 +2098,32 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
-                        <TableCell>
-                          {shouldShowInputs ? (
-                            <Input
-                              value={currentValues.teamDisplayId || ""}
-                              onChange={(e) => updateValue("teamDisplayId", e.target.value)}
-                              className="h-8 w-20"
-                              data-testid={`input-edit-team-id-${team.id}`}
-                            />
-                          ) : (
-                            team.teamDisplayId ? (
-                              <span className="font-mono text-sm" data-testid={`text-team-id-${team.id}`}>{team.teamDisplayId}</span>
+                        {showIdColumn && (
+                          <TableCell>
+                            {shouldShowInputs ? (
+                              <Input
+                                value={currentValues.teamDisplayId || ""}
+                                onChange={(e) => updateValue("teamDisplayId", e.target.value)}
+                                className="h-8 w-20"
+                                data-editall-col="teamDisplayId"
+                                data-testid={`input-edit-team-id-${team.id}`}
+                              />
                             ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )
-                          )}
-                        </TableCell>
+                              team.teamDisplayId ? (
+                                <span className="font-mono text-sm" data-testid={`text-team-id-${team.id}`}>{team.teamDisplayId}</span>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           {shouldShowInputs ? (
                             <Input
                               value={currentValues.name || ""}
                               onChange={(e) => updateValue("name", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[180px]" : ""}`}
+                              data-editall-col="name"
                               data-testid={`input-edit-name-${team.id}`}
                             />
                           ) : (
@@ -2068,7 +2135,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.homePiste || ""}
                               onChange={(e) => updateValue("homePiste", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[130px]" : ""}`}
+                              data-editall-col="homePiste"
                               data-testid={`input-edit-home-piste-${team.id}`}
                             />
                           ) : (
@@ -2084,7 +2152,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainName || ""}
                               onChange={(e) => updateValue("captainName", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[160px]" : ""}`}
+                              data-editall-col="captainName"
                               data-testid={`input-edit-captain-name-${team.id}`}
                             />
                           ) : (
@@ -2096,7 +2165,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainPhone || ""}
                               onChange={(e) => updateValue("captainPhone", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[120px]" : ""}`}
+                              data-editall-col="captainPhone"
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
                           ) : team.captainPhone ? (
@@ -2119,7 +2189,8 @@ export default function Teams() {
                               value={currentValues.captainEmail || ""}
                               onChange={(e) => updateValue("captainEmail", e.target.value)}
                               type="email"
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[230px]" : ""}`}
+                              data-editall-col="captainEmail"
                               data-testid={`input-edit-captain-email-${team.id}`}
                             />
                           ) : team.captainEmail ? (
@@ -2143,8 +2214,9 @@ export default function Teams() {
                                 const lines = e.target.value.split("\n").filter(line => line.trim());
                                 updateValue("otherPlayers", lines as any);
                               }}
-                              className="min-h-[60px] text-sm"
+                              className={`min-h-[60px] text-sm ${isEditAllMode ? "min-w-[200px]" : ""}`}
                               placeholder="One per line"
+                              data-editall-col="otherPlayers"
                               data-testid={`input-edit-other-players-${team.id}`}
                             />
                           ) : (
@@ -2204,11 +2276,7 @@ export default function Teams() {
                             )}
                           </TableCell>
                         )}
-                        {isEditAllMode && (
-                          <TableCell className="text-right">
-                            <span className="text-muted-foreground text-sm">—</span>
-                          </TableCell>
-                        )}
+                        {isEditAllMode && <TableCell />}
                       </TableRow>
                     );
                   })}
@@ -2220,6 +2288,7 @@ export default function Teams() {
                           onChange={(e) => updateAllEditingValue(id, "division", e.target.value)}
                           maxLength={1}
                           className="h-8 w-16 uppercase"
+                          data-editall-col="division"
                           data-testid={`input-edit-division-${id}`}
                         />
                       </TableCell>
@@ -2228,6 +2297,7 @@ export default function Teams() {
                           value={teamData.teamDisplayId || ""}
                           onChange={(e) => updateAllEditingValue(id, "teamDisplayId", e.target.value)}
                           className="h-8 w-20"
+                          data-editall-col="teamDisplayId"
                           data-testid={`input-edit-team-id-${id}`}
                         />
                       </TableCell>
@@ -2235,8 +2305,9 @@ export default function Teams() {
                         <Input
                           value={teamData.name || ""}
                           onChange={(e) => updateAllEditingValue(id, "name", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[180px]"
                           placeholder="New team name"
+                          data-editall-col="name"
                           data-testid={`input-edit-name-${id}`}
                         />
                       </TableCell>
@@ -2244,7 +2315,8 @@ export default function Teams() {
                         <Input
                           value={teamData.homePiste || ""}
                           onChange={(e) => updateAllEditingValue(id, "homePiste", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[130px]"
+                          data-editall-col="homePiste"
                           data-testid={`input-edit-home-piste-${id}`}
                         />
                       </TableCell>
@@ -2252,7 +2324,8 @@ export default function Teams() {
                         <Input
                           value={teamData.captainName || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainName", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[160px]"
+                          data-editall-col="captainName"
                           data-testid={`input-edit-captain-name-${id}`}
                         />
                       </TableCell>
@@ -2260,7 +2333,8 @@ export default function Teams() {
                         <Input
                           value={teamData.captainPhone || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainPhone", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[120px]"
+                          data-editall-col="captainPhone"
                           data-testid={`input-edit-captain-phone-${id}`}
                         />
                       </TableCell>
@@ -2269,7 +2343,8 @@ export default function Teams() {
                           value={teamData.captainEmail || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainEmail", e.target.value)}
                           type="email"
-                          className="h-8"
+                          className="h-8 min-w-[230px]"
+                          data-editall-col="captainEmail"
                           data-testid={`input-edit-captain-email-${id}`}
                         />
                       </TableCell>
@@ -2280,8 +2355,9 @@ export default function Teams() {
                             const lines = e.target.value.split("\n").filter(line => line.trim());
                             updateAllEditingValue(id, "otherPlayers", lines as any);
                           }}
-                          className="min-h-[60px] text-sm"
+                          className="min-h-[60px] text-sm min-w-[200px]"
                           placeholder="One per line"
+                          data-editall-col="otherPlayers"
                           data-testid={`input-edit-other-players-${id}`}
                         />
                       </TableCell>

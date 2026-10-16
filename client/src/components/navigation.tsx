@@ -134,6 +134,13 @@ export function Navigation() {
               </h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {/* View-only badge sits at the top right so it doesn't need its own line */}
+              {currentTournament && isReadOnly && !isMasterAdmin && (
+                <Badge variant="secondary" className="gap-1.5 shrink-0" data-testid="badge-view-only">
+                  <Eye className="h-3 w-3" />
+                  View Only
+                </Badge>
+              )}
               {/* Logged-in user section */}
               {user ? (
                 <>
@@ -232,13 +239,7 @@ export function Navigation() {
                     <span className="hidden sm:inline">System Admin</span>
                     <span className="sm:hidden">Admin</span>
                   </Badge>
-                ) : isReadOnly ? (
-                  <Badge variant="secondary" className="gap-1.5 shrink-0" data-testid="badge-view-only">
-                    <Eye className="h-3 w-3" />
-                    <span className="hidden sm:inline">View Only</span>
-                    <span className="sm:hidden">View</span>
-                  </Badge>
-                ) : viewToken ? (
+                ) : isReadOnly ? null : viewToken ? (
                   <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-admin">
                     <Shield className="h-3 w-3" />
                     <span className="hidden sm:inline">Admin Access</span>
@@ -249,7 +250,8 @@ export function Navigation() {
             )}
           </div>
 
-          {/* Third Row: Navigation Items */}
+          {/* Third Row: Navigation Items (hidden when Teams is the only item, e.g. shared Teams view) */}
+          {navItems.length > 1 && (
           <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -277,6 +279,7 @@ export function Navigation() {
               );
             })}
           </div>
+          )}
         </div>
       </div>
 
