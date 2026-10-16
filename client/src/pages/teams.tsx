@@ -1090,6 +1090,10 @@ export default function Teams() {
     );
   };
 
+  // Hide the ID column when no team has an ID, unless someone is editing (so IDs can be added)
+  const showIdColumn =
+    isEditAllMode || editingRowId !== null || (teams ?? []).some((team) => !!team.teamDisplayId);
+
   const generatePDFDocument = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const pageHeight = doc.internal.pageSize.height;
@@ -1944,7 +1948,7 @@ export default function Teams() {
           <div className="space-y-6">
             {filteredGroupedByDivision.map(([division, divisionTeams]) => (
               <Card key={division}>
-                <CardHeader>
+                <CardHeader className="px-3 py-3 sm:p-6">
                   <CardTitle className="text-xl flex items-center gap-2">
                     {division !== 'No Division' && (
                       <Badge variant="default" className="text-lg px-3 py-1">
@@ -1959,16 +1963,21 @@ export default function Teams() {
                     </span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-2 pb-2 sm:px-6 sm:pb-6">
               <div className="overflow-x-auto">
                 <div className="rounded-md border">
                 <Table
                   onKeyDown={isEditAllMode ? handleEditAllKeyDown : undefined}
-                  className={isEditAllMode ? "[&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-3" : undefined}
+                  className={
+                    isEditAllMode
+                      ? "[&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-3"
+                      : // Tighter cells on mobile so more columns fit; normal spacing from sm up
+                        "[&_td]:px-2 [&_td]:py-2 [&_th]:px-3 [&_th]:h-10 sm:[&_td]:p-4 sm:[&_th]:px-4 sm:[&_th]:h-12"
+                  }
                 >
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[100px]">
+                    <TableHead className="sm:w-[100px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("division")}
@@ -1978,17 +1987,19 @@ export default function Teams() {
                         <SortIcon column="division" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[80px]">
-                      <button
-                        className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
-                        onClick={() => handleSort("teamDisplayId")}
-                        data-testid="sort-team-id"
-                      >
-                        ID
-                        <SortIcon column="teamDisplayId" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[200px]">
+                    {showIdColumn && (
+                      <TableHead className="sm:w-[80px]">
+                        <button
+                          className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
+                          onClick={() => handleSort("teamDisplayId")}
+                          data-testid="sort-team-id"
+                        >
+                          ID
+                          <SortIcon column="teamDisplayId" />
+                        </button>
+                      </TableHead>
+                    )}
+                    <TableHead className="sm:w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("name")}
@@ -1998,7 +2009,7 @@ export default function Teams() {
                         <SortIcon column="name" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="sm:w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("homePiste")}
@@ -2008,7 +2019,7 @@ export default function Teams() {
                         <SortIcon column="homePiste" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[180px]">
+                    <TableHead className="sm:w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("captainName")}
@@ -2018,7 +2029,7 @@ export default function Teams() {
                         <SortIcon column="captainName" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[150px]">
+                    <TableHead className="sm:w-[150px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("captainPhone")}
@@ -2028,7 +2039,7 @@ export default function Teams() {
                         <SortIcon column="captainPhone" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[200px]">
+                    <TableHead className="sm:w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("captainEmail")}
@@ -2038,7 +2049,7 @@ export default function Teams() {
                         <SortIcon column="captainEmail" />
                       </button>
                     </TableHead>
-                    <TableHead className="w-[200px]">
+                    <TableHead className="sm:w-[200px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
                         onClick={() => handleSort("otherPlayers")}
@@ -2049,7 +2060,7 @@ export default function Teams() {
                       </button>
                     </TableHead>
                     {!isReadOnly && (
-                      <TableHead className={isEditAllMode ? "w-[44px]" : "w-[120px] text-right"}>
+                      <TableHead className={isEditAllMode ? "w-[44px]" : "sm:w-[120px] text-right"}>
                         {isEditAllMode ? "" : "Actions"}
                       </TableHead>
                     )}
@@ -2087,23 +2098,25 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
-                        <TableCell>
-                          {shouldShowInputs ? (
-                            <Input
-                              value={currentValues.teamDisplayId || ""}
-                              onChange={(e) => updateValue("teamDisplayId", e.target.value)}
-                              className="h-8 w-20"
-                              data-editall-col="teamDisplayId"
-                              data-testid={`input-edit-team-id-${team.id}`}
-                            />
-                          ) : (
-                            team.teamDisplayId ? (
-                              <span className="font-mono text-sm" data-testid={`text-team-id-${team.id}`}>{team.teamDisplayId}</span>
+                        {showIdColumn && (
+                          <TableCell>
+                            {shouldShowInputs ? (
+                              <Input
+                                value={currentValues.teamDisplayId || ""}
+                                onChange={(e) => updateValue("teamDisplayId", e.target.value)}
+                                className="h-8 w-20"
+                                data-editall-col="teamDisplayId"
+                                data-testid={`input-edit-team-id-${team.id}`}
+                              />
                             ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )
-                          )}
-                        </TableCell>
+                              team.teamDisplayId ? (
+                                <span className="font-mono text-sm" data-testid={`text-team-id-${team.id}`}>{team.teamDisplayId}</span>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           {shouldShowInputs ? (
                             <Input
