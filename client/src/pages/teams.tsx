@@ -728,6 +728,32 @@ export default function Teams() {
     setEditingValues(prev => ({ ...prev, [field]: value }));
   };
 
+  // Edit All: ArrowUp / ArrowDown moves to the same column in the previous / next row
+  // (across divisions, in on-screen order). In the multi-line Other Players box the
+  // arrows only jump rows when the cursor is already on the first / last line.
+  const handleEditAllKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+    const column = target.getAttribute?.("data-editall-col");
+    if (!column) return;
+    if (target instanceof HTMLTextAreaElement) {
+      const before = target.value.slice(0, target.selectionStart ?? 0);
+      const after = target.value.slice(target.selectionEnd ?? 0);
+      if (e.key === "ArrowUp" && before.includes("\n")) return;
+      if (e.key === "ArrowDown" && after.includes("\n")) return;
+    }
+    const cells = Array.from(
+      document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(`[data-editall-col="${column}"]`)
+    );
+    const index = cells.indexOf(target);
+    const next = cells[e.key === "ArrowUp" ? index - 1 : index + 1];
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    next.select();
+  };
+
   const updateAllEditingValue = (teamId: string, field: keyof EditingTeam, value: string | string[]) => {
     setAllEditingValues(prev => ({
       ...prev,
@@ -1418,7 +1444,7 @@ export default function Teams() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8`}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <div className="flex items-center gap-3">
@@ -1916,7 +1942,10 @@ export default function Teams() {
                 <CardContent>
               <div className="overflow-x-auto">
                 <div className="rounded-md border">
-                <Table>
+                <Table
+                  onKeyDown={isEditAllMode ? handleEditAllKeyDown : undefined}
+                  className={isEditAllMode ? "[&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-3" : undefined}
+                >
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[100px]">
@@ -2000,7 +2029,9 @@ export default function Teams() {
                       </button>
                     </TableHead>
                     {!isReadOnly && (
-                      <TableHead className="w-[120px] text-right">Actions</TableHead>
+                      <TableHead className={isEditAllMode ? "w-[44px]" : "w-[120px] text-right"}>
+                        {isEditAllMode ? "" : "Actions"}
+                      </TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -2023,6 +2054,7 @@ export default function Teams() {
                               onChange={(e) => updateValue("division", e.target.value)}
                               maxLength={1}
                               className="h-8 w-16 uppercase"
+                              data-editall-col="division"
                               data-testid={`input-edit-division-${team.id}`}
                             />
                           ) : (
@@ -2041,6 +2073,7 @@ export default function Teams() {
                               value={currentValues.teamDisplayId || ""}
                               onChange={(e) => updateValue("teamDisplayId", e.target.value)}
                               className="h-8 w-20"
+                              data-editall-col="teamDisplayId"
                               data-testid={`input-edit-team-id-${team.id}`}
                             />
                           ) : (
@@ -2056,7 +2089,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.name || ""}
                               onChange={(e) => updateValue("name", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[180px]" : ""}`}
+                              data-editall-col="name"
                               data-testid={`input-edit-name-${team.id}`}
                             />
                           ) : (
@@ -2068,7 +2102,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.homePiste || ""}
                               onChange={(e) => updateValue("homePiste", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[130px]" : ""}`}
+                              data-editall-col="homePiste"
                               data-testid={`input-edit-home-piste-${team.id}`}
                             />
                           ) : (
@@ -2084,7 +2119,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainName || ""}
                               onChange={(e) => updateValue("captainName", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[160px]" : ""}`}
+                              data-editall-col="captainName"
                               data-testid={`input-edit-captain-name-${team.id}`}
                             />
                           ) : (
@@ -2096,7 +2132,8 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainPhone || ""}
                               onChange={(e) => updateValue("captainPhone", e.target.value)}
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[120px]" : ""}`}
+                              data-editall-col="captainPhone"
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
                           ) : team.captainPhone ? (
@@ -2119,7 +2156,8 @@ export default function Teams() {
                               value={currentValues.captainEmail || ""}
                               onChange={(e) => updateValue("captainEmail", e.target.value)}
                               type="email"
-                              className="h-8"
+                              className={`h-8 ${isEditAllMode ? "min-w-[230px]" : ""}`}
+                              data-editall-col="captainEmail"
                               data-testid={`input-edit-captain-email-${team.id}`}
                             />
                           ) : team.captainEmail ? (
@@ -2143,8 +2181,9 @@ export default function Teams() {
                                 const lines = e.target.value.split("\n").filter(line => line.trim());
                                 updateValue("otherPlayers", lines as any);
                               }}
-                              className="min-h-[60px] text-sm"
+                              className={`min-h-[60px] text-sm ${isEditAllMode ? "min-w-[200px]" : ""}`}
                               placeholder="One per line"
+                              data-editall-col="otherPlayers"
                               data-testid={`input-edit-other-players-${team.id}`}
                             />
                           ) : (
@@ -2204,11 +2243,7 @@ export default function Teams() {
                             )}
                           </TableCell>
                         )}
-                        {isEditAllMode && (
-                          <TableCell className="text-right">
-                            <span className="text-muted-foreground text-sm">—</span>
-                          </TableCell>
-                        )}
+                        {isEditAllMode && <TableCell />}
                       </TableRow>
                     );
                   })}
@@ -2220,6 +2255,7 @@ export default function Teams() {
                           onChange={(e) => updateAllEditingValue(id, "division", e.target.value)}
                           maxLength={1}
                           className="h-8 w-16 uppercase"
+                          data-editall-col="division"
                           data-testid={`input-edit-division-${id}`}
                         />
                       </TableCell>
@@ -2228,6 +2264,7 @@ export default function Teams() {
                           value={teamData.teamDisplayId || ""}
                           onChange={(e) => updateAllEditingValue(id, "teamDisplayId", e.target.value)}
                           className="h-8 w-20"
+                          data-editall-col="teamDisplayId"
                           data-testid={`input-edit-team-id-${id}`}
                         />
                       </TableCell>
@@ -2235,8 +2272,9 @@ export default function Teams() {
                         <Input
                           value={teamData.name || ""}
                           onChange={(e) => updateAllEditingValue(id, "name", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[180px]"
                           placeholder="New team name"
+                          data-editall-col="name"
                           data-testid={`input-edit-name-${id}`}
                         />
                       </TableCell>
@@ -2244,7 +2282,8 @@ export default function Teams() {
                         <Input
                           value={teamData.homePiste || ""}
                           onChange={(e) => updateAllEditingValue(id, "homePiste", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[130px]"
+                          data-editall-col="homePiste"
                           data-testid={`input-edit-home-piste-${id}`}
                         />
                       </TableCell>
@@ -2252,7 +2291,8 @@ export default function Teams() {
                         <Input
                           value={teamData.captainName || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainName", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[160px]"
+                          data-editall-col="captainName"
                           data-testid={`input-edit-captain-name-${id}`}
                         />
                       </TableCell>
@@ -2260,7 +2300,8 @@ export default function Teams() {
                         <Input
                           value={teamData.captainPhone || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainPhone", e.target.value)}
-                          className="h-8"
+                          className="h-8 min-w-[120px]"
+                          data-editall-col="captainPhone"
                           data-testid={`input-edit-captain-phone-${id}`}
                         />
                       </TableCell>
@@ -2269,7 +2310,8 @@ export default function Teams() {
                           value={teamData.captainEmail || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainEmail", e.target.value)}
                           type="email"
-                          className="h-8"
+                          className="h-8 min-w-[230px]"
+                          data-editall-col="captainEmail"
                           data-testid={`input-edit-captain-email-${id}`}
                         />
                       </TableCell>
@@ -2280,8 +2322,9 @@ export default function Teams() {
                             const lines = e.target.value.split("\n").filter(line => line.trim());
                             updateAllEditingValue(id, "otherPlayers", lines as any);
                           }}
-                          className="min-h-[60px] text-sm"
+                          className="min-h-[60px] text-sm min-w-[200px]"
                           placeholder="One per line"
+                          data-editall-col="otherPlayers"
                           data-testid={`input-edit-other-players-${id}`}
                         />
                       </TableCell>
