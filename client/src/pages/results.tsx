@@ -908,6 +908,17 @@ export default function Results() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Share Leaderboard is always available, even before any results exist,
+              so the link can be sent out early (viewers can still open Teams from it). */}
+          <Button
+            variant="outline"
+            onClick={handleCopyShareLink}
+            disabled={isSharingLink || !currentTournament}
+            data-testid="button-share-leaderboard"
+          >
+            <Share2 className="mr-2 h-4 w-4" />
+            {isSharingLink ? "Creating link..." : "Share Leaderboard"}
+          </Button>
           {results && results.length > 0 && (
             <>
               <Button
@@ -917,15 +928,6 @@ export default function Results() {
               >
                 <FileDown className="mr-2 h-4 w-4" />
                 Download
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleCopyShareLink}
-                disabled={isSharingLink}
-                data-testid="button-share-leaderboard"
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                {isSharingLink ? "Creating link..." : "Share Leaderboard"}
               </Button>
               {!isReadOnly && (
                 <Button
