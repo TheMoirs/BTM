@@ -633,10 +633,13 @@ export function TournamentSelector() {
         <Trophy className="h-4 w-4 text-muted-foreground" />
         <div className="flex flex-col items-start">
           <span className="font-medium text-sm">{currentTournament.name}</span>
-          <span className="text-xs text-muted-foreground">
-            {getTournamentDetails(currentTournament)}
-            {isTournamentLocked && " • Locked to access link"}
-          </span>
+          {/* View-only visitors don't need the divisions / games / stages summary */}
+          {!isReadOnly && (
+            <span className="text-xs text-muted-foreground">
+              {getTournamentDetails(currentTournament)}
+              {isTournamentLocked && " • Locked to access link"}
+            </span>
+          )}
         </div>
       </div>
     );
