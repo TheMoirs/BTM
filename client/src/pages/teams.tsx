@@ -125,32 +125,39 @@ function openWhatsApp(phone: string): void {
   // On desktop: try the app protocol first, fall back to web if app doesn't open
   const protocolUrl = `whatsapp://send?phone=${formatted}`;
   
-  // Track if app opened by monitoring visibility change
+  // Detect that the WhatsApp app opened. On a PC the browser window usually stays
+  // visible behind the app, so 'visibilitychange' never fires — but the window does
+  // lose focus ('blur') when the app takes over. Listen for both.
   let appOpened = false;
   let fallbackTimer: ReturnType<typeof setTimeout>;
   
+  const cleanup = () => {
+    window.removeEventListener('blur', handleAppOpened);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+  const handleAppOpened = () => {
+    appOpened = true;
+    clearTimeout(fallbackTimer);
+    cleanup();
+  };
   const handleVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') {
-      // App opened successfully, cancel fallback
-      appOpened = true;
-      clearTimeout(fallbackTimer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }
+    if (document.visibilityState === 'hidden') handleAppOpened();
   };
   
+  window.addEventListener('blur', handleAppOpened);
   document.addEventListener('visibilitychange', handleVisibilityChange);
   
   // Try to open the app
   window.location.href = protocolUrl;
   
-  // If app doesn't open within 1.5 seconds, fall back to web URL
+  // If the app hasn't taken focus within 2.5 seconds, assume it isn't installed
+  // and open the web page instead (allows time for the browser's "Open WhatsApp?" prompt)
   fallbackTimer = setTimeout(() => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    cleanup();
     if (!appOpened) {
-      // App didn't open, show the install prompt page
       window.open(waWebUrl, '_blank');
     }
-  }, 1500);
+  }, 2500);
 }
 
 // Helper function to create mailto URL with tournament subject
