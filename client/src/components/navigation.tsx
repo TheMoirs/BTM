@@ -32,7 +32,7 @@ export function Navigation() {
   const [location] = useLocation();
   const { isReadOnly, isMasterAdmin, viewToken } = useViewMode();
   const { currentTournament } = useTournament();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshUser } = useAuth();
   const { toast } = useToast();
 
   // Profile/settings dialog state
@@ -41,6 +41,8 @@ export function Navigation() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  // Google-only accounts have no current password to confirm
+  const needsCurrentPassword = user?.hasPassword !== false;
 
   // Display name state
   const [displayName, setDisplayName] = useState("");
@@ -91,7 +93,8 @@ export function Navigation() {
         const data = await res.json();
         toast({ title: "Change failed", description: data.error || "Could not change password.", variant: "destructive", duration: Infinity });
       } else {
-        toast({ title: "Password changed", description: "Your password has been updated successfully.", duration: Infinity });
+        toast({ title: needsCurrentPassword ? "Password changed" : "Password set", description: "Your password has been saved.", duration: Infinity });
+        await refreshUser();
         setShowChangePassword(false);
         setCurrentPassword("");
         setNewPassword("");
@@ -321,7 +324,13 @@ export function Navigation() {
 
           {/* Change password section */}
           <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
-            <p className="text-sm font-medium">Change password</p>
+            <p className="text-sm font-medium">{needsCurrentPassword ? "Change password" : "Set a password"}</p>
+            {!needsCurrentPassword && (
+              <p className="text-xs text-muted-foreground">
+                You sign in with Google. Set a password if you'd also like to sign in with your email address.
+              </p>
+            )}
+            {needsCurrentPassword && (
             <div className="space-y-2">
               <Label htmlFor="current-password">Current password</Label>
               <Input
@@ -334,6 +343,7 @@ export function Navigation() {
                 data-testid="input-current-password"
               />
             </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="new-password">New password</Label>
               <Input
@@ -369,10 +379,10 @@ export function Navigation() {
               </Button>
               <Button
                 type="submit"
-                disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                disabled={isChangingPassword || (needsCurrentPassword && !currentPassword) || !newPassword || !confirmPassword}
                 data-testid="button-submit-change-password"
               >
-                {isChangingPassword ? "Saving…" : "Change password"}
+                {isChangingPassword ? "Saving…" : needsCurrentPassword ? "Change password" : "Set password"}
               </Button>
             </DialogFooter>
           </form>

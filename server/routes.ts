@@ -5,11 +5,21 @@ import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTour
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
-import { getAuth, clerkClient } from "@clerk/express";
 import bcrypt from "bcryptjs";
-import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
+import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches } from "./sessionAuth";
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
+
+// What the browser is told about the signed-in user
+function publicUser(u: { id: string; email: string; displayName: string | null; isSystemAdmin: boolean; passwordHash: string }) {
+  return { id: u.id, email: u.email, displayName: u.displayName, isSystemAdmin: u.isSystemAdmin, hasPassword: hasUsablePassword(u.passwordHash) };
+}
+
+// Public address of this site (Render sits behind a proxy, so trust its forwarded protocol)
+function baseUrlOf(req: { protocol: string; get(name: string): string | undefined; headers: Record<string, any> }) {
+  const proto = String(req.headers["x-forwarded-proto"] || req.protocol).split(",")[0].trim();
+  return `${proto}://${req.get("host")}`;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Short URL redirect endpoint (before token middleware - no auth required)
@@ -51,7 +61,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedEmail = email.toLowerCase().trim();
       const existing = await storage.getUserByEmail(normalizedEmail);
-      if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+      if (existing) {
+        return res.status(409).json({
+          error: hasUsablePassword(existing.passwordHash)
+            ? "An account with this email already exists. Please sign in instead."
+            : "An account with this email already exists. Sign in with Google, or use \"Forgot password?\" to set a password.",
+        });
+      }
 
       const isSystemAdmin = normalizedEmail === SYSTEM_ADMIN_EMAIL;
       const passwordHash = await bcrypt.hash(password, 12);
@@ -59,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin });
       console.log(`[AUTH] Registered: ${user.email} (sysAdmin: ${isSystemAdmin})`);
-      res.status(201).json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+      res.status(201).json({ user: publicUser(user) });
     } catch (error) {
       console.error("[AUTH] Registration error:", error);
       res.status(500).json({ error: "Registration failed" });
@@ -75,16 +91,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) return res.status(401).json({ error: "Invalid email or password" });
       if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
 
+      if (!hasUsablePassword(user.passwordHash)) {
+        return res.status(401).json({
+          error: "This account doesn't have a BTM password yet. Sign in with Google, or use \"Forgot password?\" to set one.",
+        });
+      }
+
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) return res.status(401).json({ error: "Invalid email or password" });
 
       const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
       setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
       console.log(`[AUTH] Login: ${user.email}`);
-      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin } });
+      res.json({ user: { ...publicUser(user), isSystemAdmin } });
     } catch (error) {
       console.error("[AUTH] Login error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // ── Google sign-in ───────────────────────────────────────────────────────
+  // The browser uses Google's own "Sign in with Google" button (client ID from
+  // GOOGLE_CLIENT_ID) and sends us the ID token it gets back. We check it with
+  // Google, then sign the person in, creating an account on first use.
+  app.get("/api/auth/google-client-id", (_req, res) => {
+    res.json({ clientId: process.env.GOOGLE_CLIENT_ID || null });
+  });
+
+  app.post("/api/auth/google", async (req, res) => {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) return res.status(503).json({ error: "Google sign-in is not set up on this server." });
+      const { credential } = req.body || {};
+      if (!credential) return res.status(400).json({ error: "Missing Google credential." });
+
+      const verify = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+      if (!verify.ok) return res.status(401).json({ error: "Couldn't verify that Google sign-in. Please try again." });
+      const info = await verify.json() as Record<string, any>;
+      const validIssuer = info.iss === "accounts.google.com" || info.iss === "https://accounts.google.com";
+      const notExpired = Number(info.exp) * 1000 > Date.now();
+      if (info.aud !== clientId || !validIssuer || !notExpired) {
+        return res.status(401).json({ error: "Couldn't verify that Google sign-in. Please try again." });
+      }
+      if (info.email_verified !== true && info.email_verified !== "true") {
+        return res.status(401).json({ error: "Your Google account's email address isn't verified." });
+      }
+
+      const email = String(info.email).toLowerCase().trim();
+      let user = await storage.getUserByEmail(email);
+      if (!user) {
+        const name = typeof info.name === "string" && info.name.trim() ? info.name.trim() : null;
+        user = await storage.createUser(email, GOOGLE_ONLY_PASSWORD, name, email === SYSTEM_ADMIN_EMAIL);
+        console.log(`[AUTH] Registered via Google: ${email}`);
+      }
+      if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+
+      const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
+      console.log(`[AUTH] Google login: ${user.email}`);
+      res.json({ user: { ...publicUser(user), isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Google login error:", error);
+      res.status(500).json({ error: "Google sign-in failed" });
+    }
+  });
+
+  // ── Forgot / reset password ─────────────────────────────────────────────
+  app.post("/api/auth/forgot", async (req, res) => {
+    try {
+      const email = String(req.body?.email || "").toLowerCase().trim();
+      if (!email) return res.status(400).json({ error: "Email is required" });
+      if (!process.env.RESEND_API_KEY) {
+        return res.status(503).json({ error: "Password reset emails aren't set up yet. Please contact the administrator." });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      // Always give the same answer, so this can't be used to find out who has an account
+      if (user && !user.isBlocked) {
+        const token = createResetToken(user.id, user.passwordHash);
+        const link = `${baseUrlOf(req)}/reset-password?token=${encodeURIComponent(token)}`;
+        try {
+          const { client, fromEmail } = await getUncachableResendClient();
+          await client.emails.send({
+            from: fromEmail,
+            to: user.email,
+            subject: "Reset your Boules Tournament Manager password",
+            html: `<p>Hello${user.displayName ? ` ${user.displayName}` : ""},</p>
+<p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Boules Tournament Manager account.</p>
+<p><a href="${link}">Click here to choose a new password</a></p>
+<p>This link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>`,
+          });
+          console.log(`[AUTH] Password reset email sent to ${user.email}`);
+        } catch (e) {
+          console.error("[AUTH] Failed to send reset email:", e);
+        }
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Forgot password error:", error);
+      res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
+
+  app.post("/api/auth/reset", async (req, res) => {
+    try {
+      const { token, password } = req.body || {};
+      if (!token || !password) return res.status(400).json({ error: "Token and new password are required" });
+      if (String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      const decoded = decodeResetToken(String(token));
+      const user = decoded ? await storage.getUserById(decoded.userId) : undefined;
+      if (!decoded || !user || !resetTokenMatches(decoded.fp, user.passwordHash)) {
+        return res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+      }
+      if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+
+      const newHash = await bcrypt.hash(String(password), 12);
+      await storage.updateUserPassword(user.id, newHash);
+      const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
+      console.log(`[AUTH] Password reset for: ${user.email}`);
+      res.json({ user: { ...publicUser({ ...user, passwordHash: newHash }), isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
     }
   });
 
@@ -95,17 +225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/auth/profile", async (req: any, res) => {
     try {
-      const { userId: clerkUserId } = getAuth(req);
-      let targetUser: Awaited<ReturnType<typeof storage.getUserById>>;
-
-      if (clerkUserId) {
-        targetUser = await storage.getUserByClerkId(clerkUserId);
-      } else {
-        const session = getSessionFromRequest(req);
-        if (!session) return res.status(401).json({ error: "Not authenticated" });
-        targetUser = await storage.getUserById(session.userId);
-      }
-
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+      const targetUser = await storage.getUserById(session.userId);
       if (!targetUser || targetUser.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
 
       const { displayName } = req.body;
@@ -114,12 +236,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await storage.updateUserProfile(targetUser.id, trimmed || null);
       if (!updated) return res.status(500).json({ error: "Failed to update profile" });
 
-      // Only refresh legacy cookie when not using Clerk
-      if (!clerkUserId) {
-        setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
-      }
+      setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
       console.log(`[AUTH] Display name updated for: ${updated.email}`);
-      res.json({ user: { id: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin } });
+      res.json({ user: publicUser(updated) });
     } catch (error) {
       console.error("[AUTH] Update profile error:", error);
       res.status(500).json({ error: "Failed to update profile" });
@@ -132,14 +251,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!session) return res.status(401).json({ error: "Not authenticated" });
 
       const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
+      if (!newPassword) return res.status(400).json({ error: "New password is required" });
       if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
 
       const user = await storage.getUserById(session.userId);
       if (!user || user.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
 
-      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+      // Accounts that sign in with Google can set a first password without a current one
+      if (hasUsablePassword(user.passwordHash)) {
+        if (!currentPassword) return res.status(400).json({ error: "Current password is required" });
+        const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+      }
 
       const newHash = await bcrypt.hash(newPassword, 12);
       await storage.updateUserPassword(user.id, newHash);
@@ -153,43 +276,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/user", async (req: any, res) => {
     try {
-      // Check Clerk session first
-      const { userId: clerkUserId } = getAuth(req);
-      if (clerkUserId) {
-        let user = await storage.getUserByClerkId(clerkUserId);
-        if (!user) {
-          // JIT provision on first /api/auth/user call after social sign-in
-          try {
-            const clerkUser = await clerkClient.users.getUser(clerkUserId);
-            const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase();
-            const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null;
-            if (email) {
-              user = await storage.getUserByEmail(email) ?? undefined;
-              if (user) {
-                if (!user.clerkUserId) await storage.updateUserClerkId(user.id, clerkUserId);
-              } else {
-                try {
-                  user = await storage.createUserFromClerk(email, clerkUserId, displayName, email === SYSTEM_ADMIN_EMAIL);
-                } catch {
-                  user = await storage.getUserByEmail(email) ?? undefined;
-                }
-              }
-            }
-          } catch (e) {
-            console.error('[CLERK] JIT provision in /api/auth/user:', e);
-          }
-        }
-        if (user && !user.isBlocked) {
-          return res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
-        }
-        return res.json({ user: null });
-      }
-      // Legacy cookie fallback
       const session = getSessionFromRequest(req);
       if (!session) return res.json({ user: null });
       const user = await storage.getUserById(session.userId);
       if (!user || user.isBlocked) { clearAuthCookie(res); return res.json({ user: null }); }
-      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+      res.json({ user: publicUser(user) });
     } catch {
       res.status(500).json({ error: "Failed to get user" });
     }
