@@ -45,7 +45,7 @@ export const tournaments = pgTable("tournaments", {
   pointsForWin: integer("points_for_win").notNull().default(3),
   pointsForDraw: integer("points_for_draw").notNull().default(2),
   pointsForLoss: integer("points_for_loss").notNull().default(1),
-  pointsForNoShow: integer("points_for_no_show").notNull().default(3),
+  pointsForNoShow: integer("points_for_no_show").notNull().default(0),
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
@@ -67,7 +67,7 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(3),
   pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(2),
   pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
-  pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(3),
+  pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
   numberOfPistes: z.number().int().min(1).nullable().optional(),
 });
 

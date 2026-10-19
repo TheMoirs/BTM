@@ -290,8 +290,8 @@ export default function Leaderboard() {
               <p>
                 Points are awarded for every game played: Win = {currentTournament.pointsForWin ?? 3},
                 Draw = {currentTournament.pointsForDraw ?? 2}, Loss = {currentTournament.pointsForLoss ?? 1}.
-                {" "}No-Show = the team present gains {(currentTournament as any).pointsForNoShow ?? 3} league points per game, with a game winning score of 13-7.
-                Team not showing: 0 league points (losing score of 7-13 per game).
+                {" "}No-Show = the team present gains {currentTournament.pointsForWin ?? 3} league points per game, with a game winning score of 13-7.
+                Team not showing: {(currentTournament as any).pointsForNoShow ?? 0} league points per game (losing score of 7-13).
               </p>
             </div>
 

@@ -532,10 +532,11 @@ export class DatabaseStorage implements IStorage {
           const t1Name = team1.teamDisplayId ? `${team1.name} (${team1.teamDisplayId})` : team1.name;
           const t2Name = team2.teamDisplayId ? `${team2.name} (${team2.teamDisplayId})` : team2.name;
           const matchInfo = `${t1Name} vs ${t2Name}`;
+          // Present team gets the Win points per game; the absent team gets the No-Show points per game
+          const pointsForWin = tournament.pointsForWin ?? 3;
           const pointsForNoShow = tournament.pointsForNoShow ?? 0;
 
-          // The team that showed up wins every game 13-7 and gets the No-Show points per game;
-          // the absent team loses every game 7-13 and gets 0.
+          // The team that showed up wins every game 13-7; the absent team loses every game 7-13.
           const presentFor = NO_SHOW_WINNING_SCORE * gamesPerMatch;
           const absentFor = NO_SHOW_LOSING_SCORE * gamesPerMatch;
           const scores = (absent: boolean) => absent
@@ -549,7 +550,7 @@ export class DatabaseStorage implements IStorage {
             gamesWon: team1NoShow ? 0 : gamesPerMatch,
             gamesLost: team1NoShow ? gamesPerMatch : 0,
             gamesDrawn: 0,
-            points: team1NoShow ? 0 : pointsForNoShow * gamesPerMatch,
+            points: (team1NoShow ? pointsForNoShow : pointsForWin) * gamesPerMatch,
             ...scores(team1NoShow),
           });
           await this.createResult({
@@ -560,7 +561,7 @@ export class DatabaseStorage implements IStorage {
             gamesWon: team2NoShow ? 0 : gamesPerMatch,
             gamesLost: team2NoShow ? gamesPerMatch : 0,
             gamesDrawn: 0,
-            points: team2NoShow ? 0 : pointsForNoShow * gamesPerMatch,
+            points: (team2NoShow ? pointsForNoShow : pointsForWin) * gamesPerMatch,
             ...scores(team2NoShow),
           });
         }
