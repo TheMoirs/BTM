@@ -51,6 +51,13 @@ function ContactDetails() {
   );
 }
 
+// "2026-10-31" -> "Saturday 31 October 2026"
+function formatRegisterBy(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex justify-center px-4 py-8 sm:py-12">
@@ -68,6 +75,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 // Public page at /register/<tournament> where a team captain enters their team's details.
 export default function RegisterTeamPage({ slug }: { slug: string }) {
   const [tournamentName, setTournamentName] = useState<string | null>(null);
+  const [registerBy, setRegisterBy] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "missing" | "form" | "conflict" | "done">("loading");
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [honeypot, setHoneypot] = useState("");
@@ -88,6 +96,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         const data = r.ok ? await r.json() : null;
         if (!data?.name) return setState("missing");
         setTournamentName(data.name);
+        setRegisterBy(formatRegisterBy(data.registrationDeadline));
         document.title = `${editCode ? "Update registration" : "Register"} for ${data.name}`;
 
         if (editCode) {
@@ -299,6 +308,11 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               If you wish to compete, please enter your details below. All fields are required.</>
             )}
           </CardDescription>
+          {registerBy && !isEditing && (
+            <p className="pt-2 text-base font-semibold" data-testid="text-register-by">
+              Please register by {registerBy}.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           {editLinkError && (

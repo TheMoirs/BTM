@@ -52,6 +52,8 @@ export const tournaments = pgTable("tournaments", {
   rulesPdfName: text("rules_pdf_name"),   // original filename
   // Readable public address, made from the name: /teams/<slug> and /leaderboard/<slug>
   slug: text("slug"),
+  // Optional "register by" date (YYYY-MM-DD), shown on the team registration page
+  registrationDeadline: text("registration_deadline"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
@@ -69,6 +71,9 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
   pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
   numberOfPistes: z.number().int().min(1).nullable().optional(),
+  registrationDeadline: z.string().transform(v => (v.trim() === "" ? null : v.trim())).pipe(
+    z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Please choose a valid date"), z.null()]),
+  ).nullable().optional(),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;

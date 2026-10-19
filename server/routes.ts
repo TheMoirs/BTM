@@ -374,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const t = await storage.getTournamentBySlug(String(req.params.slug));
       if (!t) return res.status(404).json({ error: "Tournament not found" });
-      res.json({ tournamentId: t.id, name: t.name, viewToken: t.viewToken });
+      res.json({ tournamentId: t.id, name: t.name, viewToken: t.viewToken, registrationDeadline: t.registrationDeadline ?? null });
     } catch (error) {
       console.error("[PUBLIC] Slug lookup failed:", error);
       res.status(500).json({ error: "Failed to look up tournament" });

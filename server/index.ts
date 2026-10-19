@@ -72,6 +72,16 @@ async function initializeDatabase() {
   }
 }
 
+async function ensureRegistrationDeadlineColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_deadline TEXT`);
+    log("Database initialized: tournaments.registration_deadline column ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensurePointsForNoShowColumn() {
   const client = await pool.connect();
   try {
@@ -235,6 +245,7 @@ async function migrateOrphanedTournaments() {
   await initializeDatabase();
   // Ensure tiny_url column on short_links
   await ensurePointsForNoShowColumn();
+  await ensureRegistrationDeadlineColumn();
   await ensureMatchNoShowColumns();
   await ensureNumberOfPistesColumn();
   await ensureMatchPisteIdColumn();

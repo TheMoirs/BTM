@@ -195,6 +195,7 @@ export function TournamentSelector() {
       pointsForLoss: 1,
       pointsForNoShow: 0,
       numberOfPistes: null,
+      registrationDeadline: null,
     },
   });
 
@@ -449,6 +450,29 @@ export function TournamentSelector() {
                     <FormControl>
                       <Textarea {...field} value={field.value || ""} placeholder="Enter tournament description for report headers" data-testid="input-tournament-description" className="resize-none" rows={2} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="registrationDeadline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Register by this date (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        className="w-auto"
+                        data-testid="input-registration-deadline-1"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">Shown to teams on the registration page.</p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -757,6 +781,7 @@ export function TournamentSelector() {
                         pointsForLoss: tournament.pointsForLoss ?? 1,
                         pointsForNoShow: (tournament as any).pointsForNoShow ?? 0,
                         numberOfPistes: (tournament as any).numberOfPistes ?? null,
+                        registrationDeadline: (tournament as any).registrationDeadline ?? null,
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}
@@ -857,6 +882,29 @@ export function TournamentSelector() {
                     <FormControl>
                       <Textarea {...field} value={field.value || ""} placeholder="Enter tournament description for report headers" data-testid="input-tournament-description" className="resize-none" rows={2} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="registrationDeadline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Register by this date (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        className="w-auto"
+                        data-testid="input-registration-deadline-2"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">Shown to teams on the registration page.</p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -1038,6 +1086,29 @@ export function TournamentSelector() {
                     <FormControl>
                       <Textarea {...field} value={field.value || ""} placeholder="Enter tournament description for report headers" data-testid="input-edit-tournament-description" className="resize-none" rows={2} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="registrationDeadline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Register by this date (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        className="w-auto"
+                        data-testid="input-registration-deadline-3"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">Shown to teams on the registration page.</p>
                     <FormMessage />
                   </FormItem>
                 )}
