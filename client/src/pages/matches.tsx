@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1215,14 +1215,21 @@ export default function Matches() {
     return doc;
   };
 
+  // e.g. "Summer League - Matches - Division A - Completed - 2026-10-19.xlsx"
+  const matchesFilename = (ext: "pdf" | "xlsx") =>
+    exportFilename(currentTournament?.name, "Matches", [
+      stageFilter !== "all" && stageLabels[stageFilter as keyof typeof stageLabels],
+      divisionFilter !== "all" && `Division ${divisionFilter}`,
+      statusFilter !== "all" && statusLabels[statusFilter as keyof typeof statusLabels],
+    ], ext);
+
   const openPdfViewer = async () => {
     if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
       URL.revokeObjectURL(pdfBlobUrl);
     }
     
     const doc = generatePDFDocument();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Matches.pdf`;
+    const filename = matchesFilename("pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -1243,12 +1250,15 @@ export default function Matches() {
   };
 
   const handlePdfSave = () => {
+    if (groupedByDivision.length === 0) {
+      toast({ title: "No matches to export", description: "There are no matches matching the current filters.", variant: "destructive" });
+      return;
+    }
     const doc = generatePDFDocument();
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Matches.pdf`;
+    const filename = matchesFilename("pdf");
     
     const link = document.createElement('a');
     link.href = url;
@@ -1266,6 +1276,10 @@ export default function Matches() {
   };
 
   const handleExcelSave = () => {
+    if (groupedByDivision.length === 0) {
+      toast({ title: "No matches to export", description: "There are no matches matching the current filters.", variant: "destructive" });
+      return;
+    }
     const workbook = XLSX.utils.book_new();
     
     groupedByDivision.forEach(([division, divisionMatches]) => {
@@ -1307,8 +1321,7 @@ export default function Matches() {
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     });
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Matches.xlsx`;
+    const filename = matchesFilename("xlsx");
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -1416,14 +1429,31 @@ export default function Matches() {
                 )}
               </>
             )}
-            <Button
-              variant="outline"
-              onClick={openPdfViewer}
-              data-testid="button-download"
-            >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  data-testid="button-download"
+                >
               <FileDown className="h-4 w-4 mr-2" />
               Download
-            </Button>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-download-pdf">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Preview / Print
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {!isReadOnly && (
               <>
                 <Button

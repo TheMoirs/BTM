@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1217,6 +1217,10 @@ export default function Teams() {
     return doc;
   };
 
+  // e.g. "Summer League - Teams - Division A - 2026-10-19.pdf"
+  const teamsFilename = (ext: "pdf" | "xlsx") =>
+    exportFilename(currentTournament?.name, "Teams", [divisionFilter !== "all" && `Division ${divisionFilter}`], ext);
+
   const openPdfViewer = async () => {
     if (filteredGroupedByDivision.length === 0) {
       toast({
@@ -1231,8 +1235,7 @@ export default function Teams() {
     }
     
     const doc = generatePDFDocument();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Teams.pdf`;
+    const filename = teamsFilename("pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -1254,6 +1257,14 @@ export default function Teams() {
 
   const handleExcelSave = () => {
     if (!filteredGroupedByDivision) return;
+    if (filteredGroupedByDivision.length === 0) {
+      toast({
+        title: "No teams to export",
+        description: divisionFilter === "all" ? "There are no teams to download yet." : "There are no teams in the selected division.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const exportData: any[] = [];
     filteredGroupedByDivision.forEach(([division, divisionTeams]) => {
@@ -1275,8 +1286,7 @@ export default function Teams() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Teams.xlsx`;
+    const filename = teamsFilename("xlsx");
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -1286,12 +1296,19 @@ export default function Teams() {
   };
 
   const handlePdfSave = () => {
+    if (filteredGroupedByDivision.length === 0) {
+      toast({
+        title: "No teams to export",
+        description: divisionFilter === "all" ? "There are no teams to download yet." : "There are no teams in the selected division.",
+        variant: "destructive",
+      });
+      return;
+    }
     const doc = generatePDFDocument();
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Teams.pdf`;
+    const filename = teamsFilename("pdf");
     
     const link = document.createElement('a');
     link.href = url;
@@ -1527,15 +1544,32 @@ export default function Teams() {
             {/* Hidden for view-only (not logged in) visitors */}
             {!isReadOnly && (
               <>
-              <Button
-                variant="outline"
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
                 size="sm"
-                onClick={openPdfViewer}
-                data-testid="button-download"
-              >
+                    data-testid="button-download"
+                  >
                 <FileDown className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Download</span>
-              </Button>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-download-pdf">
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Preview / Print
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 size="sm"

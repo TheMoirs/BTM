@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -739,10 +739,18 @@ export default function Results() {
     return doc;
   };
 
+  // e.g. "Summer League - Results - Stage 1 - 2026-10-19.pdf"
+  const resultsFilename = (isSummary: boolean, ext: "pdf" | "xlsx") =>
+    exportFilename(
+      currentTournament?.name,
+      isSummary ? (isForecast ? "Forecast" : "Leaderboard") : "Results",
+      [stageFilter !== "all" && stageLabels[stageFilter as keyof typeof stageLabels]],
+      ext,
+    );
+
   const openPdfViewer = async () => {
     const doc = generateResultsPDF();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Results.pdf`;
+    const filename = resultsFilename(false, "pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -764,8 +772,7 @@ export default function Results() {
 
   const openSummaryPdfViewer = async () => {
     const doc = generateSummaryPDF();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Summary.pdf`;
+    const filename = resultsFilename(true, "pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -790,9 +797,7 @@ export default function Results() {
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const pageName = isSummary ? (isForecast ? 'Forecast' : 'Leaderboard') : 'Results';
-    const filename = `${tournamentName} - ${pageName}.pdf`;
+    const filename = resultsFilename(isSummary, "pdf");
     
     const link = document.createElement('a');
     link.href = url;
@@ -866,9 +871,7 @@ export default function Results() {
       });
     }
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const pageName = isSummary ? (isForecast ? 'Forecast' : 'Leaderboard') : 'Results';
-    const filename = `${tournamentName} - ${pageName}.xlsx`;
+    const filename = resultsFilename(isSummary, "xlsx");
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -928,14 +931,31 @@ export default function Results() {
           </Button>
           {results && results.length > 0 && (
             <>
-              <Button
-                variant="outline"
-                onClick={openPdfViewer}
-                data-testid="button-download"
-              >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    data-testid="button-download"
+                  >
                 <FileDown className="mr-2 h-4 w-4" />
                 Download
-              </Button>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handlePdfSave(false)} data-testid="menu-item-download-pdf">
+                    <FileDown className="h-4 w-4 mr-2" />
+                    PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExcelSave(false)} data-testid="menu-item-download-excel">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Preview / Print
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {!isReadOnly && (
                 <Button
                   variant="destructive"

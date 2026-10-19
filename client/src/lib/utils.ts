@@ -97,3 +97,26 @@ export async function getShareableShortLink(
   
   return { url: longUrl, isShortened: false };
 }
+
+/**
+ * A descriptive download filename, e.g.
+ *   "Shamboules Winter Tournament 2026-27 - Matches - Division A - Completed - 2026-10-19.xlsx"
+ * `details` are the filters in use (left out when empty). Characters Windows/macOS
+ * don't allow in filenames are removed.
+ */
+export function exportFilename(
+  tournamentName: string | null | undefined,
+  data: string,
+  details: (string | null | undefined | false)[],
+  ext: "pdf" | "xlsx",
+): string {
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const parts = [tournamentName?.trim() || "Tournament", data, ...details.filter(Boolean) as string[], date];
+  const name = parts
+    .join(" - ")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${name}.${ext}`;
+}
