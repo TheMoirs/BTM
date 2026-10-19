@@ -44,7 +44,7 @@ function ContactDetails() {
   const c = REGISTRATION_CONTACT;
   return (
     <p className="text-sm text-muted-foreground">
-      Need to change your details later? Contact {c.name} by email at{" "}
+      Your confirmation email includes a link to change your details. Any questions? Contact {c.name} by email at{" "}
       <a className="underline" href={`mailto:${c.email}`}>{c.email}</a> or on WhatsApp at{" "}
       <a className="underline" href={`https://wa.me/${c.whatsappIntl}`} target="_blank" rel="noreferrer">{c.whatsapp}</a>.
     </p>
@@ -76,24 +76,49 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
   const [existing, setExisting] = useState<ExistingTeam | null>(null);
   const [outcome, setOutcome] = useState<{ status: "created" | "updated"; emailSent: boolean } | null>(null);
   const [discarded, setDiscarded] = useState(false);
+  // From the "Need to change your details?" link in the confirmation email
+  const [editCode] = useState(() => new URLSearchParams(window.location.search).get("edit"));
+  const [editLinkError, setEditLinkError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/public/tournament/${encodeURIComponent(slug)}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (data?.name) {
-          setTournamentName(data.name);
-          document.title = `Register for ${data.name}`;
-          setState("form");
-        } else setState("missing");
-      })
-      .catch(() => setState("missing"));
-  }, [slug]);
+    const base = `/api/public/register/${encodeURIComponent(slug)}`;
+    (async () => {
+      try {
+        const r = await fetch(`/api/public/tournament/${encodeURIComponent(slug)}`);
+        const data = r.ok ? await r.json() : null;
+        if (!data?.name) return setState("missing");
+        setTournamentName(data.name);
+        document.title = `${editCode ? "Update registration" : "Register"} for ${data.name}`;
+
+        if (editCode) {
+          const tr = await fetch(`${base}/team?code=${encodeURIComponent(editCode)}`);
+          const team = await tr.json().catch(() => ({}));
+          if (tr.ok) {
+            setValues({
+              name: team.name,
+              captainName: team.captainName,
+              captainPhone: team.captainPhone,
+              captainEmail: team.captainEmail,
+              homePiste: team.homePiste,
+              otherPlayers: (team.otherPlayers || []).join("\n"),
+            });
+          } else {
+            setEditLinkError(team.error || "This link isn't valid any more.");
+          }
+        }
+        setState("form");
+      } catch {
+        setState("missing");
+      }
+    })();
+  }, [slug, editCode]);
+
+  const isEditing = !!editCode && !editLinkError;
 
   const set = (key: keyof FormValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues(v => ({ ...v, [key]: e.target.value }));
 
-  const submit = async (action: "create" | "update") => {
+  const submit = async (action: "create" | "update" | "edit") => {
     setError(null);
     const check = publicRegistrationSchema.safeParse(toPayload(values));
     if (!check.success) {
@@ -111,6 +136,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
           website: honeypot,
           action,
           existingTeamId: action === "update" ? existing?.id : undefined,
+          editCode: action === "edit" ? editCode : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -264,13 +290,22 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
     <Shell>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Register for {tournamentName}</CardTitle>
+          <CardTitle className="text-2xl">{isEditing ? "Update your registration" : `Register for ${tournamentName}`}</CardTitle>
           <CardDescription className="text-base">
-            Thank you for your interest in competing in <strong className="text-foreground">{tournamentName}</strong>.
-            If you wish to compete, please enter your details below. All fields are required.
+            {isEditing ? (
+              <>Here are the details you registered for <strong className="text-foreground">{tournamentName}</strong>. Make any changes below and save. All fields are required.</>
+            ) : (
+              <>Thank you for your interest in <strong className="text-foreground">{tournamentName}</strong>.
+              If you wish to compete, please enter your details below. All fields are required.</>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {editLinkError && (
+            <p className="mb-4 rounded-md bg-muted p-3 text-sm">
+              {editLinkError} You can register below, or contact {REGISTRATION_CONTACT.name} for help.
+            </p>
+          )}
           {discarded && (
             <p className="mb-4 rounded-md bg-muted p-3 text-sm">
               Nothing was changed — the existing registration was left as it was. If you're registering a different team, change the team name below and save again.
@@ -282,7 +317,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
             onSubmit={e => {
               e.preventDefault();
               setDiscarded(false);
-              submit("create");
+              submit(isEditing ? "edit" : "create");
             }}
           >
             {FIELDS.map(f => (
@@ -327,7 +362,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
             )}
             <Button type="submit" className="w-full" disabled={submitting} data-testid="button-submit-registration">
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-              Save registration
+              {isEditing ? "Save changes" : "Save registration"}
             </Button>
           </form>
         </CardContent>

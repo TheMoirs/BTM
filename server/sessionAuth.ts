@@ -116,3 +116,25 @@ export function decodeResetToken(token: string): { userId: string; fp: string } 
 export function resetTokenMatches(fp: string, passwordHash: string): boolean {
   return passwordFingerprint(passwordHash) === fp;
 }
+
+// ── Team registration edit links ─────────────────────────────────────────
+// Sent in the registration confirmation email so a captain can reopen the form
+// with their details filled in. "<teamId>.<signature>": the signature stops
+// anyone editing a team just by guessing or changing the id.
+function teamEditSignature(teamId: string): string {
+  return crypto.createHmac('sha256', getSecret()).update(`team-edit:${teamId}`).digest('base64url').slice(0, 22);
+}
+
+export function createTeamEditCode(teamId: string): string {
+  return `${teamId}.${teamEditSignature(teamId)}`;
+}
+
+/** The team id an edit code belongs to, or null if the code isn't genuine. */
+export function readTeamEditCode(code: string): string | null {
+  const dot = code.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const teamId = code.slice(0, dot);
+  const a = Buffer.from(code.slice(dot + 1));
+  const b = Buffer.from(teamEditSignature(teamId));
+  return a.length === b.length && crypto.timingSafeEqual(a, b) ? teamId : null;
+}

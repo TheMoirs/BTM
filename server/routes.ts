@@ -6,7 +6,7 @@ import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
 import bcrypt from "bcryptjs";
-import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches } from "./sessionAuth";
+import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
 import { publicRegistrationSchema, REGISTRATION_CONTACT, type PublicRegistration } from "@shared/registration";
@@ -16,7 +16,7 @@ function escapeHtml(v: string): string {
 }
 
 // Confirmation email sent to a team captain after they register (or update) via /register/<tournament>
-function registrationEmailHtml(tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string): string {
+function registrationEmailHtml(tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, editUrl: string | null): string {
   const row = (label: string, value: string) =>
     `<tr><td style="padding:6px 12px 6px 0;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:6px 0;vertical-align:top"><strong>${value}</strong></td></tr>`;
   const c = REGISTRATION_CONTACT;
@@ -32,12 +32,49 @@ ${row("Email", escapeHtml(d.captainEmail))}
 ${row("Home piste", escapeHtml(d.homePiste))}
 ${row("Other players", d.otherPlayers.map(escapeHtml).join("<br>"))}
 </table>
-<p>If you need to change any of these details, please contact ${c.name}:<br>
+${editUrl
+  ? `<p style="margin:20px 0"><strong>Need to change your details?</strong> <a href="${editUrl}" style="display:inline-block;margin-left:6px;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">CLICK HERE</a></p>
+<p style="color:#555;font-size:14px">Any questions? Contact ${c.name} by email at <a href="mailto:${c.email}">${c.email}</a> or on WhatsApp at <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a>.</p>`
+  : `<p>If you need to change any of these details, please contact ${c.name}:<br>
 Email: <a href="mailto:${c.email}">${c.email}</a><br>
-WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>
+WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>`}
 <p>Good luck in the tournament!</p>
 <p style="color:#888;font-size:13px">Boules Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
 </div>`;
+}
+
+// Send the captain their confirmation (with an edit link), and if the contact email changed,
+// let the previous address know. Returns whether the captain's email was sent.
+// Registration still counts if sending fails.
+async function sendRegistrationEmails(
+  req: any, tournamentName: string, data: PublicRegistration, updated: boolean, teamId: string, previousEmail?: string | null,
+): Promise<boolean> {
+  if (!process.env.RESEND_API_KEY) return false;
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    const siteUrl = baseUrlOf(req);
+    const editUrl = `${siteUrl}/register/${encodeURIComponent(String(req.params.slug))}?edit=${encodeURIComponent(createTeamEditCode(teamId))}`;
+    const subject = `${updated ? "Registration updated" : "You're registered"}: ${tournamentName}`;
+    const result = await client.emails.send({
+      from: fromEmail, to: data.captainEmail, replyTo: REGISTRATION_CONTACT.email, subject,
+      html: registrationEmailHtml(tournamentName, data, updated, siteUrl, editUrl),
+    });
+    if (result.error) throw new Error(result.error.message);
+
+    const oldEmail = previousEmail?.trim();
+    if (updated && oldEmail && oldEmail.toLowerCase() !== data.captainEmail.toLowerCase()) {
+      // No edit link for the previous contact: they should go through the organiser
+      await client.emails.send({
+        from: fromEmail, to: oldEmail, replyTo: REGISTRATION_CONTACT.email, subject, html:
+          `<p style="font-family:Arial,Helvetica,sans-serif">You are receiving this because you were previously the contact for this team. If you didn't expect this change, please contact ${REGISTRATION_CONTACT.name}.</p>` +
+          registrationEmailHtml(tournamentName, data, updated, siteUrl, null),
+      }).catch(e => console.error("[REGISTER] Failed to notify previous captain:", e));
+    }
+    return true;
+  } catch (e) {
+    console.error("[REGISTER] Failed to send confirmation email:", e);
+    return false;
+  }
 }
 
 // What the browser is told about the signed-in user
@@ -348,6 +385,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Captains enter their own team details. If the team name is already taken,
   // the existing details come back (409) so the captain can choose to update
   // them (resubmit with action "update") or discard their changes.
+  // Load a team's details for the edit link in the confirmation email (?code=<teamId>.<signature>)
+  app.get("/api/public/register/:slug/team", async (req, res) => {
+    try {
+      const t = await storage.getTournamentBySlug(String(req.params.slug));
+      if (!t) return res.status(404).json({ error: "Tournament not found" });
+      const teamId = readTeamEditCode(String(req.query.code || ""));
+      const team = teamId ? await storage.getTeam(teamId) : undefined;
+      if (!team || team.tournamentId !== t.id) {
+        return res.status(404).json({ error: "This link isn't valid any more. Please register again or contact the organiser." });
+      }
+      res.json({
+        name: team.name,
+        captainName: team.captainName,
+        captainPhone: team.captainPhone,
+        captainEmail: team.captainEmail || "",
+        homePiste: team.homePiste || "",
+        otherPlayers: team.otherPlayers || [],
+      });
+    } catch (error) {
+      console.error("[REGISTER] Edit lookup failed:", error);
+      res.status(500).json({ error: "Failed to load your registration" });
+    }
+  });
+
   app.post("/api/public/register/:slug", async (req, res) => {
     try {
       const t = await storage.getTournamentBySlug(String(req.params.slug));
@@ -361,7 +422,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: parsed.error.errors[0]?.message || "Please check your details" });
       }
       const data = parsed.data;
-      const action = req.body?.action === "update" ? "update" : "create";
+      const action = req.body?.action === "update" ? "update" : req.body?.action === "edit" ? "edit" : "create";
+
+      // Editing via the link in the confirmation email: update that exact team
+      if (action === "edit") {
+        const teamId = readTeamEditCode(String(req.body?.editCode || ""));
+        const team = teamId ? await storage.getTeam(teamId) : undefined;
+        if (!team || team.tournamentId !== t.id) {
+          return res.status(404).json({ error: "This link isn't valid any more. Please register again or contact the organiser." });
+        }
+        const clash = await storage.findTeamByName(t.id, data.name);
+        if (clash && clash.id !== team.id) {
+          return res.status(400).json({ error: `Another team is already registered as "${clash.name}". Please choose a different team name.` });
+        }
+        await storage.updateTeamRegistration(team.id, data);
+        console.log(`[REGISTER] Edited "${data.name}" for "${t.name}" via email link`);
+        const emailSent = await sendRegistrationEmails(req, t.name, data, true, team.id, team.captainEmail);
+        return res.json({ status: "updated", emailSent });
+      }
+
       const existing = await storage.findTeamByName(t.id, data.name);
 
       const existingDetails = existing && {
@@ -375,49 +454,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       let updated = false;
+      let teamId: string;
       if (existing) {
         // Only overwrite the exact team the captain was shown
         if (action !== "update" || req.body?.existingTeamId !== existing.id) {
           return res.status(409).json({ conflict: true, existing: existingDetails });
         }
         await storage.updateTeamRegistration(existing.id, data);
+        teamId = existing.id;
         updated = true;
       } else {
         if (action === "update") {
           // The team was removed or renamed in the meantime: register it as new
           console.log(`[REGISTER] Team to update no longer exists; creating "${data.name}" instead`);
         }
-        await storage.createTeam({ ...data, tournamentId: t.id, division: "A", teamDisplayId: null });
+        teamId = (await storage.createTeam({ ...data, tournamentId: t.id, division: "A", teamDisplayId: null })).id;
       }
       console.log(`[REGISTER] ${updated ? "Updated" : "Registered"} "${data.name}" for "${t.name}"`);
 
-      // Confirmation email (registration still counts if this fails)
-      let emailSent = false;
-      if (process.env.RESEND_API_KEY) {
-        try {
-          const { client, fromEmail } = await getUncachableResendClient();
-          const siteUrl = baseUrlOf(req);
-          const subject = `${updated ? "Registration updated" : "You're registered"}: ${t.name}`;
-          const html = registrationEmailHtml(t.name, data, updated, siteUrl);
-          const result = await client.emails.send({
-            from: fromEmail, to: data.captainEmail, replyTo: REGISTRATION_CONTACT.email, subject, html,
-          });
-          if (result.error) throw new Error(result.error.message);
-          emailSent = true;
-
-          // Let the previous captain know if their team's details were changed to a different email
-          const oldEmail = existingDetails?.captainEmail?.trim();
-          if (updated && oldEmail && oldEmail.toLowerCase() !== data.captainEmail.toLowerCase()) {
-            await client.emails.send({
-              from: fromEmail, to: oldEmail, replyTo: REGISTRATION_CONTACT.email, subject, html:
-                `<p style="font-family:Arial,Helvetica,sans-serif">You are receiving this because you were previously the contact for this team. If you didn't expect this change, please contact ${REGISTRATION_CONTACT.name}.</p>` + html,
-            }).catch(e => console.error("[REGISTER] Failed to notify previous captain:", e));
-          }
-        } catch (e) {
-          console.error("[REGISTER] Failed to send confirmation email:", e);
-        }
-      }
-
+      const emailSent = await sendRegistrationEmails(req, t.name, data, updated, teamId, existingDetails?.captainEmail);
       res.json({ status: updated ? "updated" : "created", emailSent });
     } catch (error) {
       console.error("[REGISTER] Registration failed:", error);
