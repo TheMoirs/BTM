@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isMobileDevice, openPdfMobile } from "@/lib/utils";
@@ -456,7 +457,7 @@ export default function Results() {
       const slug = (currentTournament as any).slug as string | null | undefined;
       let shortUrl: string;
       if (slug) {
-        shortUrl = `${window.location.origin}/leaderboard/${slug}`;
+        shortUrl = `${await getPublicBaseUrl()}/leaderboard/${slug}`;
       } else {
         const response = await apiRequest('POST', '/api/short-links', {
           tournamentId: currentTournament.id,

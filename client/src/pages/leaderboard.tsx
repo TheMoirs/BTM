@@ -181,9 +181,6 @@ export default function Leaderboard() {
         <div className="flex flex-col gap-1">
           <p className="text-lg font-semibold">{currentTournament.name}</p>
           <p className="text-sm text-muted-foreground">
-            Points: Win={currentTournament.pointsForWin ?? 2}, Draw={currentTournament.pointsForDraw ?? 1}, Loss={currentTournament.pointsForLoss ?? 0}
-          </p>
-          <p className="text-sm text-muted-foreground">
             {new Date().toLocaleString()}
           </p>
         </div>
@@ -286,6 +283,15 @@ export default function Leaderboard() {
                 <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
                 <li>Useful when teams have played different numbers of games</li>
               </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">Points</h3>
+              <p>
+                Points are awarded for every game played: Win = {currentTournament.pointsForWin ?? 3},
+                Draw = {currentTournament.pointsForDraw ?? 2}, Loss = {currentTournament.pointsForLoss ?? 1}.
+                {" "}If a team doesn't turn up, their opponent gets {(currentTournament as any).pointsForNoShow ?? 0} per game.
+              </p>
             </div>
 
             <div>

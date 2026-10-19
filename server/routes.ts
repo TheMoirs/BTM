@@ -15,8 +15,17 @@ function publicUser(u: { id: string; email: string; displayName: string | null; 
   return { id: u.id, email: u.email, displayName: u.displayName, isSystemAdmin: u.isSystemAdmin, hasPassword: hasUsablePassword(u.passwordHash) };
 }
 
-// Public address of this site (Render sits behind a proxy, so trust its forwarded protocol)
+// Public address of this site, used in links BTM hands out (share links, reset emails).
+// PUBLIC_URL (e.g. https://btm.themoirs.uk) wins; otherwise use the address the request came in on
+// (Render sits behind a proxy, so trust its forwarded protocol).
+function publicUrlSetting(): string | null {
+  const v = (process.env.PUBLIC_URL || "").trim().replace(/\/+$/, "");
+  return v || null;
+}
+
 function baseUrlOf(req: { protocol: string; get(name: string): string | undefined; headers: Record<string, any> }) {
+  const configured = publicUrlSetting();
+  if (configured) return configured;
   const proto = String(req.headers["x-forwarded-proto"] || req.protocol).split(",")[0].trim();
   return `${proto}://${req.get("host")}`;
 }
@@ -290,6 +299,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Public tournament addresses: /teams/<slug> and /leaderboard/<slug> ──────
   // Turns a tournament's readable address into its view-only access code, so the
   // page can load read-only data without the code showing in the address bar.
+  app.get("/api/public/config", (_req, res) => {
+    res.json({ publicUrl: publicUrlSetting() });
+  });
+
   app.get("/api/public/tournament/:slug", async (req, res) => {
     try {
       const t = await storage.getTournamentBySlug(String(req.params.slug));
@@ -857,8 +870,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build the internal short URL
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const shareUrl = `${baseUrl}/s/${shortLink.code}`;
+      const shareUrl = `${baseUrlOf(req)}/s/${shortLink.code}`;
 
       res.json({ 
         code: shortLink.code,
