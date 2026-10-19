@@ -45,6 +45,13 @@ export async function validateTokenMiddleware(
         req.isMasterAdmin = true;
         req.isAdminAccess = true;
         req.isViewOnlyAccess = false;
+        // Opened a tournament's share link (e.g. /leaderboard/<name>) while signed in:
+        // show that tournament rather than whichever one was last selected
+        const sharedToken = (req.query.token as string || '').trim();
+        if (sharedToken) {
+          const shared = await storage.getTournamentByToken(sharedToken);
+          if (shared) req.tokenTournamentId = shared.tournament.id;
+        }
         next();
         return;
       }
