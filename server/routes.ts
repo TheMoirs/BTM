@@ -18,20 +18,20 @@ function escapeHtml(v: string): string {
 // Confirmation email sent to a team captain after they register (or update) via /register/<tournament>
 function registrationEmailHtml(tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, editUrl: string | null): string {
   const row = (label: string, value: string) =>
-    `<tr><td style="padding:6px 12px 6px 0;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:6px 0;vertical-align:top"><strong>${value}</strong></td></tr>`;
+    `<tr><td style="padding:0 12px 0 0;margin:0;line-height:1.4;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:0;margin:0;line-height:1.4;vertical-align:top"><strong>${value}</strong></td></tr>`;
   const c = REGISTRATION_CONTACT;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222;max-width:560px">
 <p>Hello ${escapeHtml(d.captainName)},</p>
 <p>${updated ? "Your registration details have been updated" : "Thank you for registering"} — <strong>${escapeHtml(d.name)}</strong> ${updated ? "is" : "is now"} registered for <strong>${escapeHtml(tournamentName)}</strong>.</p>
 <p>These are the details we have for your team:</p>
-<table style="border-collapse:collapse;margin:8px 0 16px">
-${row("Team name", escapeHtml(d.name))}
-${row("Captain", escapeHtml(d.captainName))}
-${row("Phone", escapeHtml(d.captainPhone))}
-${row("Email", escapeHtml(d.captainEmail))}
-${row("Home piste", escapeHtml(d.homePiste))}
-${row("Other players", d.otherPlayers.map(escapeHtml).join("<br>"))}
-</table>
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:8px 0 16px">${[
+  row("Team name", escapeHtml(d.name)),
+  row("Captain", escapeHtml(d.captainName)),
+  row("Phone", escapeHtml(d.captainPhone)),
+  row("Email", escapeHtml(d.captainEmail)),
+  row("Home piste", escapeHtml(d.homePiste)),
+  row("Other players", d.otherPlayers.map(escapeHtml).join("<br>")),
+].join("")}</table>
 ${editUrl
   ? `<p style="margin:20px 0"><strong>Need to change your details?</strong> <a href="${editUrl}" style="display:inline-block;margin-left:6px;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">CLICK HERE</a></p>
 <p style="color:#555;font-size:14px">Any questions? Contact ${c.name} by email at <a href="mailto:${c.email}">${c.email}</a> or on WhatsApp at <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a>.</p>`
