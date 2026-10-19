@@ -34,7 +34,7 @@ const statusLabels = {
 
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
-  const { viewToken } = useViewMode();
+  const { viewToken, isReadOnly } = useViewMode();
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
@@ -211,15 +211,18 @@ export default function Leaderboard() {
         >
           All Match Results
         </Button>
-        <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
-          <Button
-            variant="outline"
-            data-testid="button-view-teams"
-          >
-            <Users className="h-4 w-4 mr-1" />
-            View Teams
-          </Button>
-        </Link>
+        {/* Signed-in organisers only; visitors have a separate public Teams link */}
+        {!isReadOnly && (
+          <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
+            <Button
+              variant="outline"
+              data-testid="button-view-teams"
+            >
+              <Users className="h-4 w-4 mr-1" />
+              View Teams
+            </Button>
+          </Link>
+        )}
         {(currentTournament as any).rulesPdfName && (
           <a
             href={`/api/tournaments/${currentTournament.id}/rules`}

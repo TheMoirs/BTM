@@ -287,6 +287,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Public tournament addresses: /teams/<slug> and /leaderboard/<slug> ──────
+  // Turns a tournament's readable address into its view-only access code, so the
+  // page can load read-only data without the code showing in the address bar.
+  app.get("/api/public/tournament/:slug", async (req, res) => {
+    try {
+      const t = await storage.getTournamentBySlug(String(req.params.slug));
+      if (!t) return res.status(404).json({ error: "Tournament not found" });
+      res.json({ tournamentId: t.id, name: t.name, viewToken: t.viewToken });
+    } catch (error) {
+      console.error("[PUBLIC] Slug lookup failed:", error);
+      res.status(500).json({ error: "Failed to look up tournament" });
+    }
+  });
+
   app.use(validateTokenMiddleware);
 
   // ── Admin routes (system admin only) ──────────────────────────────────────

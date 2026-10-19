@@ -13,6 +13,7 @@ import Results from "@/pages/results";
 import Leaderboard from "@/pages/leaderboard";
 import LoginPage from "@/pages/login";
 import ResetPasswordPage from "@/pages/reset-password";
+import PublicTournamentPage from "@/pages/public-tournament";
 import AdminUsers from "@/pages/admin-users";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
@@ -150,6 +151,9 @@ function AppRouter() {
               <Route path="/sign-in/*?">{() => <LoginPage />}</Route>
               <Route path="/sign-up/*?">{() => <LoginPage defaultTab="register" />}</Route>
               <Route path="/reset-password" component={ResetPasswordPage} />
+              {/* Public read-only pages with readable addresses */}
+              <Route path="/teams/:slug">{(p) => <PublicTournamentPage key={`t-${p.slug}`} slug={p.slug} page="teams" />}</Route>
+              <Route path="/leaderboard/:slug">{(p) => <PublicTournamentPage key={`l-${p.slug}`} slug={p.slug} page="leaderboard" />}</Route>
               {/* Legacy /login redirect */}
               <Route path="/login">
                 <Redirect to="/sign-in" />

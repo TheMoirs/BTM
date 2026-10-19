@@ -108,7 +108,7 @@ export function Navigation() {
   };
 
   // In teams view-only mode (accessed via share link), hide Matches and Results
-  const isTeamsViewOnly = isReadOnly && (location === "/" || location === "/teams" || location.startsWith("/teams?"));
+  const isTeamsViewOnly = isReadOnly && (location === "/" || location === "/teams" || location.startsWith("/teams?") || location.startsWith("/teams/"));
 
   const navItems = isTeamsViewOnly
     ? [{ path: "/", label: "Teams", icon: Users }]

@@ -451,20 +451,26 @@ export default function Results() {
     setIsSharingLink(true);
     
     try {
-      // Create a short link using our internal system
-      const response = await apiRequest('POST', '/api/short-links', {
-        tournamentId: currentTournament.id,
-        targetPage: 'leaderboard'
-      });
-      
-      const data = await response.json();
-      const shortUrl = data.shortUrl;
+      // Readable public address made from the tournament name, e.g. /leaderboard/summer-league-2026
+      // (falls back to an old-style short link if the tournament has no address yet)
+      const slug = (currentTournament as any).slug as string | null | undefined;
+      let shortUrl: string;
+      if (slug) {
+        shortUrl = `${window.location.origin}/leaderboard/${slug}`;
+      } else {
+        const response = await apiRequest('POST', '/api/short-links', {
+          tournamentId: currentTournament.id,
+          targetPage: 'leaderboard'
+        });
+        const data = await response.json();
+        shortUrl = data.shortUrl;
+      }
       
       await navigator.clipboard.writeText(shortUrl);
       
       toast({
         title: "Link copied",
-        description: `Short link copied: ${shortUrl}`,
+        description: `Link copied: ${shortUrl}`,
         duration: 5000,
       });
     } catch (error) {

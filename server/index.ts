@@ -4,6 +4,7 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { db, pool } from "./db";
+import { storage } from "./storage";
 import { sql } from "drizzle-orm";
 
 const app = express();
@@ -100,6 +101,18 @@ async function ensureNumberOfPistesColumn() {
   } finally {
     client.release();
   }
+}
+
+async function ensureTournamentSlugs() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS slug TEXT`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS tournaments_slug_unique ON tournaments (slug)`);
+  } finally {
+    client.release();
+  }
+  const filled = await storage.backfillTournamentSlugs();
+  log(`Database initialized: tournaments.slug ensured${filled ? ` (${filled} filled in)` : ""}`);
 }
 
 async function ensureMatchBracketPositionColumn() {
@@ -224,6 +237,7 @@ async function migrateOrphanedTournaments() {
   await ensureNumberOfPistesColumn();
   await ensureMatchPisteIdColumn();
   await ensureMatchBracketPositionColumn();
+  await ensureTournamentSlugs();
   await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users

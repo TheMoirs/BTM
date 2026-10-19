@@ -1,7 +1,21 @@
 import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
-import { eq, or, and, desc } from "drizzle-orm";
+import { eq, or, and, desc, ne, isNull } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
+
+/** "Summer League 2026!" -> "summer-league-2026" */
+export function slugify(name: string): string {
+  const s = name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/g, "");
+  return s || "tournament";
+}
 
 export interface IStorage {
   // Tournament methods
@@ -15,6 +29,8 @@ export interface IStorage {
   regenerateViewToken(id: string): Promise<Tournament | undefined>;
   regenerateAdminToken(id: string): Promise<Tournament | undefined>;
   getTournamentByToken(token: string): Promise<{ tournament: Tournament; isAdmin: boolean } | undefined>;
+  getTournamentBySlug(slug: string): Promise<Tournament | undefined>;
+  backfillTournamentSlugs(): Promise<number>;
   
   getAllTeams(tournamentId?: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
@@ -105,9 +121,37 @@ export class DatabaseStorage implements IStorage {
         adminToken: generateViewToken(),
         viewToken: generateViewToken(),
         userId: userId || null,
+        slug: await this.uniqueSlug(insertTournament.name),
       })
       .returning();
     return tournament;
+  }
+
+  /** A slug made from the name that no other tournament is using (adds -2, -3... if needed). */
+  private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
+    const base = slugify(name);
+    for (let n = 1; ; n++) {
+      const candidate = n === 1 ? base : `${base}-${n}`;
+      const clash = await db
+        .select({ id: tournaments.id })
+        .from(tournaments)
+        .where(excludeId ? and(eq(tournaments.slug, candidate), ne(tournaments.id, excludeId)) : eq(tournaments.slug, candidate));
+      if (clash.length === 0) return candidate;
+    }
+  }
+
+  async getTournamentBySlug(slug: string): Promise<Tournament | undefined> {
+    const [t] = await db.select().from(tournaments).where(eq(tournaments.slug, slug.toLowerCase()));
+    return t || undefined;
+  }
+
+  /** Give a slug to any tournament that doesn't have one yet (oldest first, so they get the plain name). */
+  async backfillTournamentSlugs(): Promise<number> {
+    const missing = await db.select().from(tournaments).where(isNull(tournaments.slug)).orderBy(tournaments.createdAt);
+    for (const t of missing) {
+      await db.update(tournaments).set({ slug: await this.uniqueSlug(t.name, t.id) }).where(eq(tournaments.id, t.id));
+    }
+    return missing.length;
   }
 
   async updateTournament(id: string, insertTournament: InsertTournament): Promise<Tournament | undefined> {
@@ -116,9 +160,15 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
+    // Renaming the tournament changes its public address to match the new name
+    const slug =
+      existingTournament.name !== insertTournament.name || !existingTournament.slug
+        ? await this.uniqueSlug(insertTournament.name, id)
+        : existingTournament.slug;
+
     const [updatedTournament] = await db
       .update(tournaments)
-      .set(insertTournament)
+      .set({ ...insertTournament, slug })
       .where(eq(tournaments.id, id))
       .returning();
     return updatedTournament || undefined;

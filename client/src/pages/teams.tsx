@@ -1324,20 +1324,26 @@ export default function Teams() {
     setIsSharingLink(true);
     
     try {
-      // Create a short link using our internal system - links to Teams page
-      const response = await apiRequest('POST', '/api/short-links', {
-        tournamentId: currentTournament.id,
-        targetPage: 'teams'
-      });
-      
-      const data = await response.json();
-      const shortUrl = data.shortUrl;
+      // Readable public address made from the tournament name, e.g. /teams/summer-league-2026
+      // (falls back to an old-style short link if the tournament has no address yet)
+      const slug = (currentTournament as any).slug as string | null | undefined;
+      let shortUrl: string;
+      if (slug) {
+        shortUrl = `${window.location.origin}/teams/${slug}`;
+      } else {
+        const response = await apiRequest('POST', '/api/short-links', {
+          tournamentId: currentTournament.id,
+          targetPage: 'teams'
+        });
+        const data = await response.json();
+        shortUrl = data.shortUrl;
+      }
       
       await navigator.clipboard.writeText(shortUrl);
       
       toast({
         title: "Link copied",
-        description: `Short link copied: ${shortUrl}`,
+        description: `Link copied: ${shortUrl}`,
         duration: 5000,
       });
     } catch (error) {
@@ -1795,17 +1801,20 @@ export default function Teams() {
               </Button>
               </>
             )}
-            {/* Keep the access token in the URL so the leaderboard address can be copied and shared */}
-            <Link href={viewToken ? `/leaderboard?token=${encodeURIComponent(viewToken)}&view=readonly` : "/leaderboard"}>
-              <Button
-                variant="outline"
-                size="sm"
-                data-testid="button-view-leaderboard"
-              >
-                <Trophy className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Leaderboard</span>
-              </Button>
-            </Link>
+            {/* Teams <-> Leaderboard switching is for signed-in organisers only;
+                visitors use the separate public links for each page */}
+            {!isReadOnly && (
+              <Link href={viewToken ? `/leaderboard?token=${encodeURIComponent(viewToken)}&view=readonly` : "/leaderboard"}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-view-leaderboard"
+                >
+                  <Trophy className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Leaderboard</span>
+                </Button>
+              </Link>
+            )}
             <HelpDialog title="Teams - Help">
               <div className="space-y-4">
                 <div>
