@@ -8,11 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-// Opened from the "Reset your password" email: /reset-password?token=...
+// Opened from the "Reset your password" email: /reset-password?code=...
 export default function ResetPasswordPage() {
   const { resetPassword } = useAuth();
   const { toast } = useToast();
-  const token = new URLSearchParams(window.location.search).get("token") || "";
+  const token = new URLSearchParams(window.location.search).get("code") || "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);

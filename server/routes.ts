@@ -169,7 +169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Always give the same answer, so this can't be used to find out who has an account
       if (user && !user.isBlocked) {
         const token = createResetToken(user.id, user.passwordHash);
-        const link = `${baseUrlOf(req)}/reset-password?token=${encodeURIComponent(token)}`;
+        // Uses ?code= (not ?token=, which the app reserves for tournament share links)
+        const link = `${baseUrlOf(req)}/reset-password?code=${encodeURIComponent(token)}`;
         try {
           const { client, fromEmail } = await getUncachableResendClient();
           await client.emails.send({
