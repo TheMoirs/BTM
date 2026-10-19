@@ -88,7 +88,13 @@ function AppContent() {
     );
   }
 
-  const isViewLinkAccess = urlTokenIsView || hasPersistedViewToken;
+  // A share-link code left in this tab from visiting a public page shouldn't put a
+  // signed-in organiser into view-only, locked mode in the main app
+  if (user && !urlToken && hasPersistedViewToken) {
+    sessionStorage.removeItem("boules_view_token");
+    queryClient.clear();
+  }
+  const isViewLinkAccess = urlTokenIsView || (hasPersistedViewToken && !user);
 
   if (isViewLinkAccess) {
     const showNavigation = location !== "/leaderboard";

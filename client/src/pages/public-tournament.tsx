@@ -28,6 +28,9 @@ export default function PublicTournamentPage({ slug, page }: { slug: string; pag
           setState("missing");
           return;
         }
+        // Select this tournament, so a signed-in organiser opening the link sees it too
+        // (rather than whichever tournament they last had open)
+        if (data.tournamentId) localStorage.setItem("boules-selected-tournament-id", data.tournamentId);
         if (sessionStorage.getItem(VIEW_TOKEN_STORAGE_KEY) !== data.viewToken) {
           sessionStorage.setItem(VIEW_TOKEN_STORAGE_KEY, data.viewToken);
           queryClient.clear(); // a different tournament: don't show cached data from another one
