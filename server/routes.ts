@@ -8,6 +8,8 @@ import { validateTokenMiddleware } from "./tokenMiddleware";
 import { getAuth, clerkClient } from "@clerk/express";
 import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
+import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
+import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Short URL redirect endpoint (before token middleware - no auth required)
@@ -961,150 +963,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Helper function to calculate team rankings from results
-  function calculateTeamRankings(results: Result[], teams: Team[]): Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }> {
-    const teamMap = new Map(teams.map(t => [t.id, t]));
-    const rankings = new Map<string, { points: number; scoreDifference: number; gamesPlayed: number }>();
-    
-    results.forEach(result => {
-      const teamId = teams.find(t => t.name === result.teamName)?.id;
-      if (!teamId) return;
-      
-      if (!rankings.has(teamId)) {
-        rankings.set(teamId, { points: 0, scoreDifference: 0, gamesPlayed: 0 });
-      }
-      
-      const ranking = rankings.get(teamId)!;
-      ranking.points += result.points;
-      ranking.scoreDifference += result.scoreDifference;
-      ranking.gamesPlayed += result.gamesPlayed;
-    });
-    
-    return Array.from(rankings.entries())
-      .map(([teamId, stats]) => ({
-        team: teamMap.get(teamId)!,
-        ...stats
-      }))
-      .filter(r => r.team) // Filter out any teams not found
-      .sort((a, b) => {
-        // Sort by points first, then by score difference
-        if (b.points !== a.points) return b.points - a.points;
-        return b.scoreDifference - a.scoreDifference;
-      });
-  }
-
-  // Helper function to select top teams based on division count
-  function selectTopTeams(
-    rankings: Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }>,
-    numberOfDivisions: number,
-    targetCount: 8 | 4 | 2,
-    fromPlayoffStage: boolean = false
-  ): Team[] {
-    // If selecting from playoff stage, always use overall rankings (divisions no longer matter)
-    if (fromPlayoffStage) {
-      return rankings.slice(0, targetCount).map(r => r.team);
-    }
-
-    // Otherwise, use division-based selection (for initial stage)
-    // Group rankings by division
-    const divisionRankings = new Map<string, typeof rankings>();
-    rankings.forEach(rank => {
-      const div = rank.team.division || '';
-      if (!divisionRankings.has(div)) {
-        divisionRankings.set(div, []);
-      }
-      divisionRankings.get(div)!.push(rank);
-    });
-
-    // Sort divisions by size (descending), then alphabetically
-    const sortedDivisions = Array.from(divisionRankings.keys()).sort((a, b) => {
-      const sizeA = divisionRankings.get(a)!.length;
-      const sizeB = divisionRankings.get(b)!.length;
-      if (sizeB !== sizeA) return sizeB - sizeA;
-      return a.localeCompare(b);
-    });
-
-    const selectedTeams: Team[] = [];
-
-    if (targetCount === 8) {
-      // Quarter-finals: Select 8 teams
-      if (numberOfDivisions === 1) {
-        // Top 8 from single division
-        selectedTeams.push(...rankings.slice(0, 8).map(r => r.team));
-      } else if (numberOfDivisions === 2) {
-        // Top 4 from each division
-        sortedDivisions.slice(0, 2).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 4).map(r => r.team));
-        });
-      } else if (numberOfDivisions === 3) {
-        // Top 4 from largest/first division, top 2 from other two
-        const primaryDiv = sortedDivisions[0];
-        selectedTeams.push(...divisionRankings.get(primaryDiv)!.slice(0, 4).map(r => r.team));
-        
-        sortedDivisions.slice(1, 3).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
-        });
-      } else if (numberOfDivisions >= 4) {
-        // Top 2 from each of first 4 divisions
-        sortedDivisions.slice(0, 4).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
-        });
-      }
-    } else if (targetCount === 4) {
-      // Semi-finals: Select 4 teams
-      if (numberOfDivisions === 1) {
-        // Top 4 from single division
-        selectedTeams.push(...rankings.slice(0, 4).map(r => r.team));
-      } else {
-        // Top 2 from each of the first 2 divisions
-        sortedDivisions.slice(0, 2).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
-        });
-      }
-    } else if (targetCount === 2) {
-      // Finals: Select 2 teams
-      if (numberOfDivisions === 1) {
-        // Top 2 from single division
-        selectedTeams.push(...rankings.slice(0, 2).map(r => r.team));
-      } else {
-        // Top 1 from each of the first 2 divisions
-        sortedDivisions.slice(0, 2).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 1).map(r => r.team));
-        });
-      }
-    }
-
-    return selectedTeams.slice(0, targetCount); // Ensure we don't exceed target
-  }
-
-  // Helper function to create traditional seeded pairings
-  function createTraditionalPairings(teams: Team[]): Array<[Team, Team]> {
-    const pairings: Array<[Team, Team]> = [];
-    const count = teams.length;
-    
-    if (count === 8) {
-      // Quarter-finals: 1v8, 2v7, 3v6, 4v5
-      pairings.push([teams[0], teams[7]]);
-      pairings.push([teams[1], teams[6]]);
-      pairings.push([teams[2], teams[5]]);
-      pairings.push([teams[3], teams[4]]);
-    } else if (count === 4) {
-      // Semi-finals: 1v4, 2v3
-      pairings.push([teams[0], teams[3]]);
-      pairings.push([teams[1], teams[2]]);
-    } else if (count === 2) {
-      // Finals: 1v2
-      pairings.push([teams[0], teams[1]]);
-    }
-    
-    return pairings;
-  }
-
   app.post("/api/matches/generate", async (req, res) => {
     try {
       const tournamentId = req.body.tournamentId as string;
@@ -1228,331 +1086,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-      } else if (initialComplete && tournament.hasQuarterFinals && quarterMatches.length === 0) {
-        // Generate quarter-finals
-        stageToGenerate = "quarter-finals";
-        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
-        const rankings = calculateTeamRankings(initialResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 8);
-
-        if (topTeams.length < 8) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 8 teams for quarter-finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "quarter-finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (quarterComplete && tournament.hasSemiFinals && semiMatches.length === 0) {
-        // Generate semi-finals from quarter-finals
-        stageToGenerate = "semi-finals";
-        const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
-        const rankings = calculateTeamRankings(quarterResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4, true);
-
-        if (topTeams.length < 4) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 4 teams for semi-finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "semi-finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (initialComplete && !tournament.hasQuarterFinals && tournament.hasSemiFinals && semiMatches.length === 0) {
-        // Generate semi-finals directly from initial stage (skip quarter-finals)
-        stageToGenerate = "semi-finals";
-        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
-        const rankings = calculateTeamRankings(initialResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4);
-
-        if (topTeams.length < 4) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 4 teams for semi-finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "semi-finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (semiComplete && tournament.hasFinals && finalMatches.length === 0) {
-        // Generate finals
-        stageToGenerate = "finals";
-        const semiResults = await storage.getResultsByStage(tournamentId, "semi-finals");
-        const rankings = calculateTeamRankings(semiResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2, true);
-
-        if (topTeams.length < 2) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (initialComplete && !tournament.hasQuarterFinals && !tournament.hasSemiFinals && tournament.hasFinals && finalMatches.length === 0) {
-        // Generate finals directly from initial stage
-        stageToGenerate = "finals";
-        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
-        const rankings = calculateTeamRankings(initialResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
-
-        if (topTeams.length < 2) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (quarterComplete && !tournament.hasSemiFinals && tournament.hasFinals && finalMatches.length === 0) {
-        // Generate finals from quarter-finals (skip semi-finals)
-        stageToGenerate = "finals";
-        const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
-        const rankings = calculateTeamRankings(quarterResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2, true);
-
-        if (topTeams.length < 2) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
       } else {
-        // Check if we should update existing playoff matches due to ranking changes
-        let checkForUpdates = false;
-        let sourceStage = "";
-        let targetStage: "quarter-finals" | "semi-finals" | "finals" = "quarter-finals";
-        let targetMatches: Match[] = [];
-        let targetCount: 8 | 4 | 2 = 8;
+        // ── Knockout stages ────────────────────────────────────────────────
+        // The current stage is the first enabled knockout stage that isn't complete.
+        // Its teams come from the stage before it (the group stage for the first round).
+        const stageMatches: Record<string, Match[]> = {
+          initial: initialMatches,
+          "quarter-finals": quarterMatches,
+          "semi-finals": semiMatches,
+          finals: finalMatches,
+        };
+        const isStageComplete = (stage: string) =>
+          stageMatches[stage].length > 0 && stageMatches[stage].every(m => m.status === "completed");
+        const stageSize: Record<KnockoutStage, number> = { "quarter-finals": 8, "semi-finals": 4, finals: 2 };
+        const stageName: Record<KnockoutStage, string> = { "quarter-finals": "quarter-finals", "semi-finals": "semi-finals", finals: "final" };
 
-        // Determine which stage to check for updates
-        if (quarterMatches.length > 0 && !quarterComplete && initialComplete) {
-          checkForUpdates = true;
-          sourceStage = "initial";
-          targetStage = "quarter-finals";
-          targetMatches = quarterMatches;
-          targetCount = 8;
-        } else if (semiMatches.length > 0 && !semiComplete && quarterComplete) {
-          checkForUpdates = true;
-          sourceStage = "quarter-finals";
-          targetStage = "semi-finals";
-          targetMatches = semiMatches;
-          targetCount = 4;
-        } else if (semiMatches.length > 0 && !semiComplete && initialComplete && !tournament.hasQuarterFinals) {
-          checkForUpdates = true;
-          sourceStage = "initial";
-          targetStage = "semi-finals";
-          targetMatches = semiMatches;
-          targetCount = 4;
-        } else if (finalMatches.length > 0 && semiComplete) {
-          checkForUpdates = true;
-          sourceStage = "semi-finals";
-          targetStage = "finals";
-          targetMatches = finalMatches;
-          targetCount = 2;
-        } else if (finalMatches.length > 0 && quarterComplete && !tournament.hasSemiFinals) {
-          checkForUpdates = true;
-          sourceStage = "quarter-finals";
-          targetStage = "finals";
-          targetMatches = finalMatches;
-          targetCount = 2;
-        } else if (finalMatches.length > 0 && initialComplete && !tournament.hasQuarterFinals && !tournament.hasSemiFinals) {
-          checkForUpdates = true;
-          sourceStage = "initial";
-          targetStage = "finals";
-          targetMatches = finalMatches;
-          targetCount = 2;
+        let sourceStage = "initial";
+        let targetStage: KnockoutStage | null = null;
+        for (const stage of knockoutStages(tournament)) {
+          if (!isStageComplete(stage)) { targetStage = stage; break; }
+          sourceStage = stage;
         }
 
-        if (checkForUpdates && sourceStage && targetMatches.length > 0) {
+        if (!targetStage) {
+          warnings.push("No new matches to generate. All enabled tournament stages already have matches.");
+        } else {
           stageToGenerate = targetStage;
-          
-          // Check if any matches have been played (have results or are not scheduled)
-          const matchesWithResults = targetMatches.filter(m => m.status !== "scheduled");
-          
-          if (matchesWithResults.length > 0) {
-            warnings.push(`Cannot update ${targetStage} matches. ${matchesWithResults.length} match(es) already have results.`);
-          } else {
-            // Get rankings from source stage
-            const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
-            const rankings = calculateTeamRankings(sourceResults, teams);
-            // Use playoff logic if source is a playoff stage (not initial)
-            const isFromPlayoff = sourceStage !== "initial";
-            const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, targetCount, isFromPlayoff);
+          const size = stageSize[targetStage];
 
-            if (topTeams.length >= targetCount) {
-              // Create expected pairings based on current rankings
-              const expectedPairings = createTraditionalPairings(topTeams);
-              
-              // Check if existing matches match expected pairings
-              let matchesNeedUpdate = false;
-              const existingTeamPairs = targetMatches.map(m => 
-                [m.team1Id, m.team2Id].sort().join('-')
-              );
-
-              for (let i = 0; i < expectedPairings.length; i++) {
-                const [team1, team2] = expectedPairings[i];
-                const expectedPair = [team1.id, team2.id].sort().join('-');
-                
-                if (!existingTeamPairs.includes(expectedPair)) {
-                  matchesNeedUpdate = true;
-                  break;
-                }
-              }
-
-              if (matchesNeedUpdate) {
-                // Delete old scheduled matches and create new ones with updated teams
-                for (const match of targetMatches) {
-                  await storage.deleteMatch(match.id);
-                }
-
-                // Create new matches with current top teams
-                for (const [team1, team2] of expectedPairings) {
-                  const matchData = {
-                    tournamentId,
-                    team1Id: team1.id,
-                    team2Id: team2.id,
-                    stage: targetStage,
-                    status: "scheduled" as const,
-                    matchDate: null,
-                    team1Game1Score: null,
-                    team2Game1Score: null,
-                    team1Game2Score: null,
-                    team2Game2Score: null,
-                    team1Game3Score: null,
-                    team2Game3Score: null,
-                    winnerId: null,
-                  };
-
-                  const match = await storage.createMatch(matchData);
-                  updatedMatches.push(match);
-                }
-
-                warnings.push(`Updated ${targetStage} matches based on current rankings from ${sourceStage}.`);
-              } else {
-                warnings.push(`No changes needed. ${targetStage} matches already reflect current rankings.`);
-              }
+          // Work out the pairings (in bracket order) for the target stage
+          const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
+          let pairings: Array<[Team, Team]> = [];
+          let pairingError: string | null = null;
+          if (sourceStage === "initial") {
+            const seeded = selectAndSeedQualifiers(computeStandings(sourceResults, teams), size);
+            if (seeded.length < size) {
+              pairingError = `Not enough teams qualified. Need ${size} teams for the ${stageName[targetStage]}, but only ${seeded.length} teams have results.`;
             } else {
-              warnings.push(`Cannot update ${targetStage}. Need ${targetCount} teams but only ${topTeams.length} teams have results in ${sourceStage}.`);
+              pairings = firstRoundPairings(seeded);
+            }
+          } else {
+            pairings = nextRoundPairings(stageMatches[sourceStage], sourceResults, teams, size);
+            if (pairings.length * 2 < size) {
+              pairingError = `Not enough teams qualified. Need ${size} teams for the ${stageName[targetStage]}.`;
             }
           }
-        } else {
-          warnings.push("No new matches to generate. All enabled tournament stages already have matches.");
+
+          const createKnockoutMatches = async (into: Match[]) => {
+            for (let i = 0; i < pairings.length; i++) {
+              const [team1, team2] = pairings[i];
+              const match = await storage.createMatch({
+                tournamentId,
+                team1Id: team1.id,
+                team2Id: team2.id,
+                stage: targetStage!,
+                status: "scheduled" as const,
+                matchDate: null,
+                team1Game1Score: null,
+                team2Game1Score: null,
+                team1Game2Score: null,
+                team2Game2Score: null,
+                team1Game3Score: null,
+                team2Game3Score: null,
+                winnerId: null,
+                bracketPosition: i,
+              });
+              into.push(match);
+            }
+          };
+
+          const existing = stageMatches[targetStage];
+          if (existing.length === 0) {
+            // First time: create the stage
+            if (pairingError) {
+              return res.status(400).json({ error: pairingError });
+            }
+            await createKnockoutMatches(createdMatches);
+          } else {
+            // Stage already drawn: redraw only if nothing has been played and the draw has changed
+            const played = existing.filter(m => m.status !== "scheduled");
+            if (played.length > 0) {
+              warnings.push(`Cannot update ${stageName[targetStage]} matches. ${played.length} match(es) already have results.`);
+            } else if (pairingError) {
+              warnings.push(`Cannot update ${stageName[targetStage]}. ${pairingError}`);
+            } else {
+              const pairKey = (a: string, b: string) => [a, b].sort().join("-");
+              const existingByPosition = new Map(existing.map(m => [m.bracketPosition, pairKey(m.team1Id, m.team2Id)]));
+              const drawChanged =
+                existing.length !== pairings.length ||
+                pairings.some(([a, b], i) => existingByPosition.get(i) !== pairKey(a.id, b.id));
+              if (drawChanged) {
+                for (const match of existing) {
+                  await storage.deleteMatch(match.id);
+                }
+                await createKnockoutMatches(updatedMatches);
+                warnings.push(`Updated ${stageName[targetStage]} matches based on the latest ${sourceStage === "initial" ? "group stage standings" : `${stageName[sourceStage as KnockoutStage]} results`}.`);
+              } else {
+                warnings.push(`No changes needed. ${stageName[targetStage]} matches already reflect current rankings.`);
+              }
+            }
+          }
         }
       }
 

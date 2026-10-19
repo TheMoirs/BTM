@@ -76,6 +76,16 @@ const stageLabels = {
   finals: "Finals",
 };
 
+// Knockout matches show their place in the bracket, e.g. "Quarter-Final 2"
+function stageLabelFor(match: Match): string {
+  const base = stageLabels[match.stage as keyof typeof stageLabels] ?? match.stage;
+  const position = (match as any).bracketPosition as number | null | undefined;
+  if (match.stage === "initial" || position == null) return base;
+  if (match.stage === "finals") return "Final";
+  const single = match.stage === "quarter-finals" ? "Quarter-Final" : "Semi-Final";
+  return `${single} ${position + 1}`;
+}
+
 const statusLabels = {
   scheduled: "Scheduled",
   "in-progress": "In Progress",
@@ -1114,7 +1124,7 @@ export default function Matches() {
       const tableData = divisionMatches.map(match => {
         const team1 = getTeamName(match.team1Id);
         const team2 = getTeamName(match.team2Id);
-        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const stage = stageLabelFor(match);
         const status = statusLabels[match.status as keyof typeof statusLabels];
         const matchDate = match.matchDate 
           ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1264,7 +1274,7 @@ export default function Matches() {
       const excelData = divisionMatches.map(match => {
         const team1 = getTeamName(match.team1Id);
         const team2 = getTeamName(match.team2Id);
-        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const stage = stageLabelFor(match);
         const status = statusLabels[match.status as keyof typeof statusLabels];
         const matchDate = match.matchDate 
           ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1591,7 +1601,7 @@ export default function Matches() {
                 
                 <div>
                   <h3 className="font-semibold mb-2">Tournament Progression</h3>
-                  <p>Complete all matches in a stage to unlock the next playoff stage. The system automatically selects top teams from each division for playoffs.</p>
+                  <p>Complete all matches in a stage to unlock the next knockout stage. Each division gets an equal share of knockout places, and any spare places go to the best next-placed teams across all divisions. Qualifiers are seeded by their group results (division winners first), and teams from the same division are kept apart in the first knockout round where possible. After that the bracket is fixed: the winners of Quarter-Finals 1 and 2 meet in Semi-Final 1, and so on. The tournament settings screen explains exactly how your chosen settings will work.</p>
                 </div>
               </div>
             </HelpDialog>
@@ -1803,7 +1813,7 @@ export default function Matches() {
                       <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
                         <TableCell>
                           <Badge variant="outline" data-testid={`badge-stage-${match.id}`}>
-                            {stageLabels[match.stage as keyof typeof stageLabels]}
+                            {stageLabelFor(match)}
                           </Badge>
                         </TableCell>
                         <TableCell>

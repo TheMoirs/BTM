@@ -124,6 +124,9 @@ export const matches = pgTable("matches", {
   pisteId: text("piste_id"),
   team1NoShow: boolean("team1_no_show").notNull().default(false),
   team2NoShow: boolean("team2_no_show").notNull().default(false),
+  // Knockout matches only: position in the bracket (0 = first tie). Winners of
+  // consecutive positions meet in the next round.
+  bracketPosition: integer("bracket_position"),
 });
 
 // Note: A unique index exists on the database:

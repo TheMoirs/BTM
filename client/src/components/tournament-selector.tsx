@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { describeTournamentFormat } from "@/lib/tournamentFormat";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,6 +65,8 @@ export function TournamentSelector() {
   const [pendingEditData, setPendingEditData] = useState<InsertTournament | null>(null);
   const [showRecalcConfirm, setShowRecalcConfirm] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  // Settings waiting for the user to confirm after reading how they'll work
+  const [formatReview, setFormatReview] = useState<{ mode: "create" | "edit"; data: InsertTournament } | null>(null);
   const rulesFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -342,6 +345,60 @@ export function TournamentSelector() {
     return `${tournament.numberOfDivisions} div${tournament.numberOfDivisions !== 1 ? 's' : ''} • ${tournament.gamesPerMatch} game${tournament.gamesPerMatch !== 1 ? 's' : ''} • ${stages.join(', ') || 'No stages'}`;
   };
 
+  // ── "How this tournament will work" confirmation, shown before saving ──────
+  const formatExplanation = formatReview ? describeTournamentFormat(formatReview.data) : null;
+  const formatReviewDialog = (
+    <AlertDialog open={!!formatReview} onOpenChange={(open) => { if (!open) setFormatReview(null); }}>
+      <AlertDialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto" data-testid="dialog-format-review">
+        <AlertDialogHeader>
+          <AlertDialogTitle>How this tournament will work</AlertDialogTitle>
+          <AlertDialogDescription>
+            Check that these settings match how you want {formatReview?.data.name || "the tournament"} to run.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {formatExplanation && (
+          <div className="space-y-4 text-sm">
+            {formatExplanation.sections.map((section) => (
+              <div key={section.title}>
+                <h4 className="font-semibold mb-1">{section.title}</h4>
+                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                  {section.lines.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {formatExplanation.warnings.length > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-3">
+                <h4 className="font-semibold mb-1 text-amber-900 dark:text-amber-200">Worth knowing</h4>
+                <ul className="list-disc pl-5 space-y-1 text-amber-900 dark:text-amber-200">
+                  {formatExplanation.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="button-format-review-back">Back to settings</AlertDialogCancel>
+          <AlertDialogAction
+            data-testid="button-format-review-confirm"
+            onClick={async () => {
+              const review = formatReview;
+              setFormatReview(null);
+              if (!review) return;
+              if (review.mode === "create") await handleCreateTournament(review.data);
+              else await handleEditTournament(review.data);
+            }}
+          >
+            {formatReview?.mode === "create" ? "Create Tournament" : "Save Changes"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (!currentTournament) {
     // Any logged-in user can create a tournament
     if (!isMasterAdmin && !user) {
@@ -354,6 +411,7 @@ export function TournamentSelector() {
     }
     
     return (
+      <>
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" data-testid="button-create-first-tournament">
@@ -366,7 +424,7 @@ export function TournamentSelector() {
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "create", data }))} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
@@ -623,6 +681,8 @@ export function TournamentSelector() {
           </Form>
         </DialogContent>
       </Dialog>
+      {formatReviewDialog}
+      </>
     );
   }
 
@@ -772,7 +832,7 @@ export function TournamentSelector() {
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCreateTournament)} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "create", data }))} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
@@ -953,7 +1013,7 @@ export function TournamentSelector() {
             <DialogTitle>Edit Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleEditTournament)} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "edit", data }))} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
@@ -1327,6 +1387,8 @@ export function TournamentSelector() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {formatReviewDialog}
 
       <AlertDialog open={showRecalcConfirm} onOpenChange={(open) => {
         if (!open) { setShowRecalcConfirm(false); setPendingEditData(null); }

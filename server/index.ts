@@ -118,6 +118,16 @@ async function ensureNumberOfPistesColumn() {
   }
 }
 
+async function ensureMatchBracketPositionColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS bracket_position INTEGER`);
+    log("Database initialized: matches.bracket_position column ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureMatchPisteIdColumn() {
   const client = await pool.connect();
   try {
@@ -229,6 +239,7 @@ async function migrateOrphanedTournaments() {
   await ensureMatchNoShowColumns();
   await ensureNumberOfPistesColumn();
   await ensureMatchPisteIdColumn();
+  await ensureMatchBracketPositionColumn();
   await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users

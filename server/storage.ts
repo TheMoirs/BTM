@@ -406,6 +406,7 @@ export class DatabaseStorage implements IStorage {
           winnerId: insertMatch.winnerId ?? null,
           matchDate: insertMatch.matchDate ?? null,
           division: matchDivision,
+          bracketPosition: insertMatch.bracketPosition ?? null,
         })
         .returning();
       
