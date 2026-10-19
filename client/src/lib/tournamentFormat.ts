@@ -44,7 +44,7 @@ export function describeTournamentFormat(s: FormatSettings): FormatExplanation {
   const win = s.pointsForWin ?? 3;
   const draw = s.pointsForDraw ?? 2;
   const loss = s.pointsForLoss ?? 1;
-  const noShow = s.pointsForNoShow ?? 0;
+  const noShow = s.pointsForNoShow ?? 3;
   const sections: FormatSection[] = [];
   const warnings: string[] = [];
 
@@ -56,7 +56,7 @@ export function describeTournamentFormat(s: FormatSettings): FormatExplanation {
         ? "All teams are in one division and play every other team once."
         : `Teams are split into ${divisions} divisions. Each team plays every other team in its own division once.`,
       `Each match is ${plural(games, "game")}. Points are awarded for every game: ${win} for a win, ${draw} for a draw, ${loss} for a loss.`,
-      `If a team doesn't turn up, the team that did gets ${noShow} point${noShow === 1 ? "" : "s"} per game and the absent team gets 0.`,
+      `No-Show = The team present gains ${noShow} league point${noShow === 1 ? "" : "s"} per game, with a game winning score of 13-7. Team not showing: 0 league points (losing score of 7-13 per game).`,
       "Teams are ranked within their division by total points, then score difference.",
     ],
   });

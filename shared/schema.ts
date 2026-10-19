@@ -27,6 +27,10 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// A no-show counts as every game won 13-7 by the team that turned up
+export const NO_SHOW_WINNING_SCORE = 13;
+export const NO_SHOW_LOSING_SCORE = 7;
+
 // ── Tournaments ───────────────────────────────────────────────────────────
 export const tournaments = pgTable("tournaments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -41,7 +45,7 @@ export const tournaments = pgTable("tournaments", {
   pointsForWin: integer("points_for_win").notNull().default(3),
   pointsForDraw: integer("points_for_draw").notNull().default(2),
   pointsForLoss: integer("points_for_loss").notNull().default(1),
-  pointsForNoShow: integer("points_for_no_show").notNull().default(0),
+  pointsForNoShow: integer("points_for_no_show").notNull().default(3),
   adminToken: varchar("admin_token", { length: 32 }).notNull().unique(),
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
@@ -63,7 +67,7 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(3),
   pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(2),
   pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
-  pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
+  pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(3),
   numberOfPistes: z.number().int().min(1).nullable().optional(),
 });
 

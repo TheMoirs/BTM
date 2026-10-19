@@ -193,7 +193,7 @@ export function TournamentSelector() {
       pointsForWin: 3,
       pointsForDraw: 2,
       pointsForLoss: 1,
-      pointsForNoShow: 0,
+      pointsForNoShow: 3,
       numberOfPistes: null,
     },
   });

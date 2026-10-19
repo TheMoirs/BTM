@@ -1,4 +1,4 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
+import { NO_SHOW_WINNING_SCORE, NO_SHOW_LOSING_SCORE, type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc, ne, isNull, sql } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
@@ -534,7 +534,13 @@ export class DatabaseStorage implements IStorage {
           const matchInfo = `${t1Name} vs ${t2Name}`;
           const pointsForNoShow = tournament.pointsForNoShow ?? 0;
 
-          // The team that showed up wins all games; the no-show team loses all games.
+          // The team that showed up wins every game 13-7 and gets the No-Show points per game;
+          // the absent team loses every game 7-13 and gets 0.
+          const presentFor = NO_SHOW_WINNING_SCORE * gamesPerMatch;
+          const absentFor = NO_SHOW_LOSING_SCORE * gamesPerMatch;
+          const scores = (absent: boolean) => absent
+            ? { scoreFor: absentFor, scoreAgainst: presentFor, scoreDifference: absentFor - presentFor }
+            : { scoreFor: presentFor, scoreAgainst: absentFor, scoreDifference: presentFor - absentFor };
           await this.createResult({
             tournamentId: match.tournamentId, matchId: id, matchInfo,
             matchDate: finalMatchDate, stage: match.stage, division: match.division || null,
@@ -544,7 +550,7 @@ export class DatabaseStorage implements IStorage {
             gamesLost: team1NoShow ? gamesPerMatch : 0,
             gamesDrawn: 0,
             points: team1NoShow ? 0 : pointsForNoShow * gamesPerMatch,
-            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+            ...scores(team1NoShow),
           });
           await this.createResult({
             tournamentId: match.tournamentId, matchId: id, matchInfo,
@@ -555,7 +561,7 @@ export class DatabaseStorage implements IStorage {
             gamesLost: team2NoShow ? gamesPerMatch : 0,
             gamesDrawn: 0,
             points: team2NoShow ? 0 : pointsForNoShow * gamesPerMatch,
-            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+            ...scores(team2NoShow),
           });
         }
       }

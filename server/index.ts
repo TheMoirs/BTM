@@ -75,7 +75,9 @@ async function initializeDatabase() {
 async function ensurePointsForNoShowColumn() {
   const client = await pool.connect();
   try {
-    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS points_for_no_show INTEGER NOT NULL DEFAULT 0`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS points_for_no_show INTEGER NOT NULL DEFAULT 3`);
+    // New tournaments default to 3 league points per game for a no-show (existing tournaments keep their setting)
+    await client.query(`ALTER TABLE tournaments ALTER COLUMN points_for_no_show SET DEFAULT 3`);
     log("Database initialized: tournaments.points_for_no_show column ensured");
   } finally {
     client.release();
