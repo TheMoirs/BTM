@@ -1,0 +1,338 @@
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { publicRegistrationSchema, REGISTRATION_CONTACT } from "@shared/registration";
+
+type FormValues = {
+  name: string;
+  captainName: string;
+  captainPhone: string;
+  captainEmail: string;
+  homePiste: string;
+  otherPlayers: string; // one name per line while typing
+};
+
+type ExistingTeam = {
+  id: string;
+  name: string;
+  captainName: string;
+  captainPhone: string;
+  captainEmail: string;
+  homePiste: string;
+  otherPlayers: string[];
+};
+
+const EMPTY: FormValues = { name: "", captainName: "", captainPhone: "", captainEmail: "", homePiste: "", otherPlayers: "" };
+
+const FIELDS: { key: keyof FormValues; label: string; type?: string; autoComplete?: string; placeholder?: string }[] = [
+  { key: "name", label: "Team name", placeholder: "Les Pétanqueurs" },
+  { key: "captainName", label: "Captain's name", autoComplete: "name" },
+  { key: "captainPhone", label: "Captain's phone number", type: "tel", autoComplete: "tel" },
+  { key: "captainEmail", label: "Captain's email", type: "email", autoComplete: "email" },
+  { key: "homePiste", label: "Home piste", placeholder: "e.g. The Crown, Bathwick" },
+];
+
+function toPayload(v: FormValues) {
+  return { ...v, otherPlayers: v.otherPlayers.split("\n") };
+}
+
+function ContactDetails() {
+  const c = REGISTRATION_CONTACT;
+  return (
+    <p className="text-sm text-muted-foreground">
+      Need to change your details later? Contact {c.name} by email at{" "}
+      <a className="underline" href={`mailto:${c.email}`}>{c.email}</a> or on WhatsApp at{" "}
+      <a className="underline" href={`https://wa.me/${c.whatsappIntl}`} target="_blank" rel="noreferrer">{c.whatsapp}</a>.
+    </p>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background flex justify-center px-4 py-8 sm:py-12">
+      <div className="w-full max-w-xl space-y-6">
+        <div className="flex items-center gap-3">
+          <img src="/btm-logo.png" alt="" className="h-10 w-10 rounded-lg object-cover" />
+          <span className="font-semibold">Boules Tournament Manager</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Public page at /register/<tournament> where a team captain enters their team's details.
+export default function RegisterTeamPage({ slug }: { slug: string }) {
+  const [tournamentName, setTournamentName] = useState<string | null>(null);
+  const [state, setState] = useState<"loading" | "missing" | "form" | "conflict" | "done">("loading");
+  const [values, setValues] = useState<FormValues>(EMPTY);
+  const [honeypot, setHoneypot] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [existing, setExisting] = useState<ExistingTeam | null>(null);
+  const [outcome, setOutcome] = useState<{ status: "created" | "updated"; emailSent: boolean } | null>(null);
+  const [discarded, setDiscarded] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/public/tournament/${encodeURIComponent(slug)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (data?.name) {
+          setTournamentName(data.name);
+          document.title = `Register for ${data.name}`;
+          setState("form");
+        } else setState("missing");
+      })
+      .catch(() => setState("missing"));
+  }, [slug]);
+
+  const set = (key: keyof FormValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setValues(v => ({ ...v, [key]: e.target.value }));
+
+  const submit = async (action: "create" | "update") => {
+    setError(null);
+    const check = publicRegistrationSchema.safeParse(toPayload(values));
+    if (!check.success) {
+      setError(check.error.errors[0]?.message || "Please complete every field");
+      setState("form");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/public/register/${encodeURIComponent(slug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...toPayload(values),
+          website: honeypot,
+          action,
+          existingTeamId: action === "update" ? existing?.id : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data.existing) {
+        setExisting(data.existing);
+        setState("conflict");
+      } else if (!res.ok) {
+        setError(data.error || "Something went wrong. Please try again.");
+        setState("form");
+      } else {
+        setOutcome({ status: data.status, emailSent: !!data.emailSent });
+        setState("done");
+      }
+    } catch {
+      setError("Couldn't reach the server. Please check your connection and try again.");
+      setState("form");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (state === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (state === "missing") {
+    return (
+      <Shell>
+        <Card>
+          <CardHeader>
+            <CardTitle>Tournament not found</CardTitle>
+            <CardDescription>
+              There's no tournament at this address. It may have been renamed, so please ask the organiser for the latest link.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </Shell>
+    );
+  }
+
+  if (state === "done" && outcome) {
+    return (
+      <Shell>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-500">
+              <CheckCircle2 className="h-6 w-6" />
+              <CardTitle>{outcome.status === "updated" ? "Registration updated" : "Registration complete"}</CardTitle>
+            </div>
+            <CardDescription className="text-base pt-2">
+              <strong className="text-foreground">{values.name.trim()}</strong> is registered for{" "}
+              <strong className="text-foreground">{tournamentName}</strong>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm">
+              {outcome.emailSent
+                ? <>A confirmation email with your details has been sent to <strong>{values.captainEmail.trim()}</strong>.</>
+                : <>We couldn't send a confirmation email just now, but your registration has been saved.</>}
+            </p>
+            <ContactDetails />
+          </CardContent>
+        </Card>
+      </Shell>
+    );
+  }
+
+  if (state === "conflict" && existing) {
+    const mine = toPayload(values);
+    const rows: { label: string; old: string; next: string }[] = [
+      { label: "Team name", old: existing.name, next: mine.name.trim() },
+      { label: "Captain", old: existing.captainName, next: mine.captainName.trim() },
+      { label: "Phone", old: existing.captainPhone, next: mine.captainPhone.trim() },
+      { label: "Email", old: existing.captainEmail, next: mine.captainEmail.trim() },
+      { label: "Home piste", old: existing.homePiste, next: mine.homePiste.trim() },
+      {
+        label: "Other players",
+        old: existing.otherPlayers.join(", "),
+        next: mine.otherPlayers.map(p => p.trim()).filter(Boolean).join(", "),
+      },
+    ];
+    return (
+      <Shell>
+        <Card>
+          <CardHeader>
+            <CardTitle>This team is already registered</CardTitle>
+            <CardDescription>
+              A team called <strong className="text-foreground">{existing.name}</strong> is already registered for{" "}
+              {tournamentName}. Do you want to replace its details with the ones you've just entered?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left">
+                  <tr>
+                    <th className="p-2 font-medium"></th>
+                    <th className="p-2 font-medium">Currently registered</th>
+                    <th className="p-2 font-medium">Your new details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => {
+                    const changed = r.old.trim() !== r.next;
+                    return (
+                      <tr key={r.label} className="border-t align-top">
+                        <td className="p-2 text-muted-foreground whitespace-nowrap">{r.label}</td>
+                        <td className="p-2 break-words">{r.old || "—"}</td>
+                        <td className={`p-2 break-words ${changed ? "font-semibold bg-amber-50 dark:bg-amber-950/40" : ""}`}>{r.next}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                disabled={submitting}
+                onClick={() => {
+                  setExisting(null);
+                  setDiscarded(true);
+                  setState("form");
+                }}
+                data-testid="button-discard-registration"
+              >
+                Discard my changes
+              </Button>
+              <Button disabled={submitting} onClick={() => submit("update")} data-testid="button-update-registration">
+                {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Update registration
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Register for {tournamentName}</CardTitle>
+          <CardDescription className="text-base">
+            Thank you for your interest in competing in <strong className="text-foreground">{tournamentName}</strong>.
+            If you wish to compete, please enter your details below. All fields are required.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {discarded && (
+            <p className="mb-4 rounded-md bg-muted p-3 text-sm">
+              Nothing was changed — the existing registration was left as it was. If you're registering a different team, change the team name below and save again.
+            </p>
+          )}
+          <form
+            className="space-y-4"
+            noValidate
+            onSubmit={e => {
+              e.preventDefault();
+              setDiscarded(false);
+              submit("create");
+            }}
+          >
+            {FIELDS.map(f => (
+              <div key={f.key} className="space-y-1.5">
+                <Label htmlFor={f.key}>{f.label}</Label>
+                <Input
+                  id={f.key}
+                  type={f.type || "text"}
+                  autoComplete={f.autoComplete}
+                  placeholder={f.placeholder}
+                  value={values[f.key]}
+                  onChange={set(f.key)}
+                  required
+                  disabled={submitting}
+                  data-testid={`input-register-${f.key}`}
+                />
+              </div>
+            ))}
+            <div className="space-y-1.5">
+              <Label htmlFor="otherPlayers">Other players</Label>
+              <Textarea
+                id="otherPlayers"
+                rows={4}
+                placeholder={"One name per line\nMarie Dubois\nPierre Martin"}
+                value={values.otherPlayers}
+                onChange={set("otherPlayers")}
+                required
+                disabled={submitting}
+                data-testid="input-register-otherPlayers"
+              />
+            </div>
+            {/* Hidden from people; catches form-filling bots */}
+            <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+              <label htmlFor="website">Website</label>
+              <input id="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={e => setHoneypot(e.target.value)} />
+            </div>
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-destructive" role="alert">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={submitting} data-testid="button-submit-registration">
+              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+              Save registration
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      <ContactDetails />
+    </Shell>
+  );
+}

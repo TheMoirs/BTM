@@ -43,7 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy, ClipboardList } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
@@ -1361,6 +1361,28 @@ export default function Teams() {
     }
   };
 
+  // Public sign-up page for team captains, e.g. https://btm.themoirs.uk/register/summer-league-2026
+  const handleCopyRegistrationLink = async () => {
+    if (!currentTournament) return;
+    const slug = (currentTournament as any).slug as string | null | undefined;
+    if (!slug) {
+      toast({
+        title: "No registration link yet",
+        description: "This tournament doesn't have a web address yet. Reload the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const url = `${await getPublicBaseUrl()}/register/${slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Registration link copied", description: `Send this to team captains: ${url}`, duration: 8000 });
+    } catch {
+      // Clipboard can be blocked (e.g. some mobile browsers) — show the link so it can be copied by hand
+      toast({ title: "Team registration link", description: url, duration: Infinity });
+    }
+  };
+
   const handleEmailCaptains = () => {
     if (filteredGroupedByDivision.length === 0) {
       toast({
@@ -1793,6 +1815,16 @@ export default function Teams() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleCopyRegistrationLink}
+                title="Copy a link team captains can use to register themselves"
+                data-testid="button-registration-link"
+              >
+                <ClipboardList className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Registration Link</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleCopyShareLink}
                 disabled={isSharingLink}
                 data-testid="button-share-view"
@@ -1858,6 +1890,7 @@ export default function Teams() {
                 <div>
                   <h3 className="font-semibold mb-2">Sharing & Navigation</h3>
                   <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Registration Link:</strong> Copy a link (e.g. /register/your-tournament) that team captains can use to enter their own team's details. They get a confirmation email; Division and Team ID are left for you to set</li>
                     <li><strong>Share View:</strong> Get a short link to share this teams page with others</li>
                     <li><strong>Leaderboard:</strong> Navigate to view team rankings and match results</li>
                   </ul>

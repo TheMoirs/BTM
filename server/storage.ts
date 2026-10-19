@@ -1,6 +1,6 @@
 import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
-import { eq, or, and, desc, ne, isNull } from "drizzle-orm";
+import { eq, or, and, desc, ne, isNull, sql } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
 
 /** "Summer League 2026!" -> "summer-league-2026" */
@@ -258,6 +258,27 @@ export class DatabaseStorage implements IStorage {
 
   async getTeam(id: string): Promise<Team | undefined> {
     const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
+  }
+
+  /** Replace a team's name and captain/contact details, leaving its division and Team ID alone. */
+  async updateTeamRegistration(
+    id: string,
+    details: { name: string; captainName: string; captainPhone: string; captainEmail: string; homePiste: string; otherPlayers: string[] },
+  ): Promise<Team | undefined> {
+    const [team] = await db.update(teams).set(details).where(eq(teams.id, id)).returning();
+    return team || undefined;
+  }
+
+  /** A team in this tournament with the same name, ignoring case and surrounding spaces. */
+  async findTeamByName(tournamentId: string, name: string): Promise<Team | undefined> {
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(and(
+        eq(teams.tournamentId, tournamentId),
+        sql`lower(trim(${teams.name})) = ${name.trim().toLowerCase()}`,
+      ));
     return team || undefined;
   }
 
