@@ -46,7 +46,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -119,6 +119,17 @@ export default function Matches() {
   const [allEditingValues, setAllEditingValues] = useState<Record<string, Partial<EditingMatch>>>({});
   const [deletingMatch, setDeletingMatch] = useState<Match | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Edit All save progress; the "please wait" overlay only appears if saving takes a moment
+  const [saveProgress, setSaveProgress] = useState<{ done: number; total: number } | null>(null);
+  const [showSavingNotice, setShowSavingNotice] = useState(false);
+  useEffect(() => {
+    if (!isSaving) {
+      setShowSavingNotice(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowSavingNotice(true), 500);
+    return () => clearTimeout(timer);
+  }, [isSaving]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -805,15 +816,14 @@ export default function Matches() {
     );
 
     setIsSaving(true);
-    toast({
-      title: "Updating",
-      description: "Please wait while I update the system",
-    });
+    setSaveProgress({ done: 0, total: matchesToUpdate.length });
 
     let successCount = 0;
     const errors: string[] = [];
 
-    for (const match of matchesToUpdate) {
+    for (let index = 0; index < matchesToUpdate.length; index++) {
+      const match = matchesToUpdate[index];
+      setSaveProgress({ done: index, total: matchesToUpdate.length });
       const values = allEditingValues[match.id];
       if (!values) continue;
 
@@ -913,12 +923,18 @@ export default function Matches() {
     }
 
     // Only invalidate and exit edit mode if there were successful updates or no errors
+    setSaveProgress({ done: matchesToUpdate.length, total: matchesToUpdate.length });
     if (successCount > 0 || errors.length > 0) {
-      await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+      try {
+        await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+      } catch {
+        // Refreshing is best-effort; the saves themselves have already been reported
+      }
     }
 
     setIsSaving(false);
+    setSaveProgress(null);
 
     if (successCount > 0 && errors.length === 0) {
       // All updates successful - exit edit mode
@@ -1365,6 +1381,27 @@ export default function Matches() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
+      {showSavingNotice && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
+          role="alertdialog"
+          aria-live="assertive"
+          aria-label="Updating matches, please wait"
+          data-testid="overlay-saving-matches"
+        >
+          <div className="flex items-center gap-3 rounded-lg border bg-card px-5 py-4 shadow-lg">
+            <Loader2 className="h-6 w-6 animate-spin text-primary flex-shrink-0" />
+            <div>
+              <p className="font-medium">Updating matches, please wait</p>
+              {saveProgress && saveProgress.total > 1 && (
+                <p className="text-sm text-muted-foreground">
+                  {Math.min(saveProgress.done + 1, saveProgress.total)} of {saveProgress.total}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
         {/* Compact header: title row, then one scrollable row of actions */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-2">
