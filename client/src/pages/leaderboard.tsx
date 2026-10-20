@@ -365,6 +365,9 @@ export default function Leaderboard() {
             </div>
           ) : (
             <div className="space-y-6">
+          <p className="text-sm text-muted-foreground -mb-3" data-testid="text-leaderboard-tip">
+            Click your team name to see match results &amp; performance stats.
+          </p>
           {displayData.map(([stage, divisions]) => (
             <div key={stage} className="space-y-4">
               <div className="flex items-center gap-2">
