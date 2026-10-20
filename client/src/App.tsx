@@ -95,7 +95,14 @@ function AppContent() {
     sessionStorage.removeItem("boules_view_token");
     queryClient.clear();
   }
-  const isViewLinkAccess = urlTokenIsView || (hasPersistedViewToken && !user);
+  // Going to the bare site address while logged out means "sign me in", even if this
+  // tab still remembers a view-only link from earlier (share links carry ?token=)
+  const atBareRoot = location === "/" && !urlToken;
+  if (!user && atBareRoot && hasPersistedViewToken) {
+    sessionStorage.removeItem("boules_view_token");
+    queryClient.clear();
+  }
+  const isViewLinkAccess = urlTokenIsView || (hasPersistedViewToken && !user && !atBareRoot);
 
   if (isViewLinkAccess) {
     const showNavigation = location !== "/leaderboard";

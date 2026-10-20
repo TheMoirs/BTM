@@ -243,8 +243,9 @@ export function Navigation() {
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </>
-              ) : (
+              ) : location.startsWith("/teams/") ? null : (
                 // Visitors on a shared view link: organisers can still sign in from here
+                // (not on the public /teams/<tournament> page, which is for teams only)
                 <Button
                   variant="outline"
                   size="sm"

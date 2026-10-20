@@ -187,12 +187,16 @@ export default function Leaderboard() {
               {new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+        </div>
+
+        {/* Action buttons with labels, on their own row (scrolls sideways on narrow phones) */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
             {/* Signed-in organisers only; visitors have a separate public Teams link */}
             {!isReadOnly && (
               <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
-                <Button variant="outline" size="icon" aria-label="View teams" title="View teams" data-testid="button-view-teams">
-                  <Users className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-2" data-testid="button-view-teams">
+                  <Users className="h-4 w-4 mr-1.5" />
+                  Teams
                 </Button>
               </Link>
             )}
@@ -202,27 +206,31 @@ export default function Leaderboard() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Button variant="outline" size="icon" aria-label="View rules" title="View rules" data-testid="button-view-rules">
-                  <FileText className="h-4 w-4" />
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-2" data-testid="button-view-rules">
+                  <FileText className="h-4 w-4 mr-1.5" />
+                  Rules
                 </Button>
               </a>
             )}
             <Button
               variant="outline"
-              size="icon"
-              aria-label="Coin toss"
-              title="Coin toss"
+              size="sm"
+              className="flex-shrink-0 px-2"
               onClick={() => window.open("/coin-toss", "btm-coin-toss", "popup,width=420,height=760")}
               data-testid="button-coin-toss"
             >
-              <Coins className="h-4 w-4" />
+              <Coins className="h-4 w-4 mr-1.5" />
+              Coin Toss
             </Button>
             <AddToHomeScreenButton
               tournamentName={currentTournament.name}
               slug={(currentTournament as any).slug}
               page="leaderboard"
+              variant="sm"
+              label="Shortcut"
+              buttonClassName="px-2"
             />
-            <HelpDialog title="Leaderboard - Help">
+            <HelpDialog title="Leaderboard - Help" label="Help">
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>
@@ -295,7 +303,6 @@ export default function Leaderboard() {
                 </div>
               </div>
             </HelpDialog>
-          </div>
         </div>
 
         <div className="inline-flex w-full sm:w-auto rounded-md bg-muted p-1 gap-1" role="tablist">

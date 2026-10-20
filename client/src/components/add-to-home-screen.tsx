@@ -22,6 +22,8 @@ type Props = {
   /** Organiser's shortcut to the editable Teams page (needs sign-in) rather than the public view */
   edit?: boolean;
   tournamentId?: string;
+  /** Text on the "sm" button (default "Add Shortcut") */
+  label?: string;
   /** "icon" for a compact square button, "sm" for an icon + label button */
   variant?: "icon" | "sm";
 };
@@ -41,7 +43,7 @@ function detectPlatform(): Platform {
 
 const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
 
-export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, variant = "icon" }: Props) {
+export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Add Shortcut", variant = "icon", buttonClassName = "" }: Props & { buttonClassName?: string }) {
   const [showHelp, setShowHelp] = useState(false);
   const [, setTick] = useState(0);
 
@@ -152,12 +154,13 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
         <Button
           variant="outline"
           size="sm"
+          className={`flex-shrink-0 ${buttonClassName}`}
           onClick={handleClick}
           title="Add to home screen / desktop"
           data-testid={`button-add-shortcut-${page}`}
         >
           <MonitorSmartphone className="h-4 w-4 mr-1.5" />
-          Add Shortcut
+          {label}
         </Button>
       )}
 
