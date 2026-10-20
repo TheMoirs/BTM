@@ -383,6 +383,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Teams and Leaderboard pages, and different tournaments, install separately.
     // A shortcut covering the whole site would stop Chrome offering the others.
     const scope = start.split(/[?#]/)[0] || "/";
+    // Badge on the BTM logo: people = Teams, trophy = Leaderboard, pencil = Teams Edit (organisers)
+    const iconKinds = ["teams", "leaderboard", "teams-edit"];
+    const iconKind = iconKinds.includes(String(req.query.icon)) ? String(req.query.icon) : null;
+    const icons = iconKind
+      ? [
+          { src: `/icons/${iconKind}-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: `/icons/${iconKind}-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+        ]
+      : [
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        ];
     res.type("application/manifest+json");
     res.set("Cache-Control", "no-cache");
     res.send(
@@ -396,11 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         display: "minimal-ui",
         background_color: "#ffffff",
         theme_color: "#ffffff",
-        icons: [
-          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        ],
+        icons,
       }),
     );
   });

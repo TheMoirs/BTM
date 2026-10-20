@@ -1906,6 +1906,8 @@ export default function Teams() {
                 tournamentName={currentTournament.name}
                 slug={(currentTournament as any).slug}
                 page="teams"
+                edit={!isReadOnly}
+                tournamentId={currentTournament.id}
                 variant="sm"
               />
             )}

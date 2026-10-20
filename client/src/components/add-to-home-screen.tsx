@@ -19,6 +19,9 @@ type Props = {
   tournamentName: string;
   slug?: string | null;
   page: "leaderboard" | "teams";
+  /** Organiser's shortcut to the editable Teams page (needs sign-in) rather than the public view */
+  edit?: boolean;
+  tournamentId?: string;
   /** "icon" for a compact square button, "sm" for an icon + label button */
   variant?: "icon" | "sm";
 };
@@ -38,23 +41,29 @@ function detectPlatform(): Platform {
 
 const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
 
-export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "icon" }: Props) {
+export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, variant = "icon" }: Props) {
   const [showHelp, setShowHelp] = useState(false);
   const [, setTick] = useState(0);
 
-  // e.g. "Summer League 2026-Leaderboard"
-  const shortcutName = `${tournamentName}-${pageLabels[page]}`;
+  const isEdit = edit && page === "teams";
+  // Which badge the icon gets: people = Teams, trophy = Leaderboard, pencil = Teams Edit
+  const iconKind = isEdit ? "teams-edit" : page;
 
-  // Shortcuts open the public page for the tournament (works for anyone, no sign-in needed)
+  // e.g. "Summer League 2026-Leaderboard", "Summer League 2026-Teams-Edit"
+  const shortcutName = `${tournamentName}-${pageLabels[page]}${isEdit ? "-Edit" : ""}`;
+
+  // View shortcuts open the public page (anyone, no sign-in needed);
+  // the organiser's edit shortcut opens the editable Teams page for this tournament
   const startUrl = useMemo(() => {
+    if (isEdit) return tournamentId ? `/edit/teams?tournament=${encodeURIComponent(tournamentId)}` : "/edit/teams";
     if (slug) return `/${page}/${slug}`;
     // No public address: use the page's own path (never "/", which would cover the whole site)
     return `/${page}${window.location.search}`;
-  }, [slug, page]);
+  }, [slug, page, isEdit, tournamentId]);
 
   // Point the page's manifest and home-screen title at this tournament + page while it's open
   useEffect(() => {
-    const href = `/api/public/manifest?name=${encodeURIComponent(shortcutName)}&start=${encodeURIComponent(startUrl)}`;
+    const href = `/api/public/manifest?name=${encodeURIComponent(shortcutName)}&start=${encodeURIComponent(startUrl)}&icon=${iconKind}`;
     let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const createdLink = !link;
     if (!link) {
@@ -73,15 +82,21 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
     }
     meta.content = shortcutName;
 
+    // iPhone/iPad take the home-screen picture from the apple-touch-icon
+    const touchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    const previousTouchIcon = touchIcon?.getAttribute("href") ?? null;
+    if (touchIcon) touchIcon.href = `/icons/${iconKind}-180.png`;
+
     const previousTitle = document.title;
     document.title = shortcutName;
 
     return () => {
       document.title = previousTitle;
+      if (touchIcon && previousTouchIcon) touchIcon.setAttribute("href", previousTouchIcon);
       if (createdLink) link?.remove();
       if (createdMeta) meta?.remove();
     };
-  }, [shortcutName, startUrl]);
+  }, [shortcutName, startUrl, iconKind]);
 
   useEffect(() => onInstallPromptChange(() => setTick((t) => t + 1)), []);
   useEffect(() => {
@@ -151,12 +166,14 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
           <DialogHeader>
             <DialogTitle>Add a shortcut</DialogTitle>
             <DialogDescription>
-              Put the {pageLabels[page].toLowerCase()} on your home screen or desktop, with the BTM logo.
+              {isEdit
+                ? "Put the editable teams page on your home screen or desktop. It opens signed in, as long as you're signed in on this browser."
+                : `Put the ${pageLabels[page].toLowerCase()} on your home screen or desktop, with the BTM logo.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3 rounded-md border p-3">
-              <img src="/icon-192.png" alt="" className="h-10 w-10 rounded-lg border" />
+              <img src={`/icons/${iconKind}-192.png`} alt="" className="h-10 w-10 rounded-lg border" />
               <div className="min-w-0">
                 <p className="font-medium break-words">{shortcutName}</p>
                 <p className="text-xs text-muted-foreground">Shortcut name</p>

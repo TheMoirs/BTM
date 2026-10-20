@@ -135,6 +135,8 @@ function AppContent() {
           <Switch>
             <Route path="/" component={Teams} />
             <Route path="/teams" component={Teams} />
+            {/* Opened by an organiser's "Teams Edit" home-screen / desktop shortcut */}
+            <Route path="/edit/teams" component={Teams} />
             <Route path="/matches" component={Matches} />
             <Route path="/results" component={Results} />
             <Route path="/leaderboard" component={Leaderboard} />

@@ -252,7 +252,8 @@ export function Navigation() {
           <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const currentPath = location.split("?")[0];
+              const rawPath = location.split("?")[0];
+              const currentPath = rawPath === "/edit/teams" ? "/" : rawPath;
               const isActive = currentPath === item.path;
               const pathWithQuery = getPathWithQuery(item.path);
               return (
