@@ -46,7 +46,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import jsPDF from "jspdf";
@@ -1413,7 +1413,7 @@ export default function Matches() {
                       title="Find and edit"
                       data-testid="button-find-edit"
                     >
-                      <Users className="h-4 w-4 sm:mr-2" />
+                      <Search className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Find & Edit</span>
                     </Button>
                     <Button
@@ -1423,7 +1423,7 @@ export default function Matches() {
                       title="Edit all"
                       data-testid="button-edit-all"
                     >
-                      <Users className="h-4 w-4 sm:mr-2" />
+                      <Pencil className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Edit All</span>
                     </Button>
                     <Button
