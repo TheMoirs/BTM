@@ -810,22 +810,48 @@ export default function Matches() {
     setAllEditingValues({});
   };
 
+  // A match counts as changed only if one of its editable fields differs from what's saved
+  const norm = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
+  const isMatchEdited = (match: Match, values: Partial<EditingMatch>) =>
+    norm(values.team1Game1Score) !== norm(match.team1Game1Score) ||
+    norm(values.team2Game1Score) !== norm(match.team2Game1Score) ||
+    norm(values.team1Game2Score) !== norm(match.team1Game2Score) ||
+    norm(values.team2Game2Score) !== norm(match.team2Game2Score) ||
+    norm(values.team1Game3Score) !== norm(match.team1Game3Score) ||
+    norm(values.team2Game3Score) !== norm(match.team2Game3Score) ||
+    norm(values.matchDate) !== norm(match.matchDate) ||
+    (values.team1NoShow ?? false) !== ((match as any).team1NoShow ?? false) ||
+    (values.team2NoShow ?? false) !== ((match as any).team2NoShow ?? false) ||
+    norm(values.pisteId) !== norm((match as any).pisteId);
+
   const saveAllEdits = async () => {
-    const matchesToUpdate = getFilteredAndSortedMatches.filter(match => 
-      allEditingValues[match.id] !== undefined
-    );
+    // Only send matches that were actually changed (not every match on screen)
+    const matchesToUpdate = getFilteredAndSortedMatches.filter(match => {
+      const values = allEditingValues[match.id];
+      return values !== undefined && isMatchEdited(match, values);
+    });
+
+    if (matchesToUpdate.length === 0) {
+      toast({ title: "No changes to save", description: "None of the matches were changed." });
+      if (isFindEditMode) {
+        cancelFindEditMode();
+      } else {
+        setIsEditAllMode(false);
+        setAllEditingValues({});
+      }
+      return;
+    }
 
     setIsSaving(true);
     setSaveProgress({ done: 0, total: matchesToUpdate.length });
 
     let successCount = 0;
+    let doneCount = 0;
     const errors: string[] = [];
 
-    for (let index = 0; index < matchesToUpdate.length; index++) {
-      const match = matchesToUpdate[index];
-      setSaveProgress({ done: index, total: matchesToUpdate.length });
+    const saveOne = async (match: Match) => {
       const values = allEditingValues[match.id];
-      if (!values) continue;
+      if (!values) return;
 
       const matchLabel = `${getTeamName(match.team1Id)} vs ${getTeamName(match.team2Id)}`;
 
@@ -856,26 +882,26 @@ export default function Matches() {
             dateInput.focus();
             dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
-          continue;
+          return;
         }
         
         // Validate paired scores for each game
         if ((team1Game1Score !== null && team2Game1Score === null) || 
             (team1Game1Score === null && team2Game1Score !== null)) {
           errors.push(`${matchLabel}: Both Game 1 scores must be provided or both left empty`);
-          continue;
+          return;
         }
 
         if ((team1Game2Score !== null && team2Game2Score === null) || 
             (team1Game2Score === null && team2Game2Score !== null)) {
           errors.push(`${matchLabel}: Both Game 2 scores must be provided or both left empty`);
-          continue;
+          return;
         }
 
         if ((team1Game3Score !== null && team2Game3Score === null) || 
             (team1Game3Score === null && team2Game3Score !== null)) {
           errors.push(`${matchLabel}: Both Game 3 scores must be provided or both left empty`);
-          continue;
+          return;
         }
 
         // Validate all scores are non-negative integers
@@ -898,7 +924,7 @@ export default function Matches() {
         }
 
         if (hasInvalidScore) {
-          continue;
+          return;
         }
 
         // Update the match
@@ -920,7 +946,20 @@ export default function Matches() {
         const errorMessage = error instanceof Error ? error.message : "Failed to save changes";
         errors.push(`${matchLabel}: ${errorMessage}`);
       }
-    }
+    };
+
+    // Save a few at a time rather than strictly one after another
+    const CONCURRENCY = 4;
+    let next = 0;
+    const worker = async () => {
+      while (next < matchesToUpdate.length) {
+        const match = matchesToUpdate[next++];
+        await saveOne(match);
+        doneCount++;
+        setSaveProgress({ done: doneCount, total: matchesToUpdate.length });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, matchesToUpdate.length) }, worker));
 
     // Only invalidate and exit edit mode if there were successful updates or no errors
     setSaveProgress({ done: matchesToUpdate.length, total: matchesToUpdate.length });
