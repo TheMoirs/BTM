@@ -85,7 +85,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
     // iPhone/iPad take the home-screen picture from the apple-touch-icon
     const touchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
     const previousTouchIcon = touchIcon?.getAttribute("href") ?? null;
-    if (touchIcon) touchIcon.href = `/icons/${iconKind}-180.png`;
+    if (touchIcon) touchIcon.href = `/icons/${iconKind}-180.png?v=2`;
 
     const previousTitle = document.title;
     document.title = shortcutName;
@@ -173,7 +173,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3 rounded-md border p-3">
-              <img src={`/icons/${iconKind}-192.png`} alt="" className="h-10 w-10 rounded-lg border" />
+              <img src={`/icons/${iconKind}-192.png?v=2`} alt="" className="h-10 w-10 rounded-lg border" />
               <div className="min-w-0">
                 <p className="font-medium break-words">{shortcutName}</p>
                 <p className="text-xs text-muted-foreground">Shortcut name</p>

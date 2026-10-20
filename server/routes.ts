@@ -388,8 +388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const iconKind = iconKinds.includes(String(req.query.icon)) ? String(req.query.icon) : null;
     const icons = iconKind
       ? [
-          { src: `/icons/${iconKind}-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: `/icons/${iconKind}-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: `/icons/${iconKind}-192.png?v=2`, sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: `/icons/${iconKind}-512.png?v=2`, sizes: "512x512", type: "image/png", purpose: "any" },
         ]
       : [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
