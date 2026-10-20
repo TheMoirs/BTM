@@ -713,13 +713,13 @@ export function TournamentSelector() {
   // In read-only mode or locked tournament, show tournament name without dropdown
   if (isReadOnly || isTournamentLocked) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-background" data-testid="tournament-display-readonly">
-        <Trophy className="h-4 w-4 text-muted-foreground" />
-        <div className="flex flex-col items-start">
-          <span className="font-medium text-sm">{currentTournament.name}</span>
-          {/* View-only visitors don't need the divisions / games / stages summary */}
+      <div className="flex items-center gap-2 px-2.5 py-1 min-h-9 rounded-md border bg-background max-w-full" data-testid="tournament-display-readonly">
+        <Trophy className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <div className="flex flex-col items-start min-w-0">
+          <span className="font-medium text-sm truncate max-w-full">{currentTournament.name}</span>
+          {/* View-only visitors don't need the divisions / games / stages summary; hidden on phones to save height */}
           {!isReadOnly && (
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden sm:block text-xs text-muted-foreground truncate max-w-full">
               {getTournamentDetails(currentTournament)}
               {isTournamentLocked && " • Locked to access link"}
             </span>
@@ -733,13 +733,13 @@ export function TournamentSelector() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="gap-2" data-testid="button-tournament-selector">
-            <Trophy className="h-4 w-4" />
-            <div className="flex flex-col items-start">
-              <span className="font-medium">{currentTournament.name}</span>
-              <span className="text-xs text-muted-foreground">{getTournamentDetails(currentTournament)}</span>
+          <Button variant="outline" className="gap-2 h-auto min-h-9 py-1 px-2.5 max-w-full" data-testid="button-tournament-selector">
+            <Trophy className="h-4 w-4 flex-shrink-0" />
+            <div className="flex flex-col items-start min-w-0">
+              <span className="font-medium truncate max-w-full">{currentTournament.name}</span>
+              <span className="hidden sm:block text-xs text-muted-foreground truncate max-w-full">{getTournamentDetails(currentTournament)}</span>
             </div>
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className="h-4 w-4 flex-shrink-0" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-80">

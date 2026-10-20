@@ -1501,25 +1501,43 @@ export default function Teams() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8`}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Teams</h1>
+      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6`}>
+        {/* Compact header: title, count and division filter on one line; actions in one scrollable row */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3 sm:mb-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Teams</h1>
               {teams && teams.length > 0 && (
                 <Badge variant="secondary" className="font-mono" data-testid="badge-team-count">
                   {teams.length}
                 </Badge>
               )}
+              {teams && teams.length > 0 && (
+                <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                  <SelectTrigger className="ml-auto lg:ml-3 h-8 w-[150px] text-sm" aria-label="Division filter" data-testid="select-division-filter">
+                    <SelectValue placeholder="All Divisions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" data-testid="option-all-divisions">All Divisions</SelectItem>
+                    {availableDivisions.map(division => (
+                      <SelectItem
+                        key={division}
+                        value={division}
+                        data-testid={`option-division-${division.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {division !== 'No Division' ? `Division ${division}` : 'No Division'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              {isReadOnly ? "View registered teams and captain contact details" : "Manage registered teams and captain contact details"}
-            </p>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Click the captain's phone number or email to send them a message.
+            <p className="hidden sm:block text-sm text-muted-foreground mt-1">
+              {isReadOnly ? "View registered teams and captain contact details." : "Manage registered teams and captain contact details."}
+              {" "}Click the captain's phone number or email to send them a message.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5">
             {!isReadOnly && (
               <>
                 <input
@@ -1952,31 +1970,6 @@ export default function Teams() {
             </HelpDialog>
           </div>
         </div>
-
-        {teams && teams.length > 0 && (
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">Division:</span>
-              <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-division-filter">
-                  <SelectValue placeholder="All Divisions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" data-testid="option-all-divisions">All Divisions</SelectItem>
-                  {availableDivisions.map(division => (
-                    <SelectItem 
-                      key={division} 
-                      value={division}
-                      data-testid={`option-division-${division.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      {division !== 'No Division' ? `Division ${division}` : 'No Division'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
 
         {!teams || teams.length === 0 ? (
           <Card className="border-dashed">

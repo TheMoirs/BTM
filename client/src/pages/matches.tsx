@@ -1365,17 +1365,18 @@ export default function Matches() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">Matches</h1>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
+        {/* Compact header: title row, then one scrollable row of actions */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Matches</h1>
             {matches && matches.length > 0 && (
               <Badge variant="secondary" className="font-mono" data-testid="badge-match-count">
                 {getFilteredAndSortedMatches.length}
               </Badge>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5">
             {!isReadOnly && (
               <>
                 {isEditAllMode ? (
@@ -1384,19 +1385,23 @@ export default function Matches() {
                       variant="outline"
                       onClick={isFindEditMode ? cancelFindEditMode : cancelEditAllMode}
                       disabled={isSaving}
+                      size="sm"
+                      title="Cancel"
                       data-testid="button-cancel-edit-all"
                     >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
+                      <X className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Cancel</span>
                     </Button>
                     <Button
                       variant="default"
                       onClick={saveAllEdits}
                       disabled={isSaving}
+                      size="sm"
+                      title="Save all"
                       data-testid="button-save-all"
                     >
-                      <Check className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save All"}
+                      <Check className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save All"}</span>
                     </Button>
                   </>
                 ) : (
@@ -1404,26 +1409,32 @@ export default function Matches() {
                     <Button
                       variant="outline"
                       onClick={() => setShowFindEditDialog(true)}
+                      size="sm"
+                      title="Find and edit"
                       data-testid="button-find-edit"
                     >
-                      <Users className="h-4 w-4 mr-2" />
-                      Find & Edit
+                      <Users className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Find & Edit</span>
                     </Button>
                     <Button
                       variant="outline"
                       onClick={toggleEditAllMode}
+                      size="sm"
+                      title="Edit all"
                       data-testid="button-edit-all"
                     >
-                      <Users className="h-4 w-4 mr-2" />
-                      Edit All
+                      <Users className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Edit All</span>
                     </Button>
                     <Button
                       variant="outline"
                       onClick={handleGenerateMatches}
+                      size="sm"
+                      title="Generate matches"
                       data-testid="button-generate-matches"
                     >
-                      <Shuffle className="h-4 w-4 mr-2" />
-                      Generate Matches
+                      <Shuffle className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Generate Matches</span>
                     </Button>
                   </>
                 )}
@@ -1433,10 +1444,12 @@ export default function Matches() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  data-testid="button-download"
+                  size="sm"
+                      title="Download"
+                      data-testid="button-download"
                 >
-              <FileDown className="h-4 w-4 mr-2" />
-              Download
+              <FileDown className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1459,16 +1472,20 @@ export default function Matches() {
                 <Button
                   variant="outline"
                   onClick={() => setShowClearConfirm(true)}
-                  data-testid="button-clear-all-matches"
+                  size="sm"
+                      title="Clear all data"
+                      data-testid="button-clear-all-matches"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear All Data
+                  <Trash2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Clear All Data</span>
                 </Button>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button data-testid="button-create-match">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Match
+                    <Button size="sm"
+                      title="Create match"
+                      data-testid="button-create-match">
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Create Match</span>
                     </Button>
                   </DialogTrigger>
               <DialogContent aria-describedby="match-form-description">
@@ -1639,15 +1656,14 @@ export default function Matches() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-4">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <div className="flex gap-4 flex-1">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Stage:</label>
+        <div className="mb-3 sm:mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex gap-1.5 flex-1 overflow-x-auto -mr-3 pr-3 sm:mr-0 sm:pr-0">
+                <div className="flex items-center flex-shrink-0">
                   <Select value={stageFilter} onValueChange={setStageFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-stage-filter">
+                    <SelectTrigger className="h-8 w-auto min-w-[120px] gap-2 text-sm" aria-label="Stage filter" data-testid="select-stage-filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1659,10 +1675,9 @@ export default function Matches() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Division:</label>
+                <div className="flex items-center flex-shrink-0">
                   <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-division-filter">
+                    <SelectTrigger className="h-8 w-auto min-w-[120px] gap-2 text-sm" aria-label="Division filter" data-testid="select-division-filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1675,10 +1690,9 @@ export default function Matches() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Status:</label>
+                <div className="flex items-center flex-shrink-0">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                    <SelectTrigger className="h-8 w-auto min-w-[120px] gap-2 text-sm" aria-label="Status filter" data-testid="select-status-filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1691,8 +1705,8 @@ export default function Matches() {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {!matches || matches.length === 0 ? (
           <Card className="border-dashed">

@@ -127,21 +127,37 @@ export function Navigation() {
   return (
     <nav className="border-b bg-background sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="py-3 space-y-3">
-          {/* Top Row: Title + Auth buttons */}
+        <div className="py-2 space-y-2">
+          {/* Top Row: logo, tournament picker and account buttons on one line */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <img src="/btm-logo.png" alt="BTM" className="h-10 w-10 rounded-md object-cover flex-shrink-0" />
-              <h1 className="text-lg sm:text-xl font-semibold text-foreground">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <img src="/btm-logo.png" alt="BTM" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
+              <h1 className="hidden lg:block text-lg font-semibold text-foreground whitespace-nowrap">
                 Boules Tournament Manager
               </h1>
+              <div className="min-w-0 flex-1 lg:flex-none">
+                <TournamentSelector />
+              </div>
+              {currentTournament && (
+                isMasterAdmin ? (
+                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-master-admin">
+                    <Shield className="h-3 w-3" />
+                    <span className="hidden sm:inline">System Admin</span>
+                  </Badge>
+                ) : isReadOnly ? null : viewToken ? (
+                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-admin">
+                    <Shield className="h-3 w-3" />
+                    <span className="hidden sm:inline">Admin Access</span>
+                  </Badge>
+                ) : null
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {/* View-only badge sits at the top right so it doesn't need its own line */}
               {currentTournament && isReadOnly && !isMasterAdmin && (
                 <Badge variant="secondary" className="gap-1.5 shrink-0" data-testid="badge-view-only">
                   <Eye className="h-3 w-3" />
-                  View Only
+                  <span className="hidden sm:inline">View Only</span>
                 </Badge>
               )}
               {/* Logged-in user section */}
@@ -231,29 +247,7 @@ export function Navigation() {
             </div>
           </div>
 
-          {/* Second Row: Tournament Selector and Badge */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <TournamentSelector />
-            {currentTournament && (
-              <>
-                {isMasterAdmin ? (
-                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-master-admin">
-                    <Shield className="h-3 w-3" />
-                    <span className="hidden sm:inline">System Admin</span>
-                    <span className="sm:hidden">Admin</span>
-                  </Badge>
-                ) : isReadOnly ? null : viewToken ? (
-                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-admin">
-                    <Shield className="h-3 w-3" />
-                    <span className="hidden sm:inline">Admin Access</span>
-                    <span className="sm:hidden">Admin</span>
-                  </Badge>
-                ) : null}
-              </>
-            )}
-          </div>
-
-          {/* Third Row: Navigation Items (hidden when Teams is the only item, e.g. shared Teams view) */}
+          {/* Second Row: Navigation Items (hidden when Teams is the only item, e.g. shared Teams view) */}
           {navItems.length > 1 && (
           <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             {navItems.map((item) => {
@@ -269,7 +263,7 @@ export function Navigation() {
                 >
                   <button
                     className={cn(
-                      "flex items-center gap-2 px-4 h-9 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
+                      "flex items-center gap-2 px-3 sm:px-4 h-8 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
                       isActive
                         ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground hover-elevate"

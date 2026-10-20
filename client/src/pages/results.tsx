@@ -909,25 +909,41 @@ export default function Results() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Results</h1>
-          <p className="text-muted-foreground">
-            View match results and team points
-          </p>
+    <div className="container mx-auto py-3 sm:py-6 space-y-3">
+      {/* Compact header: title + stage filter, then one scrollable row of actions */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Results</h1>
+          <p className="hidden md:block text-sm text-muted-foreground">View match results and team points</p>
+          {results && results.length > 0 && (
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="ml-auto md:ml-3 h-8 w-[150px] text-sm" aria-label="Stage filter" data-testid="select-stage-filter">
+                <SelectValue placeholder="Filter by stage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {availableStages.map(stage => (
+                  <SelectItem key={stage} value={stage}>
+                    {stageLabels[stage as keyof typeof stageLabels]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
           {/* Share Leaderboard is always available, even before any results exist,
               so the link can be sent out early (viewers can still open Teams from it). */}
           <Button
             variant="outline"
+            size="sm"
+            title="Share leaderboard"
             onClick={handleCopyShareLink}
             disabled={isSharingLink || !currentTournament}
             data-testid="button-share-leaderboard"
           >
-            <Share2 className="mr-2 h-4 w-4" />
-            {isSharingLink ? "Creating link..." : "Share Leaderboard"}
+            <Share2 className="sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Leaderboard"}</span>
           </Button>
           {results && results.length > 0 && (
             <>
@@ -935,10 +951,12 @@ export default function Results() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
+                    size="sm"
+                    title="Download"
                     data-testid="button-download"
                   >
-                <FileDown className="mr-2 h-4 w-4" />
-                Download
+                <FileDown className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Download</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -959,11 +977,13 @@ export default function Results() {
               {!isReadOnly && (
                 <Button
                   variant="destructive"
+                  size="sm"
+                  title="Clear all results"
                   onClick={() => setShowClearConfirm(true)}
                   data-testid="button-clear-all-results"
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear All Results
+                  <Trash2 className="sm:mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Clear All Results</span>
                 </Button>
               )}
             </>
@@ -1019,72 +1039,49 @@ export default function Results() {
       </div>
 
       {results && results.length > 0 && (
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={stageFilter} onValueChange={setStageFilter}>
-            <SelectTrigger className="w-[200px]" data-testid="select-stage-filter">
-              <SelectValue placeholder="Filter by stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              {availableStages.map(stage => (
-                <SelectItem key={stage} value={stage}>
-                  {stageLabels[stage as keyof typeof stageLabels]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {results && results.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
-            data-testid="button-show-inline-leaderboard"
-          >
-            Leaderboard
-          </Button>
-          <Button
-            variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
-            data-testid="button-show-inline-forecast"
-          >
-            Forecast
-          </Button>
-          <Button
-            variant={!showInlineLeaderboard ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
-            data-testid="button-show-detailed-results"
-          >
-            Detailed Results
-          </Button>
-          <Button
-            variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
-            data-testid="button-show-all-matches"
-          >
-            All Match Results
-          </Button>
-          {selectedTeamId && (
-            <Button
-              variant="secondary"
-              onClick={handleBackToLeaderboard}
-              data-testid="button-back-to-leaderboard"
+        <div className="flex w-full sm:w-auto sm:inline-flex rounded-md bg-muted p-1 gap-1 overflow-x-auto" role="tablist">
+          {[
+            { key: "leaderboard", label: "Leaderboard", short: "Leaderboard", active: showInlineLeaderboard && !showMatchResults && !isForecast, testId: "button-show-inline-leaderboard",
+              onClick: () => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); } },
+            { key: "forecast", label: "Forecast", short: "Forecast", active: showInlineLeaderboard && !showMatchResults && isForecast, testId: "button-show-inline-forecast",
+              onClick: () => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); } },
+            { key: "detailed", label: "Detailed Results", short: "Details", active: !showInlineLeaderboard, testId: "button-show-detailed-results",
+              onClick: () => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); } },
+            { key: "matches", label: "All Match Results", short: "All Results", active: showMatchResults && !selectedTeamId, testId: "button-show-all-matches",
+              onClick: () => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); } },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={tab.active}
+              onClick={tab.onClick}
+              data-testid={tab.testId}
+              className={`flex-1 sm:flex-none whitespace-nowrap rounded px-2 sm:px-3 py-1 text-sm font-medium transition-colors ${
+                tab.active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to Leaderboard
-            </Button>
-          )}
+              <span className="sm:hidden">{tab.short}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
       {selectedTeamId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm px-3 py-1">
-            Showing matches for: {getTeamName(selectedTeamId)}
-          </Badge>
+        <div className="flex items-center gap-2 min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 flex-shrink-0"
+            onClick={handleBackToLeaderboard}
+            data-testid="button-back-to-leaderboard"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <span className="text-sm text-muted-foreground flex-shrink-0">Matches for</span>
+          <span className="text-sm font-semibold truncate">{getTeamName(selectedTeamId)}</span>
         </div>
       )}
 
