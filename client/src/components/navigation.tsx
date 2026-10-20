@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, LogIn, UserCog, User, UserPen } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 
 export function Navigation() {
   const [location] = useLocation();
@@ -243,23 +243,7 @@ export function Navigation() {
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </>
-              ) : location.startsWith("/teams/") ? null : (
-                // Visitors on a shared view link: organisers can still sign in from here
-                // (not on the public /teams/<tournament> page, which is for teams only)
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    sessionStorage.removeItem("boules_view_token");
-                    queryClient.clear();
-                    window.location.href = "/sign-in";
-                  }}
-                  data-testid="button-sign-in"
-                >
-                  <LogIn className="h-4 w-4 mr-1.5" />
-                  Sign in
-                </Button>
-              )}
+              ) : null /* view-only visitors: no Sign in; organisers sign in at the site address */}
             </div>
           </div>
 
