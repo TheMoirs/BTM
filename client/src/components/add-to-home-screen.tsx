@@ -48,7 +48,8 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
   // Shortcuts open the public page for the tournament (works for anyone, no sign-in needed)
   const startUrl = useMemo(() => {
     if (slug) return `/${page}/${slug}`;
-    return window.location.pathname + window.location.search;
+    // No public address: use the page's own path (never "/", which would cover the whole site)
+    return `/${page}${window.location.search}`;
   }, [slug, page]);
 
   // Point the page's manifest and home-screen title at this tournament + page while it's open

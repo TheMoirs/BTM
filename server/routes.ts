@@ -379,6 +379,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Only same-site paths: must start with a single "/" (not "//host")
     const start = /^\/(?!\/)[^\s]{0,500}$/.test(rawStart) ? rawStart : "/";
     const name = rawName || "Boules Tournament Manager";
+    // Each shortcut covers only its own page (e.g. /teams/<tournament>), so the
+    // Teams and Leaderboard pages, and different tournaments, install separately.
+    // A shortcut covering the whole site would stop Chrome offering the others.
+    const scope = start.split(/[?#]/)[0] || "/";
     res.type("application/manifest+json");
     res.set("Cache-Control", "no-cache");
     res.send(
@@ -388,7 +392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         short_name: name,
         description: "Boules Tournament Manager",
         start_url: start,
-        scope: "/",
+        scope,
         display: "minimal-ui",
         background_color: "#ffffff",
         theme_color: "#ffffff",
