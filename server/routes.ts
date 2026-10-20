@@ -370,6 +370,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ publicUrl: publicUrlSetting() });
   });
 
+  // ── Web app manifest for "Add to home screen / desktop" shortcuts ─────────
+  // /api/public/manifest?name=Summer League-Leaderboard&start=/leaderboard/summer-league
+  // The shortcut is named after the tournament and page, and opens that page.
+  app.get("/api/public/manifest", (req, res) => {
+    const rawName = String(req.query.name || "").trim().slice(0, 100);
+    const rawStart = String(req.query.start || "/").trim();
+    // Only same-site paths: must start with a single "/" (not "//host")
+    const start = /^\/(?!\/)[^\s]{0,500}$/.test(rawStart) ? rawStart : "/";
+    const name = rawName || "Boules Tournament Manager";
+    res.type("application/manifest+json");
+    res.set("Cache-Control", "no-cache");
+    res.send(
+      JSON.stringify({
+        id: start,
+        name,
+        short_name: name,
+        description: "Boules Tournament Manager",
+        start_url: start,
+        scope: "/",
+        display: "minimal-ui",
+        background_color: "#ffffff",
+        theme_color: "#ffffff",
+        icons: [
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      }),
+    );
+  });
+
   app.get("/api/public/tournament/:slug", async (req, res) => {
     try {
       const t = await storage.getTournamentBySlug(String(req.params.slug));

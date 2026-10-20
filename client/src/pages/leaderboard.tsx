@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Users, FileText } from "lucide-react";
 import { HelpDialog } from "@/components/help-dialog";
+import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 import {
   Table,
   TableBody,
@@ -205,6 +207,11 @@ export default function Leaderboard() {
                 </Button>
               </a>
             )}
+            <AddToHomeScreenButton
+              tournamentName={currentTournament.name}
+              slug={(currentTournament as any).slug}
+              page="leaderboard"
+            />
             <HelpDialog title="Leaderboard - Help">
               <div className="space-y-4">
                 <div>
@@ -304,8 +311,17 @@ export default function Leaderboard() {
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
-            <span className="text-sm text-muted-foreground flex-shrink-0">Matches for</span>
+            <span className="hidden sm:inline text-sm text-muted-foreground flex-shrink-0">Matches for</span>
             <span className="text-sm font-semibold truncate">{getTeamName(selectedTeamId)}</span>
+            <div className="ml-auto flex-shrink-0">
+              <TeamPerformanceDialog
+                teamId={selectedTeamId}
+                teams={teams}
+                matches={matches}
+                results={results}
+                tournamentName={currentTournament.name}
+              />
+            </div>
           </div>
         )}
       </div>

@@ -47,6 +47,7 @@ import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown,
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1899,6 +1900,14 @@ export default function Teams() {
                   <span className="hidden sm:inline">Leaderboard</span>
                 </Button>
               </Link>
+            )}
+            {currentTournament && (
+              <AddToHomeScreenButton
+                tournamentName={currentTournament.name}
+                slug={(currentTournament as any).slug}
+                page="teams"
+                variant="sm"
+              />
             )}
             <HelpDialog title="Teams - Help">
               <div className="space-y-4">

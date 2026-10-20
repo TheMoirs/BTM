@@ -35,6 +35,7 @@ import { calculateTeamSummariesByStageAndDivision, applyForecastSort, type TeamS
 import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -1080,8 +1081,17 @@ export default function Results() {
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
-          <span className="text-sm text-muted-foreground flex-shrink-0">Matches for</span>
+          <span className="hidden sm:inline text-sm text-muted-foreground flex-shrink-0">Matches for</span>
           <span className="text-sm font-semibold truncate">{getTeamName(selectedTeamId)}</span>
+          <div className="ml-auto flex-shrink-0">
+            <TeamPerformanceDialog
+              teamId={selectedTeamId}
+              teams={teams}
+              matches={matches}
+              results={results}
+              tournamentName={currentTournament?.name ?? ""}
+            />
+          </div>
         </div>
       )}
 
