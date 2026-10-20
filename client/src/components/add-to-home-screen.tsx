@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MonitorSmartphone, Download, Plus } from "lucide-react";
+import { MonitorSmartphone, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -83,6 +83,11 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
   }, [shortcutName, startUrl]);
 
   useEffect(() => onInstallPromptChange(() => setTick((t) => t + 1)), []);
+  useEffect(() => {
+    if (!showHelp) return;
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [showHelp]);
 
   // Already opened from a home-screen / desktop shortcut: nothing to add
   if (isRunningAsInstalledApp()) return null;
@@ -107,35 +112,12 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
   };
 
   const platform = detectPlatform();
-  const isDesktop = platform === "desktop-chromium" || platform === "mac-safari" || platform === "firefox" || platform === "other";
-  const isWindows = /Windows/.test(navigator.userAgent);
-  const isMac = /Macintosh/.test(navigator.userAgent) && platform !== "ios";
   const installReady = !!getInstallPrompt();
+  // Browsers that can offer the one-click Install
+  const canOneClick = platform === "desktop-chromium" || platform === "android";
+  // Chrome/Edge only offer it after ~30 seconds on the page; give up waiting after a minute
+  const gaveUpWaiting = !installReady && performance.now() > 60_000;
 
-  // A shortcut file for the desktop: .url on Windows (shows the BTM logo), .webloc on a Mac
-  const downloadShortcutFile = () => {
-    const url = window.location.origin + startUrl;
-    const fileBase = shortcutName.replace(/[\\/:*?"<>|]+/g, "").trim() || "BTM";
-    let content: string;
-    let ext: string;
-    let type: string;
-    if (isMac) {
-      ext = "webloc";
-      type = "application/x-apple-plist";
-      const esc = url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      content = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>URL</key>\n\t<string>${esc}</string>\n</dict>\n</plist>\n`;
-    } else {
-      ext = "url";
-      type = "application/octet-stream";
-      content = ["[InternetShortcut]", `URL=${url}`, `IconFile=${window.location.origin}/favicon.ico`, "IconIndex=0", ""].join("\r\n");
-    }
-    const blobUrl = URL.createObjectURL(new Blob([content], { type }));
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = `${fileBase}.${ext}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-  };
 
   return (
     <>
@@ -180,13 +162,33 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
               </div>
             </div>
 
-            {installReady && (
-              <div className="rounded-md bg-muted/60 p-3 space-y-2">
-                <p>Your browser can add it for you in one click.</p>
-                <Button className="w-full" onClick={runInstallPrompt} data-testid="button-install-now">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Install
-                </Button>
+            {(installReady || canOneClick) && (
+              <div className="rounded-md bg-muted/60 p-3 space-y-2" data-testid="install-panel">
+                {installReady ? (
+                  <>
+                    <p>Click <strong>Install</strong>, then confirm. {platform === "android" ? "It will appear on your home screen." : "It will appear on your desktop and in your Start menu or Applications."}</p>
+                    <Button className="w-full" onClick={runInstallPrompt} data-testid="button-install-now">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Install
+                    </Button>
+                  </>
+                ) : !gaveUpWaiting ? (
+                  <>
+                    <p>
+                      Your browser makes one-click install available once you've been on this page for about half a minute.
+                      Keep this open and the button will switch on by itself.
+                    </p>
+                    <Button className="w-full" disabled data-testid="button-install-waiting">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Getting ready…
+                    </Button>
+                  </>
+                ) : (
+                  <p>
+                    One-click install isn't available. It may already be installed (look on your {platform === "android" ? "home screen" : "desktop or in the Start menu"}),
+                    or your browser doesn't offer it here. You can still add it using the steps below.
+                  </p>
+                )}
               </div>
             )}
 
@@ -197,23 +199,21 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
                 <li>Check the name, then tap <strong>Add</strong>.</li>
               </ol>
             )}
-            {platform === "android" && (
+            {platform === "android" && !installReady && (
               <ol className="list-decimal pl-5 space-y-1">
                 <li>Tap the browser's <strong>⋮</strong> menu (top right).</li>
                 <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
                 <li>Tap <strong>Add</strong> to confirm.</li>
               </ol>
             )}
-            {platform === "desktop-chromium" && !installReady && (
-              <p className="text-muted-foreground">
-                Chrome and Edge offer a one-click <strong>Install</strong> once you've spent about half a minute on the page. If an Install button appears here, use that. Otherwise:
-              </p>
-            )}
             {platform === "desktop-chromium" && (
-              <ol className="list-decimal pl-5 space-y-1">
-                <li>Click the <strong>install</strong> icon at the right of the address bar, if you see one.</li>
-                <li>Otherwise, in Chrome open the <strong>⋮</strong> menu → <strong>Cast, save and share</strong> → <strong>Install page as app</strong> (or <strong>Create shortcut</strong>). In Edge, open <strong>…</strong> → <strong>Apps</strong> → <strong>Install this site as an app</strong>.</li>
-              </ol>
+              <details open={gaveUpWaiting} className="text-muted-foreground">
+                <summary className="cursor-pointer select-none">Other ways to add it</summary>
+                <ol className="list-decimal pl-5 space-y-1 mt-2 text-foreground">
+                  <li>Click the <strong>install</strong> icon at the right of the address bar, if you see one.</li>
+                  <li>Or in Chrome open the <strong>⋮</strong> menu → <strong>Cast, save and share</strong> → <strong>Install page as app</strong> (or <strong>Create shortcut</strong>, and tick <strong>Open as window</strong>). In Edge, open <strong>…</strong> → <strong>Apps</strong> → <strong>Install this site as an app</strong>.</li>
+                </ol>
+              </details>
             )}
             {platform === "mac-safari" && (
               <ol className="list-decimal pl-5 space-y-1">
@@ -228,18 +228,6 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
               </ol>
             )}
 
-            {isDesktop && (isWindows || isMac) && (
-              <div className="border-t pt-3 space-y-2">
-                <p className="text-muted-foreground">
-                  Or download a shortcut file and drag it from your Downloads onto the desktop.
-                  {isMac ? " (On a Mac it shows the browser's icon rather than the BTM logo.)" : ""}
-                </p>
-                <Button variant="outline" className="w-full" onClick={downloadShortcutFile} data-testid="button-download-shortcut">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download desktop shortcut
-                </Button>
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
