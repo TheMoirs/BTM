@@ -6,7 +6,7 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, FileText } from "lucide-react";
+import { ArrowLeft, Users, FileText, Coins } from "lucide-react";
 import { HelpDialog } from "@/components/help-dialog";
 import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
 import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
@@ -207,6 +207,16 @@ export default function Leaderboard() {
                 </Button>
               </a>
             )}
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Coin toss"
+              title="Coin toss"
+              onClick={() => window.open("/coin-toss", "btm-coin-toss", "popup,width=420,height=760")}
+              data-testid="button-coin-toss"
+            >
+              <Coins className="h-4 w-4" />
+            </Button>
             <AddToHomeScreenButton
               tournamentName={currentTournament.name}
               slug={(currentTournament as any).slug}
@@ -268,6 +278,11 @@ export default function Leaderboard() {
                 <div>
                   <h3 className="font-semibold mb-2">Understanding Rankings</h3>
                   <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Coin Toss</h3>
+                  <p>Press the <strong>coin</strong> button to open a coin toss in a new window. <strong>Swipe up</strong> (or press the space bar) to toss; <strong>slide sideways</strong> to turn the coin over and see both sides.</p>
                 </div>
 
                 <div>
