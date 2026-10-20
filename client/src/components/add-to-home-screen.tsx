@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MonitorSmartphone } from "lucide-react";
+import { MonitorSmartphone, Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -87,21 +87,55 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
   // Already opened from a home-screen / desktop shortcut: nothing to add
   if (isRunningAsInstalledApp()) return null;
 
-  const handleClick = async () => {
+  // The browser's own one-click install, when it offers it (Chrome / Edge / Android)
+  const runInstallPrompt = async () => {
     const prompt = getInstallPrompt();
-    if (prompt) {
-      try {
-        await prompt.prompt();
-        await prompt.userChoice;
-      } finally {
-        clearInstallPrompt();
-      }
-      return;
+    if (!prompt) return false;
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice.outcome === "accepted") setShowHelp(false);
+    } finally {
+      clearInstallPrompt();
     }
+    return true;
+  };
+
+  const handleClick = async () => {
+    if (await runInstallPrompt()) return;
     setShowHelp(true);
   };
 
   const platform = detectPlatform();
+  const isDesktop = platform === "desktop-chromium" || platform === "mac-safari" || platform === "firefox" || platform === "other";
+  const isWindows = /Windows/.test(navigator.userAgent);
+  const isMac = /Macintosh/.test(navigator.userAgent) && platform !== "ios";
+  const installReady = !!getInstallPrompt();
+
+  // A shortcut file for the desktop: .url on Windows (shows the BTM logo), .webloc on a Mac
+  const downloadShortcutFile = () => {
+    const url = window.location.origin + startUrl;
+    const fileBase = shortcutName.replace(/[\\/:*?"<>|]+/g, "").trim() || "BTM";
+    let content: string;
+    let ext: string;
+    let type: string;
+    if (isMac) {
+      ext = "webloc";
+      type = "application/x-apple-plist";
+      const esc = url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      content = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n\t<key>URL</key>\n\t<string>${esc}</string>\n</dict>\n</plist>\n`;
+    } else {
+      ext = "url";
+      type = "application/octet-stream";
+      content = ["[InternetShortcut]", `URL=${url}`, `IconFile=${window.location.origin}/favicon.ico`, "IconIndex=0", ""].join("\r\n");
+    }
+    const blobUrl = URL.createObjectURL(new Blob([content], { type }));
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `${fileBase}.${ext}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  };
 
   return (
     <>
@@ -124,8 +158,8 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
           title="Add to home screen / desktop"
           data-testid={`button-add-shortcut-${page}`}
         >
-          <MonitorSmartphone className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Add Shortcut</span>
+          <MonitorSmartphone className="h-4 w-4 mr-1.5" />
+          Add Shortcut
         </Button>
       )}
 
@@ -146,6 +180,16 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
               </div>
             </div>
 
+            {installReady && (
+              <div className="rounded-md bg-muted/60 p-3 space-y-2">
+                <p>Your browser can add it for you in one click.</p>
+                <Button className="w-full" onClick={runInstallPrompt} data-testid="button-install-now">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Install
+                </Button>
+              </div>
+            )}
+
             {platform === "ios" && (
               <ol className="list-decimal pl-5 space-y-1">
                 <li>Tap the <strong>Share</strong> button (the square with an arrow pointing up). In Safari it's at the bottom of the screen; in Chrome it's next to the address bar.</li>
@@ -159,6 +203,11 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
                 <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
                 <li>Tap <strong>Add</strong> to confirm.</li>
               </ol>
+            )}
+            {platform === "desktop-chromium" && !installReady && (
+              <p className="text-muted-foreground">
+                Chrome and Edge offer a one-click <strong>Install</strong> once you've spent about half a minute on the page. If an Install button appears here, use that. Otherwise:
+              </p>
             )}
             {platform === "desktop-chromium" && (
               <ol className="list-decimal pl-5 space-y-1">
@@ -177,6 +226,19 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, variant = "i
                 <li>Drag the <strong>padlock</strong> icon at the left of the address bar onto your desktop.</li>
                 <li>Or open this page in Chrome, Edge or Safari, which can add it with the BTM logo.</li>
               </ol>
+            )}
+
+            {isDesktop && (isWindows || isMac) && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-muted-foreground">
+                  Or download a shortcut file and drag it from your Downloads onto the desktop.
+                  {isMac ? " (On a Mac it shows the browser's icon rather than the BTM logo.)" : ""}
+                </p>
+                <Button variant="outline" className="w-full" onClick={downloadShortcutFile} data-testid="button-download-shortcut">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download desktop shortcut
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>
