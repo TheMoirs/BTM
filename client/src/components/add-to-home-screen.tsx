@@ -11,6 +11,9 @@ import {
 import {
   clearInstallPrompt,
   getInstallPrompt,
+  hasShortcut,
+  rememberShortcut,
+  setCurrentShortcutKey,
   isRunningAsInstalledApp,
   onInstallPromptChange,
 } from "@/lib/install-prompt";
@@ -102,13 +105,18 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
 
   useEffect(() => onInstallPromptChange(() => setTick((t) => t + 1)), []);
   useEffect(() => {
+    setCurrentShortcutKey(startUrl);
+    return () => setCurrentShortcutKey(null);
+  }, [startUrl]);
+  useEffect(() => {
     if (!showHelp) return;
     const timer = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(timer);
   }, [showHelp]);
 
-  // Already opened from a home-screen / desktop shortcut: nothing to add
-  if (isRunningAsInstalledApp()) return null;
+  // Already opened from a home-screen / desktop shortcut, or this browser already
+  // has the shortcut for this page: nothing to add
+  if (isRunningAsInstalledApp() || hasShortcut(startUrl)) return null;
 
   // The browser's own one-click install, when it offers it (Chrome / Edge / Android)
   const runInstallPrompt = async () => {
@@ -117,7 +125,10 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
     try {
       await prompt.prompt();
       const choice = await prompt.userChoice;
-      if (choice.outcome === "accepted") setShowHelp(false);
+      if (choice.outcome === "accepted") {
+        rememberShortcut(startUrl);
+        setShowHelp(false);
+      }
     } finally {
       clearInstallPrompt();
     }

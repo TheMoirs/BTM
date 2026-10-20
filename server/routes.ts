@@ -403,7 +403,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name,
         short_name: name,
         description: "Boules Tournament Manager",
-        start_url: start,
+        // Marked so the app knows the shortcut exists (it then hides the "Add Shortcut" button)
+        start_url: `${start}${start.includes("?") ? "&" : "?"}from=shortcut`,
         scope,
         display: "minimal-ui",
         background_color: "#ffffff",
