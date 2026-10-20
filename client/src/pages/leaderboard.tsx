@@ -170,146 +170,145 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-3 space-y-4">
+      {/* Compact header: one title row, one tab row (plus a team row when filtering) */}
       <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <img src="/btm-logo.png" alt="BTM" className="h-14 w-14 rounded-lg object-cover flex-shrink-0" />
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
-            {isForecast ? "Forecast Leaderboard" : "Leaderboard"}
-          </h1>
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-lg font-semibold">{currentTournament.name}</p>
-          <p className="text-sm text-muted-foreground">
-            {new Date().toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          variant={!showMatchResults && !isForecast ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
-          data-testid="button-show-leaderboard"
-        >
-          Leaderboard
-        </Button>
-        <Button
-          variant={!showMatchResults && isForecast ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
-          data-testid="button-show-forecast"
-        >
-          Forecast
-        </Button>
-        <Button
-          variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(true); setSelectedTeamId(null); }}
-          data-testid="button-show-matches"
-        >
-          All Match Results
-        </Button>
-        {/* Signed-in organisers only; visitors have a separate public Teams link */}
-        {!isReadOnly && (
-          <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
-            <Button
-              variant="outline"
-              data-testid="button-view-teams"
-            >
-              <Users className="h-4 w-4 mr-1" />
-              View Teams
-            </Button>
-          </Link>
-        )}
-        {(currentTournament as any).rulesPdfName && (
-          <a
-            href={`/api/tournaments/${currentTournament.id}/rules`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" data-testid="button-view-rules">
-              <FileText className="h-4 w-4 mr-1" />
-              View Rules
-            </Button>
-          </a>
-        )}
-        {selectedTeamId && (
-          <Button
-            variant="secondary"
-            onClick={handleBackToLeaderboard}
-            data-testid="button-back-to-leaderboard"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Leaderboard
-          </Button>
-        )}
-        <HelpDialog title="Leaderboard - Help">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">What is this page?</h3>
-              <p>The Leaderboard page displays team standings and match results for the tournament. It's a shareable, read-only view of tournament progress.</p>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-2">Team Leaderboard</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>View team rankings grouped by Stage and Division</li>
-                <li>See statistics: Points, Games Played/Won/Drawn/Lost, Score For/Against</li>
-                <li><strong>Click on a team name</strong> to view only that team's match results</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-2">All Match Results</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Click "All Match Results" to see all matches with scores</li>
-                <li>Matches are grouped by division</li>
-                <li>View match stage, status, date, and game scores</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-2">Team Match Filter</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Click any team name in the leaderboard to filter matches</li>
-                <li>Shows only matches where that team participated</li>
-                <li>Click "Back to Leaderboard" to return to the full view</li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold mb-2">Forecast View</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Click "Forecast" to see predicted final standings</li>
-                <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
-                <li>Useful when teams have played different numbers of games</li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-2">Points</h3>
-              <p>
-                Points are awarded for every game played: Win = {currentTournament.pointsForWin ?? 3},
-                Draw = {currentTournament.pointsForDraw ?? 2}, Loss = {currentTournament.pointsForLoss ?? 1}.
-                {" "}No-Show = the team present gains {currentTournament.pointsForWin ?? 3} league points per game, with a game winning score of 13-7.
-                Team not showing: {(currentTournament as any).pointsForNoShow ?? 0} league points per game (losing score of 7-13).
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-2">Understanding Rankings</h3>
-              <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
-            </div>
-          </div>
-        </HelpDialog>
-      </div>
-
-      {selectedTeamId && (
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm px-3 py-1">
-            Showing matches for: {getTeamName(selectedTeamId)}
-          </Badge>
+          <img src="/btm-logo.png" alt="BTM" className="h-9 w-9 rounded-md object-cover flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold leading-tight tracking-tight truncate" data-testid="text-title">
+              {isForecast && !showMatchResults ? "Forecast Leaderboard" : "Leaderboard"}
+            </h1>
+            <p className="text-xs text-muted-foreground truncate">
+              <span className="font-medium text-foreground">{currentTournament.name}</span>
+              {" · "}
+              {new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Signed-in organisers only; visitors have a separate public Teams link */}
+            {!isReadOnly && (
+              <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
+                <Button variant="outline" size="icon" aria-label="View teams" title="View teams" data-testid="button-view-teams">
+                  <Users className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+            {(currentTournament as any).rulesPdfName && (
+              <a
+                href={`/api/tournaments/${currentTournament.id}/rules`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" size="icon" aria-label="View rules" title="View rules" data-testid="button-view-rules">
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </a>
+            )}
+            <HelpDialog title="Leaderboard - Help">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">What is this page?</h3>
+                  <p>The Leaderboard page displays team standings and match results for the tournament. It's a shareable, read-only view of tournament progress.</p>
+                </div>
+            
+                <div>
+                  <h3 className="font-semibold mb-2">Team Leaderboard</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>View team rankings grouped by Stage and Division</li>
+                    <li>See statistics: Points, Games Played/Won/Drawn/Lost, Score For/Against</li>
+                    <li><strong>Click on a team name</strong> to view only that team's match results</li>
+                  </ul>
+                </div>
+            
+                <div>
+                  <h3 className="font-semibold mb-2">All Match Results</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click "All Results" to see all matches with scores</li>
+                    <li>Matches are grouped by division</li>
+                    <li>View match stage, status, date, and game scores</li>
+                  </ul>
+                </div>
+            
+                <div>
+                  <h3 className="font-semibold mb-2">Team Match Filter</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click any team name in the leaderboard to filter matches</li>
+                    <li>Shows only matches where that team participated</li>
+                    <li>Click "Back" to return to the full view</li>
+                  </ul>
+                </div>
+            
+                <div>
+                  <h3 className="font-semibold mb-2">Forecast View</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click "Forecast" to see predicted final standings</li>
+                    <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
+                    <li>Useful when teams have played different numbers of games</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Points</h3>
+                  <p>
+                    Points are awarded for every game played: Win = {currentTournament.pointsForWin ?? 3},
+                    Draw = {currentTournament.pointsForDraw ?? 2}, Loss = {currentTournament.pointsForLoss ?? 1}.
+                    {" "}No-Show = the team present gains {currentTournament.pointsForWin ?? 3} league points per game, with a game winning score of 13-7.
+                    Team not showing: {(currentTournament as any).pointsForNoShow ?? 0} league points per game (losing score of 7-13).
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Understanding Rankings</h3>
+                  <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
+                </div>
+              </div>
+            </HelpDialog>
+          </div>
         </div>
-      )}
+
+        <div className="inline-flex w-full sm:w-auto rounded-md bg-muted p-1 gap-1" role="tablist">
+          {[
+            { key: "leaderboard", label: "Leaderboard", active: !showMatchResults && !isForecast, testId: "button-show-leaderboard",
+              onClick: () => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); } },
+            { key: "forecast", label: "Forecast", active: !showMatchResults && isForecast, testId: "button-show-forecast",
+              onClick: () => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); } },
+            { key: "results", label: "All Results", active: showMatchResults && !selectedTeamId, testId: "button-show-matches",
+              onClick: () => { setShowMatchResults(true); setSelectedTeamId(null); } },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={tab.active}
+              onClick={tab.onClick}
+              data-testid={tab.testId}
+              className={`flex-1 sm:flex-none whitespace-nowrap rounded px-3 py-1 text-sm font-medium transition-colors ${
+                tab.active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {selectedTeamId && (
+          <div className="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 flex-shrink-0"
+              onClick={handleBackToLeaderboard}
+              data-testid="button-back-to-leaderboard"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+            <span className="text-sm text-muted-foreground flex-shrink-0">Matches for</span>
+            <span className="text-sm font-semibold truncate">{getTeamName(selectedTeamId)}</span>
+          </div>
+        )}
+      </div>
 
       {!showMatchResults ? (
         <>
@@ -318,11 +317,11 @@ export default function Leaderboard() {
               <p className="text-muted-foreground">No leaderboard data available yet.</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
           {displayData.map(([stage, divisions]) => (
             <div key={stage} className="space-y-4">
               <div className="flex items-center gap-2">
-                <Badge variant="default" className="text-lg px-3 py-1.5" data-testid={`badge-stage-${stage}`}>
+                <Badge variant="default" className="text-sm px-2.5 py-1" data-testid={`badge-stage-${stage}`}>
                   {stageLabels[stage as keyof typeof stageLabels]}
                 </Badge>
               </div>
@@ -430,7 +429,7 @@ export default function Leaderboard() {
               <p className="text-muted-foreground">No matches available yet.</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {groupedMatchesByDivision.map(([division, divisionMatches]) => (
                 <div key={division}>
                   <div className="mb-3">
