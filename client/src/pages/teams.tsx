@@ -1533,9 +1533,11 @@ export default function Teams() {
                 </Select>
               )}
             </div>
-            <p className="hidden sm:block text-sm text-muted-foreground mt-1">
-              {isReadOnly ? "View registered teams and captain contact details." : "Manage registered teams and captain contact details."}
-              {" "}Click the captain's phone number or email to send them a message.
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              <span className="hidden sm:inline">
+                {isReadOnly ? "View registered teams and captain contact details. " : "Manage registered teams and captain contact details. "}
+              </span>
+              Click the captain's phone number or email to send them a message.
             </p>
           </div>
           <div className="flex flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5">

@@ -95,6 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    // Forget any view-only share link remembered in this tab, so the app returns to sign-in
+    sessionStorage.removeItem("boules_view_token");
     queryClient.clear();
     setUser(null);
   };

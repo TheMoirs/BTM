@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, LogIn, UserCog, User, UserPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export function Navigation() {
   const [location] = useLocation();
@@ -243,7 +243,22 @@ export function Navigation() {
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </>
-              ) : null}
+              ) : (
+                // Visitors on a shared view link: organisers can still sign in from here
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    sessionStorage.removeItem("boules_view_token");
+                    queryClient.clear();
+                    window.location.href = "/sign-in";
+                  }}
+                  data-testid="button-sign-in"
+                >
+                  <LogIn className="h-4 w-4 mr-1.5" />
+                  Sign in
+                </Button>
+              )}
             </div>
           </div>
 
