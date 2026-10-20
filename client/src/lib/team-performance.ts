@@ -3,6 +3,15 @@ import { calculateTeamSummariesByStageAndDivision } from "@/lib/leaderboard";
 
 export type MatchOutcome = "W" | "D" | "L";
 
+/** One match in the form guide: games won–lost against the opponent */
+export type FormEntry = {
+  outcome: MatchOutcome;
+  gamesWon: number;
+  gamesLost: number;
+  opponent: string;
+  noShow: boolean;
+};
+
 export type TeamPerformance = {
   team: Team;
   displayName: string;
@@ -34,8 +43,8 @@ export type TeamPerformance = {
   fannysFor: number;
   fannysAgainst: number;
   noShows: number;
-  // Most recent first
-  form: MatchOutcome[];
+  // Last 5 matches, most recent first
+  form: FormEntry[];
   longestWinStreak: number;
   bestWin: { score: string; opponent: string } | null;
   closestGame: { score: string; opponent: string; won: boolean } | null;
@@ -125,12 +134,19 @@ export function calculateTeamPerformance(
   let bestMargin = -1;
   let closestGame: TeamPerformance["closestGame"] = null;
   let closestMargin = Infinity;
-  const outcomes: MatchOutcome[] = [];
+  const outcomes: FormEntry[] = [];
 
   played.forEach((m) => {
     const r = resultByMatch.get(m.id)!;
     const outcome: MatchOutcome = r.gamesWon > r.gamesLost ? "W" : r.gamesWon < r.gamesLost ? "L" : "D";
-    outcomes.push(outcome);
+    const isT1 = m.team1Id === team.id;
+    outcomes.push({
+      outcome,
+      gamesWon: r.gamesWon,
+      gamesLost: r.gamesLost,
+      opponent: nameOf(isT1 ? m.team2Id : m.team1Id),
+      noShow: !!(m.team1NoShow || m.team2NoShow),
+    });
     if (outcome === "W") matchesWon++;
     else if (outcome === "D") matchesDrawn++;
     else matchesLost++;
