@@ -269,6 +269,15 @@ export default function Leaderboard() {
                   <h3 className="font-semibold mb-2">Understanding Rankings</h3>
                   <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
                 </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Home Screen / Desktop Shortcut</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this leaderboard to your home screen or desktop, with the BTM logo</li>
+                    <li><strong>To remove it on a computer:</strong> open the shortcut, click the <strong>⋮</strong> menu at the top right of its window and choose <strong>Uninstall</strong>. Or type <strong>chrome://apps</strong> (or <strong>edge://apps</strong>) in the address bar, right-click it and choose <strong>Remove</strong></li>
+                    <li><strong>To remove it on a phone:</strong> press and hold the icon on your home screen and choose <strong>Remove</strong> (or <strong>Delete Bookmark</strong> on an iPhone)</li>
+                  </ul>
+                </div>
               </div>
             </HelpDialog>
           </div>
