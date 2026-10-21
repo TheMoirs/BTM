@@ -2,7 +2,7 @@
   "id": "/coin-toss/",
   "name": "BTM Coin Toss",
   "short_name": "Coin Toss",
-  "description": "Boules Tournament Manager - Random Coin Toss. Simply install on your phone home page.",
+  "description": "Boules Tournament Manager - Random Coin Toss. Simply click the link & install on your phone home page.",
   "start_url": "/coin-toss/?from=app",
   "scope": "/coin-toss/",
   "display": "standalone",
