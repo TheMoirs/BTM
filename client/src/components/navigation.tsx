@@ -125,7 +125,9 @@ export function Navigation() {
   };
 
   return (
-    <nav className="border-b bg-background sticky top-0 z-50">
+    // View-only pages: the bar scrolls away with the page rather than staying pinned,
+    // so phones that print the screen as-is don't stamp it across the team list
+    <nav className={cn("border-b bg-background z-50", !isReadOnly && "sticky top-0")}>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="py-2 space-y-2">
           {/* Top Row: logo, tournament picker and account buttons on one line */}

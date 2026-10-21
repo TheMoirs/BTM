@@ -367,3 +367,14 @@
   tr { break-inside: avoid; }
   table button { pointer-events: none; }
 }
+
+/* Same essentials while a print is being prepared, for browsers that don't apply @media print */
+html.printing nav,
+html.printing [role="tablist"],
+html.printing [data-testid="text-leaderboard-tip"],
+html.printing button:not(table button),
+html.printing [role="combobox"] {
+  display: none !important;
+}
+html.printing .sticky,
+html.printing .fixed { position: static !important; }
