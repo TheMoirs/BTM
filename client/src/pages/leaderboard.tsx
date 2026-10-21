@@ -216,7 +216,7 @@ export default function Leaderboard() {
               variant="outline"
               size="sm"
               className="flex-shrink-0 px-2"
-              onClick={() => window.open("/coin-toss/", "btm-coin-toss", "popup,width=420,height=760")}
+              onClick={() => window.open("/coin-toss/", "btm-coin-toss", "popup,width=480,height=800")}
               data-testid="button-coin-toss"
             >
               <Coins className="h-4 w-4 mr-1.5" />

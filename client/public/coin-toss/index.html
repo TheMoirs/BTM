@@ -327,10 +327,24 @@
     function runPrompt() {
       if (!deferredPrompt) return;
       var p = deferredPrompt; deferredPrompt = null;
-      p.prompt();
-      p.userChoice.then(function (c) {
-        if (c.outcome === "accepted") { remember(); help.hidden = true; updateInstallButton(); }
-      });
+      var show = function () {
+        p.prompt();
+        p.userChoice.then(function (c) {
+          if (c.outcome === "accepted") { remember(); help.hidden = true; updateInstallButton(); }
+        });
+      };
+      // Chrome's own install box is fitted inside this window. In the narrow pop-up
+      // opened from the Leaderboard it gets cut off, so make the window roomier first.
+      var isComputer = !/Android|iPhone|iPad|iPod|Mobile/.test(navigator.userAgent);
+      if (isComputer && window.opener && window.outerWidth < 640) {
+        try {
+          window.resizeTo(Math.max(640, window.outerWidth), Math.max(820, window.outerHeight));
+          window.moveTo(Math.max(0, Math.round((screen.availWidth - 640) / 2)), Math.max(0, Math.round((screen.availHeight - 820) / 2)));
+        } catch (_) {}
+        setTimeout(show, 250);
+      } else {
+        show();
+      }
     }
 
     function platform() {
