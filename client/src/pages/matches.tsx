@@ -1297,32 +1297,6 @@ export default function Matches() {
     }
   };
 
-  const handlePdfSave = () => {
-    if (groupedByDivision.length === 0) {
-      toast({ title: "No matches to export", description: "There are no matches matching the current filters.", variant: "destructive" });
-      return;
-    }
-    const doc = generatePDFDocument();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const filename = matchesFilename("pdf");
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "PDF saved",
-      description: "The PDF has been downloaded to your default downloads folder.",
-    });
-  };
-
   const handleExcelSave = () => {
     if (groupedByDivision.length === 0) {
       toast({ title: "No matches to export", description: "There are no matches matching the current filters.", variant: "destructive" });
@@ -1500,10 +1474,6 @@ export default function Matches() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-download-pdf">
-                  <FileDown className="h-4 w-4 mr-2" />
-                  PDF
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Excel
