@@ -1289,6 +1289,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Team routes
+  // Whether a team has paid is for organisers only: never sent to view-only visitors (e.g. captains)
+  const forViewer = (req: any, team: Team) => {
+    if (req.isAdminAccess) return team;
+    const { feePaid: _hidden, ...rest } = team as Team & { feePaid?: boolean };
+    return rest;
+  };
+
   app.get("/api/teams", async (req: any, res) => {
     try {
       let tournamentId = req.query.tournamentId as string | undefined;
@@ -1303,7 +1310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const teams = await storage.getAllTeams(tournamentId);
-      res.json(teams);
+      res.json(teams.map((t) => forViewer(req, t)));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch teams" });
     }
@@ -1319,7 +1326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
-      res.json(team);
+      res.json(forViewer(req, team));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch team" });
     }
