@@ -176,7 +176,7 @@ export default function Leaderboard() {
       {/* Compact header: one title row, one tab row (plus a team row when filtering) */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <img src="/btm-logo.png" alt="BTM" className="h-9 w-9 rounded-md object-cover flex-shrink-0" />
+          <img src="/ptm-logo.png" alt="PTM" className="h-9 w-9 rounded-md object-cover flex-shrink-0" />
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold leading-tight tracking-tight truncate" data-testid="text-title">
               {isForecast && !showMatchResults ? "Forecast Leaderboard" : "Leaderboard"}
@@ -296,7 +296,7 @@ export default function Leaderboard() {
                 <div>
                   <h3 className="font-semibold mb-2">Home Screen / Desktop Shortcut</h3>
                   <ul className="list-disc pl-5 space-y-1">
-                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this leaderboard to your home screen or desktop, with the BTM logo</li>
+                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this leaderboard to your home screen or desktop, with the PTM logo</li>
                     <li><strong>To remove it on a computer:</strong> open the shortcut, click the <strong>⋮</strong> menu at the top right of its window and choose <strong>Uninstall</strong>. Or type <strong>chrome://apps</strong> (or <strong>edge://apps</strong>) in the address bar, right-click it and choose <strong>Remove</strong></li>
                     <li><strong>To remove it on a phone:</strong> press and hold the icon on your home screen and choose <strong>Remove</strong> (or <strong>Delete Bookmark</strong> on an iPhone)</li>
                   </ul>

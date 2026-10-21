@@ -39,7 +39,7 @@ ${editUrl
 Email: <a href="mailto:${c.email}">${c.email}</a><br>
 WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>`}
 <p>Good luck in the tournament!</p>
-<p style="color:#888;font-size:13px">Boules Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
+<p style="color:#888;font-size:13px">Petanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
 </div>`;
 }
 
@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!hasUsablePassword(user.passwordHash)) {
         return res.status(401).json({
-          error: "This account doesn't have a BTM password yet. Sign in with Google, or use \"Forgot password?\" to set one.",
+          error: "This account doesn't have a PTM password yet. Sign in with Google, or use \"Forgot password?\" to set one.",
         });
       }
 
@@ -252,9 +252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await client.emails.send({
             from: fromEmail,
             to: user.email,
-            subject: "Reset your Boules Tournament Manager password",
+            subject: "Reset your Petanque Tournament Manager password",
             html: `<p>Hello${user.displayName ? ` ${user.displayName}` : ""},</p>
-<p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Boules Tournament Manager account.</p>
+<p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Petanque Tournament Manager account.</p>
 <p><a href="${link}">Click here to choose a new password</a></p>
 <p>This link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>`,
           });
@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const rawStart = String(req.query.start || "/").trim();
     // Only same-site paths: must start with a single "/" (not "//host")
     const start = /^\/(?!\/)[^\s]{0,500}$/.test(rawStart) ? rawStart : "/";
-    const name = rawName || "Boules Tournament Manager";
+    const name = rawName || "Petanque Tournament Manager";
     // Each shortcut covers only its own page (e.g. /teams/<tournament>), so the
     // Teams and Leaderboard pages, and different tournaments, install separately.
     // A shortcut covering the whole site would stop Chrome offering the others.
@@ -388,12 +388,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const iconKind = iconKinds.includes(String(req.query.icon)) ? String(req.query.icon) : null;
     const icons = iconKind
       ? [
-          { src: `/icons/${iconKind}-192.png?v=2`, sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: `/icons/${iconKind}-512.png?v=2`, sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: `/icons/${iconKind}-192.png?v=3`, sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: `/icons/${iconKind}-512.png?v=3`, sizes: "512x512", type: "image/png", purpose: "any" },
         ]
       : [
-          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-192.png?v=3", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=3", sizes: "512x512", type: "image/png", purpose: "any" },
         ];
     res.type("application/manifest+json");
     res.set("Cache-Control", "no-cache");
@@ -402,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: start,
         name,
         short_name: name,
-        description: "Boules Tournament Manager",
+        description: "Petanque Tournament Manager",
         // Marked so the app knows the shortcut exists (it then hides the "Add Shortcut" button)
         start_url: `${start}${start.includes("?") ? "&" : "?"}from=shortcut`,
         scope,
@@ -797,7 +797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const targetUser = await storage.getUserByEmail(email.trim());
       if (!targetUser) {
-        return res.status(404).json({ error: `${email.trim()} does not have a BTM account. Get them to create one before transferring ownership to them.` });
+        return res.status(404).json({ error: `${email.trim()} does not have a PTM account. Get them to create one before transferring ownership to them.` });
       }
 
       if (targetUser.isBlocked) {
@@ -856,7 +856,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "A valid email address is required" });
       }
       const target = await storage.getUserByEmail(email.trim().toLowerCase());
-      if (!target) return res.status(404).json({ error: `${email.trim()} does not have a BTM account. Get them to create one before setting them as a co-editor.` });
+      if (!target) return res.status(404).json({ error: `${email.trim()} does not have a PTM account. Get them to create one before setting them as a co-editor.` });
       if (target.isBlocked) return res.status(400).json({ error: "Cannot add a blocked user as co-editor" });
       if (target.id === tournament.userId) {
         return res.status(400).json({ error: "That user already owns this tournament" });
@@ -1663,13 +1663,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await client.emails.send({
         from: fromEmail,
         to: validatedData.recipientEmail,
-        subject: "Boules Tournament - Matches Report",
+        subject: "Petanque Tournament - Matches Report",
         html: `
-          <h2>Boules Tournament Matches Report</h2>
+          <h2>Petanque Tournament Matches Report</h2>
           <p>Please find attached the matches report generated on ${new Date().toLocaleDateString()}.</p>
           <p>This report contains all match information including schedules, scores, and results.</p>
           <br/>
-          <p>Best regards,<br/>Boules Tournament Management</p>
+          <p>Best regards,<br/>Petanque Tournament Manager</p>
         `,
         attachments: [
           {

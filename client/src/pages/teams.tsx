@@ -1983,7 +1983,7 @@ export default function Teams() {
                 <div>
                   <h3 className="font-semibold mb-2">Home Screen / Desktop Shortcut</h3>
                   <ul className="list-disc pl-5 space-y-1">
-                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this teams page to your home screen or desktop, with the BTM logo</li>
+                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this teams page to your home screen or desktop, with the PTM logo</li>
                     <li><strong>To remove it on a computer:</strong> open the shortcut, click the <strong>⋮</strong> menu at the top right of its window and choose <strong>Uninstall</strong>. Or type <strong>chrome://apps</strong> (or <strong>edge://apps</strong>) in the address bar, right-click it and choose <strong>Remove</strong></li>
                     <li><strong>To remove it on a phone:</strong> press and hold the icon on your home screen and choose <strong>Remove</strong> (or <strong>Delete Bookmark</strong> on an iPhone)</li>
                   </ul>

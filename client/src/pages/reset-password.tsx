@@ -46,9 +46,9 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src="/btm-logo.png" alt="BTM Logo" className="h-20 w-20 rounded-xl object-cover" />
+            <img src="/ptm-logo.png" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Boules Tournament Manager</h1>
+          <h1 className="text-2xl font-bold text-foreground">Petanque Tournament Manager</h1>
         </div>
         <Card>
           <CardHeader>
