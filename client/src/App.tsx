@@ -15,7 +15,6 @@ import LoginPage from "@/pages/login";
 import ResetPasswordPage from "@/pages/reset-password";
 import PublicTournamentPage from "@/pages/public-tournament";
 import RegisterTeamPage from "@/pages/register-team";
-import CoinTossPage from "@/pages/coin-toss";
 import AdminUsers from "@/pages/admin-users";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
@@ -168,7 +167,8 @@ function AppRouter() {
               <Route path="/sign-in/*?">{() => <LoginPage />}</Route>
               <Route path="/sign-up/*?">{() => <LoginPage defaultTab="register" />}</Route>
               <Route path="/reset-password" component={ResetPasswordPage} />
-              <Route path="/coin-toss" component={CoinTossPage} />
+              {/* Coin Toss is a standalone page in /coin-toss/ (works offline); old links go there */}
+              <Route path="/coin-toss">{() => { window.location.replace("/coin-toss/"); return null; }}</Route>
               {/* Public read-only pages with readable addresses */}
               <Route path="/teams/:slug">{(p) => <PublicTournamentPage key={`t-${p.slug}`} slug={p.slug} page="teams" />}</Route>
               <Route path="/register/:slug">{(p) => <RegisterTeamPage key={`r-${p.slug}`} slug={p.slug} />}</Route>

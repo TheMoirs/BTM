@@ -1,0 +1,17 @@
+{
+  "id": "/coin-toss/",
+  "name": "BTM Coin Toss",
+  "short_name": "Coin Toss",
+  "description": "Toss an old penny: heads or tails. Works offline.",
+  "start_url": "/coin-toss/?from=app",
+  "scope": "/coin-toss/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#b9a888",
+  "theme_color": "#b9a888",
+  "icons": [
+    { "src": "/coin-toss/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/coin-toss/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/coin-toss/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

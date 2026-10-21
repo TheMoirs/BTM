@@ -216,7 +216,7 @@ export default function Leaderboard() {
               variant="outline"
               size="sm"
               className="flex-shrink-0 px-2"
-              onClick={() => window.open("/coin-toss", "btm-coin-toss", "popup,width=420,height=760")}
+              onClick={() => window.open("/coin-toss/", "btm-coin-toss", "popup,width=420,height=760")}
               data-testid="button-coin-toss"
             >
               <Coins className="h-4 w-4 mr-1.5" />
@@ -290,7 +290,7 @@ export default function Leaderboard() {
 
                 <div>
                   <h3 className="font-semibold mb-2">Coin Toss</h3>
-                  <p>Press the <strong>coin</strong> button to open a coin toss in a new window. <strong>Swipe up</strong> (or press the space bar) to toss; <strong>slide sideways</strong> to turn the coin over and see both sides.</p>
+                  <p>Press the <strong>coin</strong> button to open a coin toss in a new window. <strong>Swipe up</strong> (or press the space bar) to toss; <strong>slide sideways</strong> to turn the coin over and see both sides. Press <strong>Install</strong> in the coin toss window to add it to your home screen or desktop; it then works even without an internet connection.</p>
                 </div>
 
                 <div>
