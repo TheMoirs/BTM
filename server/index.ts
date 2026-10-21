@@ -257,6 +257,8 @@ async function migrateOrphanedTournaments() {
 }
 
 (async () => {
+  // New columns first: later start-up steps read whole rows from these tables
+  await ensureRegistrationFeeColumns();
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links
@@ -271,7 +273,6 @@ async function migrateOrphanedTournaments() {
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users
   await ensureClerkUserIdColumn();
-  await ensureRegistrationFeeColumns();
   // Ensure collaborators table exists
   await ensureCollaboratorsTable();
   // Assign any pre-existing tournaments (userId=null) to ali@themoirs.co.uk
