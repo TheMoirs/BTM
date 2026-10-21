@@ -48,6 +48,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
+import { downloadAndPrintPdf } from "@/lib/pdf-reports";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1326,6 +1327,23 @@ export default function Teams() {
     });
   };
 
+  // Print button for view-only visitors: save the teams list as a PDF and print it
+  const handleDownloadAndPrint = () => {
+    if (filteredGroupedByDivision.length === 0) {
+      toast({
+        title: "Nothing to print",
+        description: divisionFilter === "all" ? "There are no teams yet." : "There are no teams in the selected division.",
+      });
+      return;
+    }
+    const outcome = downloadAndPrintPdf(generatePDFDocument(), teamsFilename("pdf"));
+    if (outcome === "printing") {
+      toast({ title: "PDF downloaded", description: "Saved to your Downloads folder. The print window is opening." });
+    } else if (outcome === "failed") {
+      toast({ title: "Couldn't create the PDF", description: "Please try again.", variant: "destructive" });
+    }
+  };
+
   const handlePdfPrint = () => {
     if (pdfBlobUrl) {
       const printWindow = window.open(pdfBlobUrl, '_blank');
@@ -1902,6 +1920,12 @@ export default function Teams() {
                   <span className="hidden sm:inline">Leaderboard</span>
                 </Button>
               </Link>
+            )}
+            {isReadOnly && (
+              <Button variant="outline" size="sm" className="flex-shrink-0" onClick={handleDownloadAndPrint} data-testid="button-print-teams">
+                <Printer className="h-4 w-4 mr-1.5" />
+                Print
+              </Button>
             )}
             {currentTournament && (
               <AddToHomeScreenButton

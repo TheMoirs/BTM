@@ -36,6 +36,7 @@ import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, Fil
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
+import { buildLeaderboardPdf } from "@/lib/pdf-reports";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -619,126 +620,13 @@ export default function Results() {
     return doc;
   };
 
-  const generateSummaryPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' });
-    const pageHeight = doc.internal.pageSize.height;
-    const bottomMargin = 20;
-    
-    // Add tournament name as main title
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(currentTournament?.name || 'Tournament', 14, 12);
-    doc.setFont('helvetica', 'normal');
-    
-    // Add description if present
-    let summaryHeaderY = 18;
-    if (currentTournament?.description) {
-      doc.setFontSize(10);
-      doc.text(currentTournament.description, 14, summaryHeaderY);
-      summaryHeaderY += 5;
-    }
-    
-    // Add report type and generation date
-    doc.setFontSize(9);
-    const pdfTitle = isForecast ? 'Team Forecast (All Stages)' : 'Team Leaderboard (All Stages)';
-    doc.text(`${pdfTitle} - Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
-    
-    let startY = summaryHeaderY + 5;
-    
-    const pdfData = isForecast ? applyForecastSort(teamSummariesByStageAndDivision) : teamSummariesByStageAndDivision;
-    
-    pdfData.forEach(([stage, divisions], stageIndex) => {
-      // Add stage header
-      if (stageIndex > 0) {
-        startY += 10; // Add spacing between stages
-      }
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Stage: ${stageLabels[stage as keyof typeof stageLabels]}`, 14, startY);
-      doc.setFont('helvetica', 'normal');
-      startY += 6;
-      
-      divisions.forEach(([division, divisionSummaries], divIndex) => {
-        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
-        
-        // Conservative estimate for space needed (accounting for text wrapping)
-        // Header (5) + table header (~12) + rows (summaries.length * ~9 for potential wrapping) + spacing
-        const estimatedHeight = 5 + 12 + (divisionSummaries.length * 9) + 15;
-        
-        // Check if division will fit on current page (with conservative margin)
-        if (startY + estimatedHeight > pageHeight - bottomMargin && divIndex > 0) {
-          doc.addPage();
-          startY = 20; // Start near top of new page
-        } else if (divIndex > 0) {
-          startY += 8; // Add spacing between divisions within a stage on same page
-        }
-        
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(divisionLabel, 14, startY);
-        doc.setFont('helvetica', 'normal');
-        startY += 5;
-        
-        const tableData = divisionSummaries.map((summary) => [
-          summary.position !== null ? summary.position.toString() : '',
-          summary.teamName,
-          summary.gamesPlayed.toString(),
-          summary.gamesWon.toString(),
-          summary.gamesDrawn.toString(),
-          summary.gamesLost.toString(),
-          summary.points.toString(),
-          summary.scoreFor.toString(),
-          summary.scoreAgainst.toString(),
-          summary.scoreDifference.toString(),
-        ]);
-        
-        let isFirstPageForDivision = true;
-        autoTable(doc, {
-          head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
-          body: tableData,
-          startY: startY,
-          margin: { top: 25, bottom: 10, left: 14, right: 14 },
-          styles: {
-            fontSize: 10,
-            cellPadding: 3,
-          },
-          headStyles: {
-            fillColor: [41, 128, 185],
-            textColor: 255,
-            fontStyle: 'bold',
-          },
-          columnStyles: {
-            0: { cellWidth: 18, halign: 'center' },
-            1: { cellWidth: 60 },
-            2: { cellWidth: 22, halign: 'center' },
-            3: { cellWidth: 22, halign: 'center' },
-            4: { cellWidth: 22, halign: 'center' },
-            5: { cellWidth: 22, halign: 'center' },
-            6: { cellWidth: 22, halign: 'center' },
-            7: { cellWidth: 22, halign: 'center' },
-            8: { cellWidth: 22, halign: 'center' },
-            9: { cellWidth: 22, halign: 'center' },
-          },
-          didDrawPage: function (data) {
-            if (!isFirstPageForDivision) {
-              // Draw division header in the margin area on continuation pages
-              doc.setFontSize(11);
-              doc.setFont('helvetica', 'bold');
-              doc.text(divisionLabel, 14, 22);
-              doc.setFont('helvetica', 'normal');
-            }
-            isFirstPageForDivision = false;
-          }
-        });
-        
-        // @ts-ignore - autoTable adds finalY to doc
-        startY = doc.lastAutoTable.finalY + 5;
-      });
+  const generateSummaryPDF = () =>
+    buildLeaderboardPdf({
+      tournamentName: currentTournament?.name,
+      description: currentTournament?.description,
+      data: isForecast ? applyForecastSort(teamSummariesByStageAndDivision) : teamSummariesByStageAndDivision,
+      isForecast,
     });
-    
-    return doc;
-  };
 
   // e.g. "Summer League - Results - Stage 1 - 2026-10-19.pdf"
   const resultsFilename = (isSummary: boolean, ext: "pdf" | "xlsx") =>

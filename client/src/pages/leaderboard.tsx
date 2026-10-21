@@ -6,7 +6,10 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, FileText, Coins } from "lucide-react";
+import { ArrowLeft, Users, FileText, Coins, Printer } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { buildLeaderboardPdf, downloadAndPrintPdf } from "@/lib/pdf-reports";
+import { exportFilename } from "@/lib/utils";
 import { HelpDialog } from "@/components/help-dialog";
 import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
 import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
@@ -40,6 +43,7 @@ export default function Leaderboard() {
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
+  const { toast } = useToast();
 
   const { data: results, isLoading: resultsLoading } = useQuery<Result[]>({
     queryKey: ["/api/results", currentTournament?.id],
@@ -150,6 +154,27 @@ export default function Leaderboard() {
     });
   }, [matches, selectedTeamId]);
 
+  // Print: save the standings (Leaderboard or Forecast, as on screen) as a PDF and print it
+  const handlePrint = () => {
+    if (!currentTournament || displayData.length === 0) {
+      toast({ title: "Nothing to print yet", description: "There are no standings to print." });
+      return;
+    }
+    const doc = buildLeaderboardPdf({
+      tournamentName: currentTournament.name,
+      description: (currentTournament as any).description,
+      data: displayData,
+      isForecast,
+    });
+    const filename = exportFilename(currentTournament.name, isForecast ? "Forecast" : "Leaderboard", [], "pdf");
+    const outcome = downloadAndPrintPdf(doc, filename);
+    if (outcome === "printing") {
+      toast({ title: "PDF downloaded", description: "Saved to your Downloads folder. The print window is opening." });
+    } else if (outcome === "failed") {
+      toast({ title: "Couldn't create the PDF", description: "Please try again.", variant: "destructive" });
+    }
+  };
+
   // Show loading state while tournaments are being loaded, tournament is being resolved, or data is being fetched
   if (tournamentsLoading || resultsLoading || teamsLoading || matchesLoading) {
     return (
@@ -190,23 +215,27 @@ export default function Leaderboard() {
         </div>
 
         {/* Action buttons with labels, on their own row (scrolls sideways on narrow phones) */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+        <div className="flex flex-wrap items-center gap-1">
             {/* Signed-in organisers only; visitors have a separate public Teams link */}
             {!isReadOnly && (
               <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
-                <Button variant="outline" size="sm" className="flex-shrink-0 px-2" data-testid="button-view-teams">
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" data-testid="button-view-teams">
                   <Users className="h-4 w-4 mr-1.5" />
                   Teams
                 </Button>
               </Link>
             )}
+            <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" onClick={handlePrint} data-testid="button-print-leaderboard">
+              <Printer className="h-4 w-4 mr-1.5" />
+              Print
+            </Button>
             {(currentTournament as any).rulesPdfName && (
               <a
                 href={`/api/tournaments/${currentTournament.id}/rules`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Button variant="outline" size="sm" className="flex-shrink-0 px-2" data-testid="button-view-rules">
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" data-testid="button-view-rules">
                   <FileText className="h-4 w-4 mr-1.5" />
                   Rules
                 </Button>
@@ -215,12 +244,13 @@ export default function Leaderboard() {
             <Button
               variant="outline"
               size="sm"
-              className="flex-shrink-0 px-2"
+              className="flex-shrink-0 px-1.5 sm:px-2"
               onClick={() => window.open("/coin-toss/", "btm-coin-toss", "popup,width=480,height=800")}
               data-testid="button-coin-toss"
             >
               <Coins className="h-4 w-4 mr-1.5" />
-              Coin Toss
+              <span className="sm:hidden">Coin</span>
+              <span className="hidden sm:inline">Coin Toss</span>
             </Button>
             <AddToHomeScreenButton
               tournamentName={currentTournament.name}
@@ -228,7 +258,7 @@ export default function Leaderboard() {
               page="leaderboard"
               variant="sm"
               label="Shortcut"
-              buttonClassName="px-2"
+              buttonClassName="px-1.5 sm:px-2"
             />
             <HelpDialog title="Leaderboard - Help" label="Help">
               <div className="space-y-4">

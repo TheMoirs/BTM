@@ -25,8 +25,9 @@ export function HelpDialog({ title, children, label }: HelpDialogProps) {
       <DialogTrigger asChild>
         {label ? (
           <Button variant="outline" size="sm" className="flex-shrink-0 px-2" data-testid="button-help" aria-label="Open help dialog">
-            <HelpCircle className="h-4 w-4 mr-1.5" />
-            {label}
+            <HelpCircle className="h-4 w-4 sm:mr-1.5" />
+            {/* "?" alone on phones to save room; label on wider screens */}
+            <span className="hidden sm:inline">{label}</span>
           </Button>
         ) : (
           <Button
