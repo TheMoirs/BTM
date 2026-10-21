@@ -181,6 +181,7 @@ async function ensureRegistrationFeeColumns() {
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_account_number TEXT`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_iban TEXT`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_link TEXT`);
+    await client.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS fee_paid BOOLEAN NOT NULL DEFAULT false`);
     log("Database initialized: registration fee and payee columns ensured");
   } finally {
     client.release();

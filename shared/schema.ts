@@ -101,11 +101,13 @@ export const teams = pgTable("teams", {
   division: text("division").default("A"),
   homePiste: text("home_piste"),
   otherPlayers: text("other_players").array(),
+  // Registration fee received (ticked by the organiser)
+  feePaid: boolean("fee_paid").notNull().default(false),
 }, (table) => ({
   uniqueTeamPerTournament: unique().on(table.tournamentId, table.name),
 }));
 
-export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, feePaid: true }).extend({
   tournamentId: z.string().min(1, "Tournament is required"),
   teamDisplayId: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   name: z.string().min(1, "Team name is required"),

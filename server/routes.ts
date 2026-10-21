@@ -100,6 +100,57 @@ WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>`}
 </div>`;
 }
 
+// Let the tournament's organiser know a team has registered (or changed its details),
+// including whether the registration fee has been marked as paid.
+export function organiserEmailHtml(
+  tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, teamsUrl: string,
+  fee: { amount: string; reference: string } | null, feePaid: boolean,
+): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:0 12px 0 0;margin:0;line-height:1.4;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:0;margin:0;line-height:1.4;vertical-align:top"><strong>${value}</strong></td></tr>`;
+  const paidBadge = feePaid
+    ? `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:bold">Paid</span>`
+    : `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:bold">Not paid yet</span>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222;max-width:560px">
+<p><strong>${escapeHtml(d.name)}</strong> ${updated ? "has updated its registration for" : "has registered for"} <strong>${escapeHtml(tournamentName)}</strong>.</p>
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:8px 0 16px">${[
+  row("Team name", escapeHtml(d.name)),
+  row("Captain", escapeHtml(d.captainName)),
+  row("Phone", escapeHtml(d.captainPhone)),
+  row("Email", escapeHtml(d.captainEmail)),
+  row("Home piste", escapeHtml(d.homePiste)),
+  row("Other players", d.otherPlayers.map(escapeHtml).join("<br>")),
+  fee ? row("Registration fee", `${escapeHtml(fee.amount)} &nbsp;${paidBadge}`) : "",
+  fee ? row("Payment reference", escapeHtml(fee.reference)) : "",
+].join("")}</table>
+${fee && !feePaid ? `<p style="color:#555;font-size:14px">When the payment arrives, tick <strong>Paid</strong> for this team on the Teams page.</p>` : ""}
+<p><a href="${teamsUrl}" style="display:inline-block;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">OPEN TEAMS</a></p>
+<p style="color:#888;font-size:13px">Petanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
+</div>`;
+}
+
+async function sendOrganiserEmail(
+  req: any, t: { id: string; name: string; userId: string | null }, data: PublicRegistration, updated: boolean, teamId: string, fee: FeePayment | null,
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY || !t.userId) return;
+  try {
+    const owner = await storage.getUserById(t.userId);
+    if (!owner?.email) return;
+    const team = await storage.getTeam(teamId);
+    const { client, fromEmail } = await getUncachableResendClient();
+    const siteUrl = baseUrlOf(req);
+    const teamsUrl = `${siteUrl}/edit/teams?tournament=${encodeURIComponent(t.id)}`;
+    const subject = `${updated ? "Registration updated" : "New team registered"}: ${data.name} – ${t.name}`;
+    const result = await client.emails.send({
+      from: fromEmail, to: owner.email, replyTo: data.captainEmail, subject,
+      html: organiserEmailHtml(t.name, data, updated, siteUrl, teamsUrl, fee, !!team?.feePaid),
+    });
+    if (result.error) throw new Error(result.error.message);
+  } catch (e) {
+    console.error("[REGISTER] Failed to email the organiser:", e);
+  }
+}
+
 // Send the captain their confirmation (with an edit link), and if the contact email changed,
 // let the previous address know. Returns whether the captain's email was sent.
 // Registration still counts if sending fails.
@@ -623,6 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[REGISTER] Edited "${data.name}" for "${t.name}" via email link`);
         const fee = await feePaymentFor(t, data.name);
         const emailSent = await sendRegistrationEmails(req, t.name, data, true, team.id, team.captainEmail, fee);
+        await sendOrganiserEmail(req, t, data, true, team.id, fee);
         return res.json({ status: "updated", emailSent, fee });
       }
 
@@ -659,6 +711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const fee = await feePaymentFor(t, data.name);
       const emailSent = await sendRegistrationEmails(req, t.name, data, updated, teamId, existingDetails?.captainEmail, fee);
+      await sendOrganiserEmail(req, t, data, updated, teamId, fee);
       res.json({ status: updated ? "updated" : "created", emailSent, fee });
     } catch (error) {
       console.error("[REGISTER] Registration failed:", error);
@@ -1317,6 +1370,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to update team" });
       }
+    }
+  });
+
+  // Organisers tick a team's registration fee as paid (or not)
+  app.patch("/api/teams/:id/paid", async (req: any, res) => {
+    try {
+      if (!req.isAdminAccess) return res.status(403).json({ error: "Access denied" });
+      if (typeof req.body?.paid !== "boolean") return res.status(400).json({ error: "paid must be true or false" });
+      const team = await storage.getTeam(req.params.id);
+      if (!team) return res.status(404).json({ error: "Team not found" });
+      if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      if (!req.isMasterAdmin && req.sessionUser && !req.tokenTournamentId) {
+        const tournament = await storage.getTournament(team.tournamentId);
+        const isOwner = tournament?.userId === req.sessionUser.userId;
+        const isCollab = !isOwner && (await storage.isCollaborator(team.tournamentId, req.sessionUser.userId));
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.setTeamFeePaid(team.id, req.body.paid);
+      res.json(updated);
+    } catch (error) {
+      console.error("[TEAMS] Update paid failed:", error);
+      res.status(500).json({ error: "Failed to update payment status" });
     }
   });
 

@@ -8,6 +8,7 @@ import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -1094,6 +1095,25 @@ export default function Teams() {
   };
 
   // Hide the ID column when no team has an ID, unless someone is editing (so IDs can be added)
+  // Paid column (organisers only): shown when the tournament has a fee, or any team is already ticked
+  const showPaidColumn =
+    !isReadOnly && (((currentTournament as any)?.registrationFeeMinor ?? 0) > 0 || (teams ?? []).some((t) => (t as any).feePaid));
+  const [savingPaid, setSavingPaid] = useState<string | null>(null);
+  const setTeamPaid = async (teamId: string, paid: boolean) => {
+    const key = ["/api/teams", currentTournament?.id];
+    const previous = queryClient.getQueryData<Team[]>(key);
+    queryClient.setQueryData<Team[]>(key, (old) => old?.map((t) => (t.id === teamId ? ({ ...t, feePaid: paid } as Team) : t)));
+    setSavingPaid(teamId);
+    try {
+      await apiRequest("PATCH", `/api/teams/${teamId}/paid`, { paid });
+    } catch {
+      queryClient.setQueryData(key, previous);
+      toast({ title: "Couldn't save", description: "The payment status wasn't changed. Please try again.", variant: "destructive" });
+    } finally {
+      setSavingPaid(null);
+    }
+  };
+
   const showIdColumn =
     isEditAllMode || editingRowId !== null || (teams ?? []).some((team) => !!team.teamDisplayId);
 
@@ -1277,6 +1297,7 @@ export default function Teams() {
           "Captain Email": team.captainEmail || "",
           "Home Piste": team.homePiste || "",
           "Other Players": team.otherPlayers ? team.otherPlayers.join(", ") : "",
+          ...(showPaidColumn ? { Paid: (team as any).feePaid ? "Yes" : "No" } : {}),
         });
       });
     });
@@ -2118,6 +2139,9 @@ export default function Teams() {
                         <SortIcon column="otherPlayers" />
                       </button>
                     </TableHead>
+                    {showPaidColumn && (
+                      <TableHead className="w-[64px] text-center" data-testid="header-paid">Paid</TableHead>
+                    )}
                     {!isReadOnly && (
                       <TableHead className={isEditAllMode ? "w-[44px]" : "sm:w-[120px] text-right"}>
                         {isEditAllMode ? "" : "Actions"}
@@ -2288,6 +2312,17 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
+                        {showPaidColumn && (
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={!!(team as any).feePaid}
+                              onCheckedChange={(v) => setTeamPaid(team.id, v === true)}
+                              disabled={savingPaid === team.id}
+                              aria-label={`${team.name} has paid`}
+                              data-testid={`checkbox-paid-${team.id}`}
+                            />
+                          </TableCell>
+                        )}
                         {!isReadOnly && !isEditAllMode && (
                           <TableCell className="text-right">
                             {isEditing ? (
@@ -2420,6 +2455,7 @@ export default function Teams() {
                           data-testid={`input-edit-other-players-${id}`}
                         />
                       </TableCell>
+                      {showPaidColumn && <TableCell />}
                       <TableCell className="text-right">
                         <Button
                           size="icon"
@@ -2434,7 +2470,7 @@ export default function Teams() {
                   ))}
                   {isEditAllMode && (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-4">
+                      <TableCell colSpan={11} className="text-center py-4">
                         <Button
                           variant="outline"
                           size="sm"
