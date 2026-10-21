@@ -16,25 +16,41 @@ export function isMobileDevice(): boolean {
   return hasCoarsePointer || isTouchDevice || mobileUA;
 }
 
+/**
+ * Show a PDF made in the browser under a proper file name, in a frame (by its
+ * name) or a new tab ("_blank"). The PDF is sent to the server and comes straight
+ * back, so the browser's viewer saves it as `filename` instead of a random name.
+ */
+export function showNamedPdf(doc: jsPDF, filename: string, target: string): void {
+  const title = filename.replace(/\.pdf$/i, "");
+  try {
+    doc.setProperties({ title });
+  } catch {
+    /* title is just a nicety */
+  }
+  const base64 = String(doc.output("datauristring")).split(",")[1] || "";
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = `/api/pdf/${encodeURIComponent(filename)}`;
+  form.target = target;
+  form.style.display = "none";
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "pdf";
+  input.value = base64;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
+}
+
 export function openPdfMobile(doc: jsPDF, filename: string): boolean {
   try {
-    // Get blob URL directly from jsPDF - this is synchronous
-    const blobUrl = doc.output('bloburl');
-    
-    // Try opening in new tab first
-    const newWindow = window.open(String(blobUrl), '_blank');
-    
-    if (newWindow) {
-      return true;
-    }
-    
-    // If popup was blocked, try direct save
-    doc.save(filename);
+    // Opens in a new tab under its proper name; Share there gives Print and Save
+    showNamedPdf(doc, filename, "_blank");
     return true;
   } catch (error) {
     console.error('Failed to open PDF on mobile:', error);
-    
-    // Fallback: try save method
     try {
       doc.save(filename);
       return true;

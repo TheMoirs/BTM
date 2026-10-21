@@ -49,6 +49,7 @@ import {
 import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -136,8 +137,7 @@ export default function Matches() {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
   const [showFindEditDialog, setShowFindEditDialog] = useState(false);
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
   const [isFindEditMode, setIsFindEditMode] = useState(false);
@@ -1279,10 +1279,6 @@ export default function Matches() {
     ], ext);
 
   const openPdfViewer = async () => {
-    if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(pdfBlobUrl);
-    }
-    
     const doc = generatePDFDocument();
     const filename = matchesFilename("pdf");
     
@@ -1297,10 +1293,7 @@ export default function Matches() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
-      setShowPdfViewer(true);
+      setPdfPreview({ doc, filename });
     }
   };
 
@@ -1383,28 +1376,6 @@ export default function Matches() {
       title: "Excel file saved",
       description: "The Excel file has been downloaded to your default downloads folder.",
     });
-  };
-
-  const handlePdfPrint = () => {
-    if (pdfBlobUrl) {
-      const printWindow = window.open(pdfBlobUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    }
-  };
-
-  const closePdfViewer = () => {
-    setShowPdfViewer(false);
-    if (pdfBlobUrl) {
-      // Only revoke blob URLs, not data URLs
-      if (pdfBlobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
-      setPdfBlobUrl(null);
-    }
   };
 
   if (isLoading) {
@@ -2339,74 +2310,12 @@ export default function Matches() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
-          <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
-            <DialogHeader>
-              <DialogTitle>Matches Report Preview</DialogTitle>
-              <p id="pdf-viewer-description" className="sr-only">
-                Preview the PDF report before saving or printing
-              </p>
-            </DialogHeader>
-            <div className="flex-1 overflow-hidden flex flex-col gap-4">
-              <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-                {pdfBlobUrl && (
-                  <iframe
-                    src={pdfBlobUrl}
-                    className="w-full h-full"
-                    title="PDF Preview"
-                    data-testid="pdf-preview-iframe"
-                  />
-                )}
-              </div>
-              <div className="flex gap-2 justify-end flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      data-testid="button-save-dropdown"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-save-pdf">
-                      <FileDown className="h-4 w-4 mr-2" />
-                      PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-save-excel">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Excel
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
-                  data-testid="button-open-new-tab-pdf"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in New Tab
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handlePdfPrint}
-                  data-testid="button-print-pdf"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={closePdfViewer}
-                  data-testid="button-close-pdf"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <PdfPreviewDialog
+          title="Matches Report Preview"
+          preview={pdfPreview}
+          onClose={() => setPdfPreview(null)}
+          onExcel={handleExcelSave}
+        />
       </div>
     </div>
   );

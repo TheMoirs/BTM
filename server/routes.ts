@@ -370,6 +370,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ publicUrl: publicUrlSetting() });
   });
 
+  // ── Show a PDF made in the browser under a proper file name ───────────────
+  // The page posts the PDF here (into its preview frame or a new tab) and gets it
+  // straight back, so the browser's PDF viewer saves it as e.g.
+  // "Summer League - Leaderboard - 2026-10-21.pdf" rather than a random name.
+  // Only accepted from this site's own pages, and only real PDFs; nothing is stored.
+  app.post("/api/pdf/:filename", (req, res) => {
+    const origin = String(req.get("origin") || req.get("referer") || "");
+    let sameSite = false;
+    try {
+      sameSite = !!origin && new URL(origin).host === req.get("host");
+    } catch {
+      sameSite = false;
+    }
+    if (!sameSite) return res.status(403).send("Not allowed");
+
+    const data = typeof req.body?.pdf === "string" ? req.body.pdf : "";
+    const pdf = Buffer.from(data, "base64");
+    if (pdf.length < 5 || pdf.length > 8 * 1024 * 1024 || pdf.subarray(0, 5).toString("latin1") !== "%PDF-") {
+      return res.status(400).send("Not a PDF");
+    }
+
+    const wanted = String(req.params.filename || "report.pdf").replace(/[\\/:*?"<>|\r\n]+/g, "-").slice(0, 150);
+    const filename = /\.pdf$/i.test(wanted) ? wanted : `${wanted}.pdf`;
+    const asciiName = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.send(pdf);
+  });
+
   // ── Web app manifest for "Add to home screen / desktop" shortcuts ─────────
   // /api/public/manifest?name=Summer League-Leaderboard&start=/leaderboard/summer-league
   // The shortcut is named after the tournament and page, and opens that page.

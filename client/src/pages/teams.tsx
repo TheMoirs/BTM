@@ -47,6 +47,7 @@ import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown,
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
 import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 import { downloadAndPrintPdf } from "@/lib/pdf-reports";
 import * as XLSX from "xlsx";
@@ -181,8 +182,7 @@ export default function Teams() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
   const [isSharingLink, setIsSharingLink] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTournamentRef = useRef<string | null>(null);
@@ -1250,10 +1250,7 @@ export default function Teams() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
-      setShowPdfViewer(true);
+      setPdfPreview({ doc, filename });
     }
   };
 
@@ -1297,36 +1294,6 @@ export default function Teams() {
     });
   };
 
-  const handlePdfSave = () => {
-    if (filteredGroupedByDivision.length === 0) {
-      toast({
-        title: "No teams to export",
-        description: divisionFilter === "all" ? "There are no teams to download yet." : "There are no teams in the selected division.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const doc = generatePDFDocument();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const filename = teamsFilename("pdf");
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "PDF saved",
-      description: "The PDF has been downloaded to your default downloads folder.",
-    });
-  };
-
   // Print button for view-only visitors: save the teams list as a PDF and print it
   const handleDownloadAndPrint = () => {
     if (filteredGroupedByDivision.length === 0) {
@@ -1341,17 +1308,6 @@ export default function Teams() {
       toast({ title: "PDF downloaded", description: "Saved to your Downloads folder. The print window is opening." });
     } else if (outcome === "failed") {
       toast({ title: "Couldn't create the PDF", description: "Please try again.", variant: "destructive" });
-    }
-  };
-
-  const handlePdfPrint = () => {
-    if (pdfBlobUrl) {
-      const printWindow = window.open(pdfBlobUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
     }
   };
 
@@ -1497,16 +1453,6 @@ export default function Teams() {
     }
   };
 
-  const closePdfViewer = () => {
-    setShowPdfViewer(false);
-    if (pdfBlobUrl) {
-      if (pdfBlobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
-      setPdfBlobUrl(null);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -1595,10 +1541,6 @@ export default function Teams() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-download-pdf">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     Excel
@@ -2587,74 +2529,12 @@ export default function Teams() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
-          <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
-            <DialogHeader>
-              <DialogTitle>Teams Report Preview</DialogTitle>
-              <p id="pdf-viewer-description" className="sr-only">
-                Preview the PDF report before saving or printing
-              </p>
-            </DialogHeader>
-            <div className="flex-1 overflow-hidden flex flex-col gap-4">
-              <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-                {pdfBlobUrl && (
-                  <iframe
-                    src={pdfBlobUrl}
-                    className="w-full h-full"
-                    title="PDF Preview"
-                    data-testid="pdf-preview-iframe"
-                  />
-                )}
-              </div>
-              <div className="flex gap-2 justify-end flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      data-testid="button-save-dropdown"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-save-pdf">
-                      <FileDown className="h-4 w-4 mr-2" />
-                      PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-save-excel">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Excel
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
-                  data-testid="button-open-new-tab-pdf"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in New Tab
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handlePdfPrint}
-                  data-testid="button-print-pdf"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={closePdfViewer}
-                  data-testid="button-close-pdf"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <PdfPreviewDialog
+          title="Teams Report Preview"
+          preview={pdfPreview}
+          onClose={() => setPdfPreview(null)}
+          onExcel={handleExcelSave}
+        />
       </div>
     </div>
   );

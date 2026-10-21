@@ -36,6 +36,7 @@ import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, Fil
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
+import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
 import { buildLeaderboardPdf } from "@/lib/pdf-reports";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -82,10 +83,8 @@ export default function Results() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [stageFilter, setStageFilter] = useState<string>("all");
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [showSummaryPdfViewer, setShowSummaryPdfViewer] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [summaryPdfBlobUrl, setSummaryPdfBlobUrl] = useState<string | null>(null);
+  // PDF preview (detailed results, or the leaderboard / forecast standings)
+  const [pdfPreview, setPdfPreview] = useState<(PdfPreview & { isSummary: boolean }) | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [isSharingLink, setIsSharingLink] = useState(false);
   
@@ -94,6 +93,8 @@ export default function Results() {
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
+  // Leaderboard and Forecast tabs download / print the standings; other views the detailed results
+  const isSummaryView = showInlineLeaderboard && !showMatchResults;
   
   const { toast } = useToast();
 
@@ -652,10 +653,7 @@ export default function Results() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
-      setShowPdfViewer(true);
+      setPdfPreview({ doc, filename, isSummary: false });
     }
   };
 
@@ -674,33 +672,8 @@ export default function Results() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setSummaryPdfBlobUrl(url);
-      setShowSummaryPdfViewer(true);
+      setPdfPreview({ doc, filename, isSummary: true });
     }
-  };
-
-  const handlePdfSave = (isSummary: boolean) => {
-    const doc = isSummary ? generateSummaryPDF() : generateResultsPDF();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const filename = resultsFilename(isSummary, "pdf");
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "PDF saved",
-      description: "The PDF has been downloaded to your default downloads folder.",
-    });
   };
 
   const handleExcelSave = (isSummary: boolean) => {
@@ -769,34 +742,6 @@ export default function Results() {
     });
   };
 
-  const handlePdfPrint = (isSummary: boolean) => {
-    const blobUrl = isSummary ? summaryPdfBlobUrl : pdfBlobUrl;
-    if (blobUrl) {
-      const printWindow = window.open(blobUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    }
-  };
-
-  const closePdfViewer = () => {
-    setShowPdfViewer(false);
-    if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(pdfBlobUrl);
-    }
-    setPdfBlobUrl(null);
-  };
-
-  const closeSummaryPdfViewer = () => {
-    setShowSummaryPdfViewer(false);
-    if (summaryPdfBlobUrl && summaryPdfBlobUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(summaryPdfBlobUrl);
-    }
-    setSummaryPdfBlobUrl(null);
-  };
-
   return (
     <div className="container mx-auto py-3 sm:py-6 space-y-3">
       {/* Compact header: title + stage filter, then one scrollable row of actions */}
@@ -849,15 +794,11 @@ export default function Results() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handlePdfSave(false)} data-testid="menu-item-download-pdf">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExcelSave(false)} data-testid="menu-item-download-excel">
+                  <DropdownMenuItem onClick={() => handleExcelSave(isSummaryView)} data-testid="menu-item-download-excel">
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     Excel
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
+                  <DropdownMenuItem onClick={isSummaryView ? openSummaryPdfViewer : openPdfViewer} data-testid="menu-item-preview-print">
                     <Printer className="h-4 w-4 mr-2" />
                     Preview / Print
                   </DropdownMenuItem>
@@ -1514,143 +1455,12 @@ export default function Results() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
-        <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
-          <DialogHeader>
-            <DialogTitle>Results Report Preview</DialogTitle>
-            <p id="pdf-viewer-description" className="sr-only">
-              Preview the PDF report before saving or printing
-            </p>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-              {pdfBlobUrl && (
-                <iframe
-                  src={pdfBlobUrl}
-                  className="w-full h-full"
-                  title="PDF Preview"
-                  data-testid="pdf-preview-iframe"
-                />
-              )}
-            </div>
-            <div className="flex gap-2 justify-end flex-wrap">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    data-testid="button-save-dropdown"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handlePdfSave(false)} data-testid="menu-item-save-pdf">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExcelSave(false)} data-testid="menu-item-save-excel">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="outline"
-                onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
-                data-testid="button-open-new-tab-pdf"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in New Tab
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handlePdfPrint(false)}
-                data-testid="button-print-pdf"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button
-                variant="outline"
-                onClick={closePdfViewer}
-                data-testid="button-close-pdf"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showSummaryPdfViewer} onOpenChange={(open) => !open && closeSummaryPdfViewer()}>
-        <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="summary-pdf-viewer-description">
-          <DialogHeader>
-            <DialogTitle>Leaderboard Report Preview</DialogTitle>
-            <p id="summary-pdf-viewer-description" className="sr-only">
-              Preview the PDF leaderboard report before saving or printing
-            </p>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-              {summaryPdfBlobUrl && (
-                <iframe
-                  src={summaryPdfBlobUrl}
-                  className="w-full h-full"
-                  title="PDF Preview"
-                  data-testid="summary-pdf-preview-iframe"
-                />
-              )}
-            </div>
-            <div className="flex gap-2 justify-end flex-wrap">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    data-testid="button-save-summary-dropdown"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handlePdfSave(true)} data-testid="menu-item-save-summary-pdf">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExcelSave(true)} data-testid="menu-item-save-summary-excel">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="outline"
-                onClick={() => summaryPdfBlobUrl && window.open(summaryPdfBlobUrl, '_blank')}
-                data-testid="button-open-new-tab-summary-pdf"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in New Tab
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handlePdfPrint(true)}
-                data-testid="button-print-summary-pdf"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button
-                variant="outline"
-                onClick={closeSummaryPdfViewer}
-                data-testid="button-close-summary-pdf"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PdfPreviewDialog
+        title={pdfPreview?.isSummary ? (isForecast ? "Forecast Report Preview" : "Leaderboard Report Preview") : "Results Report Preview"}
+        preview={pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        onExcel={() => handleExcelSave(!!pdfPreview?.isSummary)}
+      />
     </div>
   );
 }
