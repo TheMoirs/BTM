@@ -1,12 +1,13 @@
 // Keeps a copy of Coin Toss on the device so it works without an internet connection.
 // Only covers /coin-toss/; the rest of BTM is unaffected.
-const CACHE = "btm-coin-toss-v5";
+const CACHE = "btm-coin-toss-v6";
 const FILES = [
   "/coin-toss/",
   "/coin-toss/index.html",
   "/coin-toss/coin-art.js",
   "/coin-toss/manifest.webmanifest",
   "/coin-toss/logo.png",
+  "/coin-toss/favicon.png",
   "/coin-toss/icon-192.png",
   "/coin-toss/icon-512.png",
   "/coin-toss/apple-touch-icon.png",
