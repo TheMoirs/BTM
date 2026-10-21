@@ -336,3 +336,34 @@
     -moz-appearance: textfield;
   }
 }
+/* ── Printing the web page itself (browser's Share → Print / Ctrl+P) ─────────
+   The Print buttons make a proper PDF; this keeps a page printed directly
+   tidy too: no pinned top bar landing mid-page (some iPhones print it where
+   it sat on screen), no buttons, and whole tables instead of cut-off columns. */
+@media print {
+  @page { margin: 10mm; }
+  html, body { background: #fff !important; }
+
+  nav,
+  [role="tablist"],
+  [data-testid="text-leaderboard-tip"],
+  button:not(table button),
+  [role="combobox"],
+  [role="region"][aria-label^="Notifications"] {
+    display: none !important;
+  }
+
+  .sticky, .fixed { position: static !important; }
+  .overflow-x-auto, .overflow-auto, .overflow-hidden { overflow: visible !important; }
+
+  table { width: 100% !important; font-size: 9px !important; line-height: 1.25 !important; }
+  th, td { padding: 2px 3px !important; height: auto !important; min-width: 0 !important; width: auto !important;
+           font-size: 9px !important; word-break: normal !important; overflow-wrap: break-word; }
+  th svg, td svg { display: none !important; }   /* sort arrows, message icons */
+  td *, th * { font-size: 9px !important; }
+  .shadcn-card { box-shadow: none !important; }
+  .shadcn-card > div { padding: 4px !important; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  table button { pointer-events: none; }
+}
