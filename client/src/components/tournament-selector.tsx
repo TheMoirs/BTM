@@ -48,6 +48,7 @@ import { Trophy, Plus, ChevronDown, Trash2, Pencil, UserRoundCheck, Users, X, Fi
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { RegistrationFeeFields } from "@/components/registration-fee-fields";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament, lockedTournamentId } = useTournament();
@@ -196,6 +197,8 @@ export function TournamentSelector() {
       pointsForNoShow: 0,
       numberOfPistes: null,
       registrationDeadline: null,
+      registrationFeeMinor: null,
+      registrationFeeCurrency: "GBP",
     },
   });
 
@@ -477,6 +480,8 @@ export function TournamentSelector() {
                   </FormItem>
                 )}
               />
+
+              <RegistrationFeeFields control={form.control} testIdSuffix="-1" />
 
               <FormField
                 control={form.control}
@@ -782,6 +787,8 @@ export function TournamentSelector() {
                         pointsForNoShow: (tournament as any).pointsForNoShow ?? 0,
                         numberOfPistes: (tournament as any).numberOfPistes ?? null,
                         registrationDeadline: (tournament as any).registrationDeadline ?? null,
+                        registrationFeeMinor: (tournament as any).registrationFeeMinor ?? null,
+                        registrationFeeCurrency: (tournament as any).registrationFeeCurrency ?? "GBP",
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}
@@ -909,6 +916,8 @@ export function TournamentSelector() {
                   </FormItem>
                 )}
               />
+
+              <RegistrationFeeFields control={form.control} testIdSuffix="-2" />
 
               <FormField
                 control={form.control}
@@ -1113,6 +1122,8 @@ export function TournamentSelector() {
                   </FormItem>
                 )}
               />
+
+              <RegistrationFeeFields control={form.control} testIdSuffix="-3" />
 
               <FormField
                 control={form.control}

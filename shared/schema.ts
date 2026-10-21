@@ -14,6 +14,12 @@ export const users = pgTable("users", {
   isBlocked: boolean("is_blocked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   clerkUserId: text("clerk_user_id"),
+  // Where teams pay registration fees for this organiser's tournaments
+  payeeAccountName: text("payee_account_name"),
+  payeeSortCode: text("payee_sort_code"),
+  payeeAccountNumber: text("payee_account_number"),
+  payeeIban: text("payee_iban"),
+  paymentLink: text("payment_link"), // e.g. monzo.me/name or paypal.me/name
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -54,6 +60,9 @@ export const tournaments = pgTable("tournaments", {
   slug: text("slug"),
   // Optional "register by" date (YYYY-MM-DD), shown on the team registration page
   registrationDeadline: text("registration_deadline"),
+  // Optional team registration fee, in pence/cents, and its currency
+  registrationFeeMinor: integer("registration_fee_minor"),
+  registrationFeeCurrency: text("registration_fee_currency").notNull().default("GBP"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
@@ -74,6 +83,8 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   registrationDeadline: z.string().transform(v => (v.trim() === "" ? null : v.trim())).pipe(
     z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Please choose a valid date"), z.null()]),
   ).nullable().optional(),
+  registrationFeeMinor: z.number().int().min(0, "The fee can't be negative").max(100000000, "That fee is too large").nullable().optional(),
+  registrationFeeCurrency: z.enum(["GBP", "EUR", "USD"]).default("GBP"),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;

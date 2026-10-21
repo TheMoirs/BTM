@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { publicRegistrationSchema, REGISTRATION_CONTACT } from "@shared/registration";
+import { FeePaymentPanel, type FeePayment } from "@/components/fee-payment-panel";
 
 type FormValues = {
   name: string;
@@ -76,13 +77,14 @@ function Shell({ children }: { children: React.ReactNode }) {
 export default function RegisterTeamPage({ slug }: { slug: string }) {
   const [tournamentName, setTournamentName] = useState<string | null>(null);
   const [registerBy, setRegisterBy] = useState<string | null>(null);
+  const [registrationFee, setRegistrationFee] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "missing" | "form" | "conflict" | "done">("loading");
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [honeypot, setHoneypot] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [existing, setExisting] = useState<ExistingTeam | null>(null);
-  const [outcome, setOutcome] = useState<{ status: "created" | "updated"; emailSent: boolean } | null>(null);
+  const [outcome, setOutcome] = useState<{ status: "created" | "updated"; emailSent: boolean; fee: FeePayment | null } | null>(null);
   const [discarded, setDiscarded] = useState(false);
   // From the "Need to change your details?" link in the confirmation email
   const [editCode] = useState(() => new URLSearchParams(window.location.search).get("edit"));
@@ -97,6 +99,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         if (!data?.name) return setState("missing");
         setTournamentName(data.name);
         setRegisterBy(formatRegisterBy(data.registrationDeadline));
+        setRegistrationFee(data.registrationFee ?? null);
         document.title = `${editCode ? "Update registration" : "Register"} for ${data.name}`;
 
         if (editCode) {
@@ -156,7 +159,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         setError(data.error || "Something went wrong. Please try again.");
         setState("form");
       } else {
-        setOutcome({ status: data.status, emailSent: !!data.emailSent });
+        setOutcome({ status: data.status, emailSent: !!data.emailSent, fee: data.fee ?? null });
         setState("done");
       }
     } catch {
@@ -205,9 +208,10 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {outcome.fee && <FeePaymentPanel fee={outcome.fee} />}
             <p className="text-sm">
               {outcome.emailSent
-                ? <>A confirmation email with your details has been sent to <strong>{values.captainEmail.trim()}</strong>.</>
+                ? <>A confirmation email with your details{outcome.fee ? " and how to pay" : ""} has been sent to <strong>{values.captainEmail.trim()}</strong>.</>
                 : <>We couldn't send a confirmation email just now, but your registration has been saved.</>}
             </p>
             <ContactDetails />
@@ -311,6 +315,11 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
           {registerBy && !isEditing && (
             <p className="pt-2 text-base font-semibold" data-testid="text-register-by">
               Please register by {registerBy}.
+            </p>
+          )}
+          {registrationFee && !isEditing && (
+            <p className="pt-1 text-base" data-testid="text-registration-fee">
+              Registration fee: <strong>{registrationFee}</strong> per team. You can pay straight after registering.
             </p>
           )}
         </CardHeader>

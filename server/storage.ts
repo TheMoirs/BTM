@@ -82,6 +82,7 @@ export interface IStorage {
   setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
   updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined>;
   updateUserProfile(id: string, displayName: string | null): Promise<User | undefined>;
+  updatePayeeDetails(id: string, d: { payeeAccountName: string | null; payeeSortCode: string | null; payeeAccountNumber: string | null; payeeIban: string | null; paymentLink: string | null }): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
 
@@ -1099,6 +1100,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserProfile(id: string, displayName: string | null): Promise<User | undefined> {
     const [user] = await db.update(users).set({ displayName }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async updatePayeeDetails(id: string, d: { payeeAccountName: string | null; payeeSortCode: string | null; payeeAccountNumber: string | null; payeeIban: string | null; paymentLink: string | null }): Promise<User | undefined> {
+    const [user] = await db.update(users).set(d).where(eq(users.id, id)).returning();
     return user || undefined;
   }
 

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result, type Tournament } from "@shared/schema";
+import { formatFee, paymentReference, buildPayNowUrl, payeeDetailsProblem, normaliseSortCode, normaliseIban, formatSortCode, formatIban, describePaymentLink } from "@shared/payments";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
@@ -16,7 +17,62 @@ function escapeHtml(v: string): string {
 }
 
 // Confirmation email sent to a team captain after they register (or update) via /register/<tournament>
-function registrationEmailHtml(tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, editUrl: string | null): string {
+// What teams see about paying the registration fee (null when there's no fee)
+type FeePayment = {
+  amount: string;          // e.g. "£10"
+  minor: number;
+  currency: string;
+  reference: string;       // e.g. "BATH BOMBERS"
+  payNowUrl: string | null;
+  payNowLabel: string | null;
+  bank: { accountName: string | null; sortCode: string | null; accountNumber: string | null; iban: string | null } | null;
+};
+
+async function feePaymentFor(t: { registrationFeeMinor: number | null; registrationFeeCurrency: string; userId: string | null }, teamName: string | null): Promise<FeePayment | null> {
+  if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0) return null;
+  const owner = t.userId ? await storage.getUserById(t.userId) : undefined;
+  const reference = paymentReference(teamName || "TEAM FEE");
+  const link = owner?.paymentLink ? describePaymentLink(owner.paymentLink) : null;
+  const hasBank = !!(owner?.payeeSortCode || owner?.payeeIban);
+  return {
+    amount: formatFee(t.registrationFeeMinor, t.registrationFeeCurrency),
+    minor: t.registrationFeeMinor,
+    currency: t.registrationFeeCurrency,
+    reference,
+    payNowUrl: owner?.paymentLink ? buildPayNowUrl(owner.paymentLink, t.registrationFeeMinor, t.registrationFeeCurrency, reference) : null,
+    payNowLabel: link ? (link.kind === "monzo" ? "Monzo" : link.kind === "paypal" ? "PayPal" : null) : null,
+    bank: hasBank && owner
+      ? {
+          accountName: owner.payeeAccountName,
+          sortCode: owner.payeeSortCode ? formatSortCode(owner.payeeSortCode) : null,
+          accountNumber: owner.payeeAccountNumber,
+          iban: owner.payeeIban ? formatIban(owner.payeeIban) : null,
+        }
+      : null,
+  };
+}
+
+export function feeEmailHtml(p: FeePayment): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:0 12px 0 0;color:#555;white-space:nowrap">${label}</td><td style="padding:0"><strong>${escapeHtml(value)}</strong></td></tr>`;
+  const bankRows = p.bank
+    ? [
+        p.bank.accountName && row("Account name", p.bank.accountName),
+        p.bank.sortCode && row("Sort code", p.bank.sortCode),
+        p.bank.accountNumber && row("Account number", p.bank.accountNumber),
+        p.bank.iban && row("IBAN", p.bank.iban),
+        row("Reference", p.reference),
+      ].filter(Boolean).join("")
+    : "";
+  return `<div style="margin:16px 0;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
+<p style="margin:0 0 8px"><strong>Registration fee: ${escapeHtml(p.amount)}</strong></p>
+${p.payNowUrl ? `<p style="margin:0 0 10px"><a href="${p.payNowUrl}" style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">PAY NOW${p.payNowLabel ? ` (${p.payNowLabel})` : ""}</a></p>` : ""}
+${bankRows ? `<p style="margin:0 0 4px">${p.payNowUrl ? "Or pay by bank transfer:" : "Please pay by bank transfer:"}</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
+${!p.payNowUrl && !bankRows ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
+</div>`;
+}
+
+export function registrationEmailHtml(tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, editUrl: string | null, fee: FeePayment | null = null): string {
   const row = (label: string, value: string) =>
     `<tr><td style="padding:0 12px 0 0;margin:0;line-height:1.4;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:0;margin:0;line-height:1.4;vertical-align:top"><strong>${value}</strong></td></tr>`;
   const c = REGISTRATION_CONTACT;
@@ -32,6 +88,7 @@ function registrationEmailHtml(tournamentName: string, d: PublicRegistration, up
   row("Home piste", escapeHtml(d.homePiste)),
   row("Other players", d.otherPlayers.map(escapeHtml).join("<br>")),
 ].join("")}</table>
+${fee ? feeEmailHtml(fee) : ""}
 ${editUrl
   ? `<p style="margin:20px 0"><strong>Need to change your details?</strong> <a href="${editUrl}" style="display:inline-block;margin-left:6px;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">CLICK HERE</a></p>
 <p style="color:#555;font-size:14px">Any questions? Contact ${c.name} by email at <a href="mailto:${c.email}">${c.email}</a> or on WhatsApp at <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a>.</p>`
@@ -47,7 +104,7 @@ WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>`}
 // let the previous address know. Returns whether the captain's email was sent.
 // Registration still counts if sending fails.
 async function sendRegistrationEmails(
-  req: any, tournamentName: string, data: PublicRegistration, updated: boolean, teamId: string, previousEmail?: string | null,
+  req: any, tournamentName: string, data: PublicRegistration, updated: boolean, teamId: string, previousEmail?: string | null, fee: FeePayment | null = null,
 ): Promise<boolean> {
   if (!process.env.RESEND_API_KEY) return false;
   try {
@@ -57,7 +114,7 @@ async function sendRegistrationEmails(
     const subject = `${updated ? "Registration updated" : "You're registered"}: ${tournamentName}`;
     const result = await client.emails.send({
       from: fromEmail, to: data.captainEmail, replyTo: REGISTRATION_CONTACT.email, subject,
-      html: registrationEmailHtml(tournamentName, data, updated, siteUrl, editUrl),
+      html: registrationEmailHtml(tournamentName, data, updated, siteUrl, editUrl, fee),
     });
     if (result.error) throw new Error(result.error.message);
 
@@ -322,6 +379,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Organiser's payment details for registration fees ──────────────────────
+  app.get("/api/auth/payment-details", async (req: any, res) => {
+    const session = getSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Not authenticated" });
+    const u = await storage.getUserById(session.userId);
+    if (!u) return res.status(401).json({ error: "Not authenticated" });
+    res.json({
+      accountName: u.payeeAccountName ?? "",
+      sortCode: u.payeeSortCode ? formatSortCode(u.payeeSortCode) : "",
+      accountNumber: u.payeeAccountNumber ?? "",
+      iban: u.payeeIban ? formatIban(u.payeeIban) : "",
+      paymentLink: u.paymentLink ?? "",
+    });
+  });
+
+  app.put("/api/auth/payment-details", async (req: any, res) => {
+    try {
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+      const u = await storage.getUserById(session.userId);
+      if (!u || u.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
+      const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+      const d = {
+        accountName: str(req.body?.accountName, 70),
+        sortCode: str(req.body?.sortCode, 12),
+        accountNumber: str(req.body?.accountNumber, 12),
+        iban: str(req.body?.iban, 50),
+        paymentLink: str(req.body?.paymentLink, 300),
+      };
+      const problem = payeeDetailsProblem(d);
+      if (problem) return res.status(400).json({ error: problem });
+      const link = d.paymentLink ? describePaymentLink(d.paymentLink) : null;
+      await storage.updatePayeeDetails(u.id, {
+        payeeAccountName: d.accountName,
+        payeeSortCode: d.sortCode ? normaliseSortCode(d.sortCode) : null,
+        payeeAccountNumber: d.accountNumber ? d.accountNumber.replace(/\s/g, "") : null,
+        payeeIban: d.iban ? normaliseIban(d.iban) : null,
+        paymentLink: link ? link.url : null,
+      });
+      console.log(`[AUTH] Payment details updated for: ${u.email}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Payment details error:", error);
+      res.status(500).json({ error: "Failed to save payment details" });
+    }
+  });
+
   app.patch("/api/auth/password", async (req, res) => {
     try {
       const session = getSessionFromRequest(req);
@@ -451,7 +555,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const t = await storage.getTournamentBySlug(String(req.params.slug));
       if (!t) return res.status(404).json({ error: "Tournament not found" });
-      res.json({ tournamentId: t.id, name: t.name, viewToken: t.viewToken, registrationDeadline: t.registrationDeadline ?? null });
+      res.json({
+        tournamentId: t.id, name: t.name, viewToken: t.viewToken, registrationDeadline: t.registrationDeadline ?? null,
+        registrationFee: t.registrationFeeMinor && t.registrationFeeMinor > 0 ? formatFee(t.registrationFeeMinor, t.registrationFeeCurrency) : null,
+      });
     } catch (error) {
       console.error("[PUBLIC] Slug lookup failed:", error);
       res.status(500).json({ error: "Failed to look up tournament" });
@@ -514,8 +621,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         await storage.updateTeamRegistration(team.id, data);
         console.log(`[REGISTER] Edited "${data.name}" for "${t.name}" via email link`);
-        const emailSent = await sendRegistrationEmails(req, t.name, data, true, team.id, team.captainEmail);
-        return res.json({ status: "updated", emailSent });
+        const fee = await feePaymentFor(t, data.name);
+        const emailSent = await sendRegistrationEmails(req, t.name, data, true, team.id, team.captainEmail, fee);
+        return res.json({ status: "updated", emailSent, fee });
       }
 
       const existing = await storage.findTeamByName(t.id, data.name);
@@ -549,8 +657,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`[REGISTER] ${updated ? "Updated" : "Registered"} "${data.name}" for "${t.name}"`);
 
-      const emailSent = await sendRegistrationEmails(req, t.name, data, updated, teamId, existingDetails?.captainEmail);
-      res.json({ status: updated ? "updated" : "created", emailSent });
+      const fee = await feePaymentFor(t, data.name);
+      const emailSent = await sendRegistrationEmails(req, t.name, data, updated, teamId, existingDetails?.captainEmail, fee);
+      res.json({ status: updated ? "updated" : "created", emailSent, fee });
     } catch (error) {
       console.error("[REGISTER] Registration failed:", error);
       res.status(500).json({ error: "Something went wrong saving your registration. Please try again." });

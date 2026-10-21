@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
+import { PaymentDetailsSection } from "@/components/payment-details-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/contexts/ViewModeContext";
@@ -288,11 +289,11 @@ export function Navigation() {
         if (!open) { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }
         setShowChangePassword(open);
       }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Profile Settings</DialogTitle>
             <DialogDescription>
-              Update your display name or change your password.
+              Update your display name, registration fee payment details or password.
             </DialogDescription>
           </DialogHeader>
 
@@ -318,6 +319,9 @@ export function Navigation() {
               </Button>
             </div>
           </form>
+
+          {/* Registration fee payment details */}
+          <PaymentDetailsSection />
 
           {/* Change password section */}
           <form onSubmit={handleChangePassword} className="space-y-3 pt-2">

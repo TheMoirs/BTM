@@ -171,6 +171,22 @@ async function ensureShortLinkTinyUrl() {
   }
 }
 
+async function ensureRegistrationFeeColumns() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee_minor INTEGER`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee_currency TEXT NOT NULL DEFAULT 'GBP'`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_account_name TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_sort_code TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_account_number TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_iban TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_link TEXT`);
+    log("Database initialized: registration fee and payee columns ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureClerkUserIdColumn() {
   const client = await pool.connect();
   try {
@@ -255,6 +271,7 @@ async function migrateOrphanedTournaments() {
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users
   await ensureClerkUserIdColumn();
+  await ensureRegistrationFeeColumns();
   // Ensure collaborators table exists
   await ensureCollaboratorsTable();
   // Assign any pre-existing tournaments (userId=null) to ali@themoirs.co.uk
