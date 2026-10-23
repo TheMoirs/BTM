@@ -378,3 +378,20 @@ html.printing [role="combobox"] {
 }
 html.printing .sticky,
 html.printing .fixed { position: static !important; }
+
+/* Phone print page (components/mobile-pdf-viewer.tsx): only the report pages are printed */
+html.ptm-pdf-open, html.ptm-pdf-open body { overflow: hidden; }
+@media print {
+  html.ptm-pdf-open, html.ptm-pdf-open body { overflow: visible !important; height: auto !important; }
+  html.ptm-pdf-open body > *:not(#ptm-pdf-viewer) { display: none !important; }
+  html.ptm-pdf-open #ptm-pdf-viewer { position: static !important; display: block !important; background: #fff !important; }
+  html.ptm-pdf-open #ptm-pdf-viewer .ptm-pdf-toolbar { display: none !important; }
+  html.ptm-pdf-open #ptm-pdf-viewer .ptm-pdf-pages { overflow: visible !important; padding: 0 !important; }
+  html.ptm-pdf-open #ptm-pdf-viewer .ptm-pdf-pages > * + * { margin-top: 0 !important; }
+  html.ptm-pdf-open .ptm-pdf-page {
+    width: 100% !important; max-width: none !important; height: auto;
+    box-shadow: none !important; margin: 0 !important;
+    break-after: page; page-break-after: always;
+  }
+  html.ptm-pdf-open .ptm-pdf-page:last-child { break-after: auto; page-break-after: auto; }
+}

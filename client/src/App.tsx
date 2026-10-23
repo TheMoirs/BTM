@@ -2,6 +2,7 @@ import { Switch, Route, useLocation, Redirect, Router as WouterRouter } from "wo
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { MobilePdfViewer } from "@/components/mobile-pdf-viewer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TournamentProvider } from "@/contexts/TournamentContext";
 import { ViewModeProvider } from "@/contexts/ViewModeContext";
@@ -180,6 +181,7 @@ function AppRouter() {
               <Route component={AppContent} />
             </Switch>
             <Toaster />
+            <MobilePdfViewer />
           </AuthProvider>
         </ServerStartupGuard>
       </TooltipProvider>

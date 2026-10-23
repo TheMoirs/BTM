@@ -44,10 +44,15 @@ export function showNamedPdf(doc: jsPDF, filename: string, target: string): void
   form.remove();
 }
 
+/** Event that opens the phone print page (components/mobile-pdf-viewer.tsx) */
+export const MOBILE_PDF_EVENT = "ptm:show-pdf";
+export type MobilePdfRequest = { doc: jsPDF; filename: string };
+
 export function openPdfMobile(doc: jsPDF, filename: string): boolean {
   try {
-    // Opens in a new tab under its proper name; Share there gives Print and Save
-    showNamedPdf(doc, filename, "_blank");
+    // Phone PDF viewers (Android Chrome especially) have no Print button, so show
+    // the report on our own print page, which has Print and Save PDF buttons
+    window.dispatchEvent(new CustomEvent<MobilePdfRequest>(MOBILE_PDF_EVENT, { detail: { doc, filename } }));
     return true;
   } catch (error) {
     console.error('Failed to open PDF on mobile:', error);
