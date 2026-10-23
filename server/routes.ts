@@ -96,7 +96,7 @@ ${editUrl
 Email: <a href="mailto:${c.email}">${c.email}</a><br>
 WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>`}
 <p>Good luck in the tournament!</p>
-<p style="color:#888;font-size:13px">Petanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
+<p style="color:#888;font-size:13px">Pétanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
 </div>`;
 }
 
@@ -125,7 +125,7 @@ export function organiserEmailHtml(
 ].join("")}</table>
 ${fee && !feePaid ? `<p style="color:#555;font-size:14px">When the payment arrives, tick <strong>Paid</strong> for this team on the Teams page.</p>` : ""}
 <p><a href="${teamsUrl}" style="display:inline-block;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">OPEN TEAMS</a></p>
-<p style="color:#888;font-size:13px">Petanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
+<p style="color:#888;font-size:13px">Pétanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
 </div>`;
 }
 
@@ -360,9 +360,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await client.emails.send({
             from: fromEmail,
             to: user.email,
-            subject: "Reset your Petanque Tournament Manager password",
+            subject: "Reset your Pétanque Tournament Manager password",
             html: `<p>Hello${user.displayName ? ` ${user.displayName}` : ""},</p>
-<p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Petanque Tournament Manager account.</p>
+<p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Pétanque Tournament Manager account.</p>
 <p><a href="${link}">Click here to choose a new password</a></p>
 <p>This link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>`,
           });
@@ -566,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const rawStart = String(req.query.start || "/").trim();
     // Only same-site paths: must start with a single "/" (not "//host")
     const start = /^\/(?!\/)[^\s]{0,500}$/.test(rawStart) ? rawStart : "/";
-    const name = rawName || "Petanque Tournament Manager";
+    const name = rawName || "Pétanque Tournament Manager";
     // Each shortcut covers only its own page (e.g. /teams/<tournament>), so the
     // Teams and Leaderboard pages, and different tournaments, install separately.
     // A shortcut covering the whole site would stop Chrome offering the others.
@@ -590,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: start,
         name,
         short_name: name,
-        description: "Petanque Tournament Manager",
+        description: "Pétanque Tournament Manager",
         // Marked so the app knows the shortcut exists (it then hides the "Add Shortcut" button)
         start_url: `${start}${start.includes("?") ? "&" : "?"}from=shortcut`,
         scope,
@@ -1889,13 +1889,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await client.emails.send({
         from: fromEmail,
         to: validatedData.recipientEmail,
-        subject: "Petanque Tournament - Matches Report",
+        subject: "Pétanque Tournament - Matches Report",
         html: `
-          <h2>Petanque Tournament Matches Report</h2>
+          <h2>Pétanque Tournament Matches Report</h2>
           <p>Please find attached the matches report generated on ${new Date().toLocaleDateString()}.</p>
           <p>This report contains all match information including schedules, scores, and results.</p>
           <br/>
-          <p>Best regards,<br/>Petanque Tournament Manager</p>
+          <p>Best regards,<br/>Pétanque Tournament Manager</p>
         `,
         attachments: [
           {

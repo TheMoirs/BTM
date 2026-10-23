@@ -136,7 +136,7 @@ export function Navigation() {
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <img src="/ptm-logo.png" alt="PTM" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
               <h1 className="hidden lg:block text-lg font-semibold text-foreground whitespace-nowrap">
-                Petanque Tournament Manager
+                Pétanque Tournament Manager
               </h1>
               <div className="min-w-0 flex-1 lg:flex-none">
                 <TournamentSelector />
