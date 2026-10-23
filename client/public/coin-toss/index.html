@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-  <title>Coin Toss – PTM</title>
-  <meta name="description" content="Pétanque Tournament Manager - Random Coin Toss. Simply click the link &amp; install on your phone home page." />
-  <meta property="og:title" content="Coin Toss – PTM" />
-  <meta property="og:description" content="Pétanque Tournament Manager - Random Coin Toss. Simply click the link &amp; install on your phone home page." />
+  <title>Score Flip – PTM</title>
+  <meta name="description" content="Pétanque Tournament Manager - Score Flip: coin flip, match score keeper and game timer. Simply click the link &amp; install on your phone home page." />
+  <meta property="og:title" content="Score Flip – PTM" />
+  <meta property="og:description" content="Pétanque Tournament Manager - Score Flip: coin flip, match score keeper and game timer. Simply click the link &amp; install on your phone home page." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/coin-toss/icon-512.png" />
   <meta name="theme-color" content="#b9a888" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Coin Toss" />
+  <meta name="apple-mobile-web-app-title" content="Score Flip" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="manifest" href="/coin-toss/manifest.webmanifest" />
   <link rel="icon" type="image/png" href="/coin-toss/favicon.png?v=2" />
@@ -95,9 +95,19 @@
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
   </style>
+  <link rel="stylesheet" href="/coin-toss/score.css?v=1" />
 </head>
 <body>
-  <div class="stage" id="stage">
+  <div class="top" id="topBar">
+    <button class="pill" id="backBtn" type="button" hidden>‹ Back</button>
+    <div class="pill" id="titlePill"><img src="/coin-toss/logo.png" alt="" /> <span id="titleText">Score Flip</span></div>
+    <div class="actions">
+      <button class="pill" id="installBtn" type="button" hidden>⤓ Install</button>
+      <button class="pill" id="closeBtn" type="button" hidden>Close</button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage" hidden>
     <div class="layer" id="gravelLayer"><canvas id="gravel"></canvas></div>
     <div class="hand" id="hand"><div class="hand-inner" id="handArt"></div></div>
 
@@ -117,28 +127,113 @@
 
     <div class="result" id="result" hidden></div>
 
-    <div class="top">
-      <div class="pill"><img src="/coin-toss/logo.png" alt="" /> Coin Toss</div>
-      <div class="actions">
-        <button class="pill" id="installBtn" type="button" hidden>⤓ Install</button>
-        <button class="pill" id="closeBtn" type="button" hidden>Close</button>
-      </div>
-    </div>
-
     <div class="bottom">
       <div class="hint" id="hint">
-        <strong>Swipe up</strong> to toss · <strong>slide sideways</strong> to turn the coin
+        <strong>Swipe up</strong> to flip · <strong>slide sideways</strong> to turn the coin
         <small id="showing">Showing: Heads</small>
       </div>
-      <button class="again" id="again" type="button" hidden>Toss again</button>
+      <button class="again" id="again" type="button" hidden>Flip again</button>
+    </div>
+  </div>
+
+  <!-- Start screen: choose Coin Flip or Log Score -->
+  <section class="screen menu" id="menuScreen">
+    <div class="menu-inner">
+      <img class="menu-logo" src="/coin-toss/icon-192.png" alt="" />
+      <h1>Score Flip</h1>
+      <button class="big-choice" id="goCoin" type="button"><span class="ic">🪙</span><span>Coin Flip</span></button>
+      <button class="big-choice" id="goScore" type="button"><span class="ic">📋</span><span id="goScoreLabel">Log Score</span></button>
+    </div>
+  </section>
+
+  <!-- Log Score: match details -->
+  <section class="screen form" id="setupScreen" hidden>
+    <div class="wrap">
+      <h1>New match</h1>
+      <label>Date<input type="date" id="matchDate" /></label>
+      <label>Team 1<input type="text" id="team1" placeholder="Us" autocomplete="off" maxlength="40" /></label>
+      <label>Team 2<input type="text" id="team2" placeholder="Them" autocomplete="off" maxlength="40" /></label>
+      <button class="primary-btn" id="startMatch" type="button">Start Game 1</button>
+
+      <div id="historyBox" hidden>
+        <h2>Previous matches</h2>
+        <ul class="history" id="historyList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Log Score: one game at a time -->
+  <section class="screen game" id="gameScreen" hidden>
+    <div class="wrap">
+      <div class="game-head">
+        <h1 id="gameTitle">Game 1</h1>
+        <span id="gameDate"></span>
+      </div>
+      <div class="saved-games" id="savedGames"></div>
+      <div class="teams">
+        <div class="team">
+          <div class="team-name" id="name1">Us</div>
+          <button class="arrow" type="button" data-team="0" data-step="1" aria-label="Team 1 plus one">▲</button>
+          <div class="score" id="score1">0</div>
+          <button class="arrow" type="button" data-team="0" data-step="-1" aria-label="Team 1 minus one">▼</button>
+        </div>
+        <div class="team">
+          <div class="team-name" id="name2">Them</div>
+          <button class="arrow" type="button" data-team="1" data-step="1" aria-label="Team 2 plus one">▲</button>
+          <div class="score" id="score2">0</div>
+          <button class="arrow" type="button" data-team="1" data-step="-1" aria-label="Team 2 minus one">▼</button>
+        </div>
+      </div>
+
+      <div class="timer" id="timerBox">
+        <button class="timer-time" id="timerTime" type="button" aria-label="Change timer length">30:00</button>
+        <div class="timer-btns">
+          <button class="tbtn go" id="timerStart" type="button">Start</button>
+          <button class="tbtn" id="timerReset" type="button" hidden>Reset</button>
+          <button class="tbtn stop" id="timerStop" type="button" hidden>Stop alarm</button>
+        </div>
+        <div class="timer-hint" id="timerHint">Tap the time to change it</div>
+      </div>
+
+      <div class="game-actions">
+        <button class="primary-btn" id="saveGame" type="button">Save Game 1</button>
+        <button class="secondary-btn" id="endMatch" type="button">End Match</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Match finished -->
+  <section class="screen form" id="summaryScreen" hidden>
+    <div class="wrap">
+      <h1>Match saved</h1>
+      <pre class="summary" id="summaryText"></pre>
+      <button class="primary-btn" id="shareBtn" type="button">Share</button>
+      <div class="share-fallback" id="shareFallback" hidden>
+        <button class="secondary-btn" id="copyBtn" type="button">Copy</button>
+        <a class="secondary-btn" id="whatsappBtn" target="_blank" rel="noopener">WhatsApp</a>
+      </div>
+      <p class="note" id="shareNote" hidden></p>
+      <button class="secondary-btn" id="newMatch" type="button">New match</button>
+    </div>
+  </section>
+
+  <!-- Change timer length -->
+  <div class="modal" id="timerModal" hidden>
+    <div class="sheet" role="dialog" aria-labelledby="timerModalTitle">
+      <h2 id="timerModalTitle">Timer length</h2>
+      <label class="minutes">Minutes <input type="number" id="timerMinutes" min="1" max="180" inputmode="numeric" /></label>
+      <div class="btns">
+        <button class="btn" id="timerCancel" type="button">Cancel</button>
+        <button class="btn primary" id="timerSave" type="button">Save</button>
+      </div>
     </div>
   </div>
 
   <div class="modal" id="installHelp" hidden>
     <div class="sheet" role="dialog" aria-labelledby="installTitle">
-      <h2 id="installTitle">Add Coin Toss</h2>
+      <h2 id="installTitle">Add Score Flip</h2>
       <p>Put it on your home screen or desktop. It works even with no internet connection.</p>
-      <div class="row"><img src="/coin-toss/icon-192.png" alt="" /><div><strong>Coin Toss</strong><br /><span style="color:#64748b;font-size:12px">PTM</span></div></div>
+      <div class="row"><img src="/coin-toss/icon-192.png" alt="" /><div><strong>Score Flip</strong><br /><span style="color:#64748b;font-size:12px">PTM</span></div></div>
       <div id="installSteps"></div>
       <div class="btns">
         <button class="btn primary" id="installNow" type="button" hidden>Install</button>
@@ -148,6 +243,7 @@
   </div>
 
   <script src="/coin-toss/coin-art.js"></script>
+  <script src="/coin-toss/score.js?v=1" defer></script>
   <script>
   (function () {
     "use strict";
@@ -278,6 +374,7 @@
     stage.addEventListener("pointercancel", function () { pointer = null; settle(); });
 
     window.addEventListener("keydown", function (e) {
+      if (stage.hidden) return;
       if (e.key === " " || e.key === "ArrowUp") {
         e.preventDefault();
         if (phase === "hand") toss(); else if (phase === "landed") resetToHand();

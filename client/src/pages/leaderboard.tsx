@@ -253,8 +253,7 @@ export default function Leaderboard() {
               data-testid="button-coin-toss"
             >
               <Coins className="h-4 w-4 mr-1.5" />
-              <span className="sm:hidden">Coin</span>
-              <span className="hidden sm:inline">Coin Toss</span>
+              Score Flip
             </Button>
             <AddToHomeScreenButton
               tournamentName={currentTournament.name}
@@ -323,8 +322,13 @@ export default function Leaderboard() {
                 </div>
 
                 <div>
-                  <h3 className="font-semibold mb-2">Coin Toss</h3>
-                  <p>Press the <strong>coin</strong> button to open a coin toss in a new window. <strong>Swipe up</strong> (or press the space bar) to toss; <strong>slide sideways</strong> to turn the coin over and see both sides. Press <strong>Install</strong> in the coin toss window to add it to your home screen or desktop; it then works even without an internet connection.</p>
+                  <h3 className="font-semibold mb-2">Score Flip</h3>
+                  <p>Press <strong>Score Flip</strong> to open it in a new window, then choose:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Coin Flip</strong>: <strong>swipe up</strong> (or press the space bar) to flip; <strong>slide sideways</strong> to turn the coin over and see both sides.</li>
+                    <li><strong>Log Score</strong>: enter the date and team names, then use the big arrows to keep the score for up to 3 games. Each game has a timer (30 minutes unless you change it) that sounds an alarm when time is up. <strong>End Match</strong> saves the result on your phone and lets you share it.</li>
+                  </ul>
+                  <p className="mt-1">Press <strong>Install</strong> in the Score Flip window to add it to your home screen or desktop; it then works even without an internet connection.</p>
                 </div>
 
                 <div>

@@ -1,10 +1,12 @@
-// Keeps a copy of Coin Toss on the device so it works without an internet connection.
+// Keeps a copy of Score Flip (coin flip + score keeper) on the device so it works without an internet connection.
 // Only covers /coin-toss/; the rest of BTM is unaffected.
-const CACHE = "btm-coin-toss-v6";
+const CACHE = "btm-coin-toss-v7";
 const FILES = [
   "/coin-toss/",
   "/coin-toss/index.html",
   "/coin-toss/coin-art.js",
+  "/coin-toss/score.js",
+  "/coin-toss/score.css",
   "/coin-toss/manifest.webmanifest",
   "/coin-toss/logo.png",
   "/coin-toss/favicon.png",

@@ -1,8 +1,8 @@
 {
   "id": "/coin-toss/",
-  "name": "PTM Coin Toss",
-  "short_name": "Coin Toss",
-  "description": "Pétanque Tournament Manager - Random Coin Toss. Simply click the link & install on your phone home page.",
+  "name": "PTM Score Flip",
+  "short_name": "Score Flip",
+  "description": "Pétanque Tournament Manager - Score Flip: coin flip, match score keeper and game timer. Simply click the link & install on your phone home page.",
   "start_url": "/coin-toss/?from=app",
   "scope": "/coin-toss/",
   "display": "standalone",
