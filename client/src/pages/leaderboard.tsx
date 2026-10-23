@@ -203,11 +203,13 @@ export default function Leaderboard() {
         <div className="flex items-center gap-2">
           <img src="/ptm-logo.png" alt="PTM" className="h-9 w-9 rounded-md object-cover flex-shrink-0" />
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold leading-tight tracking-tight truncate" data-testid="text-title">
-              {isForecast && !showMatchResults ? "Forecast Leaderboard" : "Leaderboard"}
+            <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight break-words" data-testid="text-tournament-name">
+              {currentTournament.name}
             </h1>
-            <p className="text-xs text-muted-foreground truncate">
-              <span className="font-medium text-foreground">{currentTournament.name}</span>
+            <p className="text-sm text-muted-foreground" data-testid="text-title">
+              <span className="font-medium text-foreground">
+                {isForecast && !showMatchResults ? "Forecast Leaderboard" : "Leaderboard"}
+              </span>
               {" · "}
               {new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
@@ -257,7 +259,7 @@ export default function Leaderboard() {
               slug={(currentTournament as any).slug}
               page="leaderboard"
               variant="sm"
-              label="Shortcut"
+              label="Install"
               buttonClassName="px-1.5 sm:px-2"
             />
             <HelpDialog title="Leaderboard - Help" label="Help">

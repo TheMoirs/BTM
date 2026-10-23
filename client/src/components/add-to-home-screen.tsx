@@ -25,7 +25,7 @@ type Props = {
   /** Organiser's shortcut to the editable Teams page (needs sign-in) rather than the public view */
   edit?: boolean;
   tournamentId?: string;
-  /** Text on the "sm" button (default "Add Shortcut") */
+  /** Text on the "sm" button (default "Install") */
   label?: string;
   /** "icon" for a compact square button, "sm" for an icon + label button */
   variant?: "icon" | "sm";
@@ -46,7 +46,7 @@ function detectPlatform(): Platform {
 
 const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
 
-export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Add Shortcut", variant = "icon", buttonClassName = "" }: Props & { buttonClassName?: string }) {
+export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "" }: Props & { buttonClassName?: string }) {
   const [showHelp, setShowHelp] = useState(false);
   const [, setTick] = useState(0);
 
