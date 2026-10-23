@@ -602,6 +602,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
   });
 
+  // ── Score Flip (/coin-toss/): tournaments, divisions and team names ──────
+  // Public on purpose (agreed with Ali): only names, divisions and team names,
+  // never captains, phone numbers or emails. Newest tournament first.
+  app.get("/api/public/score-flip", async (_req, res) => {
+    try {
+      const [allTournaments, allTeams] = await Promise.all([storage.getAllTournaments(), storage.getAllTeams()]);
+      const byTournament = new Map<string, Record<string, string[]>>();
+      for (const team of allTeams) {
+        const divisions = byTournament.get(team.tournamentId) ?? {};
+        const division = (team.division || "").trim();
+        (divisions[division] ??= []).push(team.name);
+        byTournament.set(team.tournamentId, divisions);
+      }
+      const tournaments = allTournaments.map((t) => {
+        const divisions = byTournament.get(t.id) ?? {};
+        Object.values(divisions).forEach((names) => names.sort((a, b) => a.localeCompare(b)));
+        return { key: t.slug || t.id, name: t.name, divisions };
+      });
+      res.set("Cache-Control", "no-cache");
+      res.json({ tournaments });
+    } catch (error) {
+      console.error("[PUBLIC] Score Flip list failed:", error);
+      res.status(500).json({ error: "Failed to load tournaments" });
+    }
+  });
+
+  // Score Flip install file that opens on the tournament it was installed from
+  // (/coin-toss/?t=<tournament>). Same app id, so re-installing just updates it.
+  app.get("/api/public/score-flip-manifest", (req, res) => {
+    const key = String(req.query.t || "").trim().slice(0, 120);
+    const safeKey = /^[A-Za-z0-9_-]+$/.test(key) ? key : "";
+    res.type("application/manifest+json");
+    res.set("Cache-Control", "no-cache");
+    res.send(JSON.stringify({
+      id: "/coin-toss/",
+      name: "PTM Score Flip",
+      short_name: "Score Flip",
+      description: "Pétanque Tournament Manager - Score Flip: coin flip, match score keeper and game timer.",
+      start_url: safeKey ? `/coin-toss/?from=app&t=${encodeURIComponent(safeKey)}` : "/coin-toss/?from=app",
+      scope: "/coin-toss/",
+      display: "standalone",
+      orientation: "portrait",
+      background_color: "#b9a888",
+      theme_color: "#b9a888",
+      icons: [
+        { src: "/coin-toss/icon-192.png?v=8", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/coin-toss/icon-512.png?v=8", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/coin-toss/icon-512.png?v=8", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    }));
+  });
+
   app.get("/api/public/tournament/:slug", async (req, res) => {
     try {
       const t = await storage.getTournamentBySlug(String(req.params.slug));

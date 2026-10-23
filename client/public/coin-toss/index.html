@@ -14,9 +14,22 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Score Flip" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <link rel="manifest" href="/coin-toss/manifest.webmanifest" />
-  <link rel="icon" type="image/png" href="/coin-toss/favicon.png?v=2" />
-  <link rel="apple-touch-icon" href="/coin-toss/apple-touch-icon.png" />
+  <link rel="manifest" id="manifestLink" href="/coin-toss/manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="/coin-toss/favicon.png?v=3" />
+  <link rel="apple-touch-icon" href="/coin-toss/apple-touch-icon.png?v=3" />
+  <script>
+    // Opened from a tournament's Leaderboard (?t=<tournament>): remember it as this
+    // phone's tournament, and install the app so it opens on that tournament
+    (function () {
+      try {
+        var t = new URLSearchParams(location.search).get("t");
+        if (t && /^[A-Za-z0-9_-]+$/.test(t)) {
+          localStorage.setItem("ptm-score-home", t);
+          document.getElementById("manifestLink").href = "/api/public/score-flip-manifest?t=" + encodeURIComponent(t);
+        }
+      } catch (_) {}
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
@@ -95,12 +108,12 @@
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
   </style>
-  <link rel="stylesheet" href="/coin-toss/score.css?v=1" />
+  <link rel="stylesheet" href="/coin-toss/score.css?v=2" />
 </head>
 <body>
   <div class="top" id="topBar">
     <button class="pill" id="backBtn" type="button" hidden>‹ Back</button>
-    <div class="pill" id="titlePill"><img src="/coin-toss/logo.png" alt="" /> <span id="titleText">Score Flip</span></div>
+    <div class="pill" id="titlePill"><img src="/coin-toss/logo.png?v=3" alt="" /> <span id="titleText">Score Flip</span></div>
     <div class="actions">
       <button class="pill" id="installBtn" type="button" hidden>⤓ Install</button>
       <button class="pill" id="closeBtn" type="button" hidden>Close</button>
@@ -139,7 +152,7 @@
   <!-- Start screen: choose Coin Flip or Log Score -->
   <section class="screen menu" id="menuScreen">
     <div class="menu-inner">
-      <img class="menu-logo" src="/coin-toss/icon-192.png" alt="" />
+      <img class="menu-logo" src="/coin-toss/icon-192.png?v=8" alt="" />
       <h1>Score Flip</h1>
       <button class="big-choice" id="goCoin" type="button"><span class="ic">🪙</span><span>Coin Flip</span></button>
       <button class="big-choice" id="goScore" type="button"><span class="ic">📋</span><span id="goScoreLabel">Log Score</span></button>
@@ -150,9 +163,18 @@
   <section class="screen form" id="setupScreen" hidden>
     <div class="wrap">
       <h1>New match</h1>
+      <label>Tournament<select id="tournamentSel"><option value="">None</option></select></label>
+      <label>Division<select id="divisionSel" disabled><option value="">None</option></select></label>
+      <p class="note-small" id="listNote" hidden></p>
       <label>Date<input type="date" id="matchDate" /></label>
-      <label>Team 1<input type="text" id="team1" placeholder="Us" autocomplete="off" maxlength="40" /></label>
-      <label>Team 2<input type="text" id="team2" placeholder="Them" autocomplete="off" maxlength="40" /></label>
+      <label>Team 1
+        <select id="team1Sel" hidden></select>
+        <input type="text" id="team1" placeholder="Us" autocomplete="off" maxlength="40" />
+      </label>
+      <label>Team 2
+        <select id="team2Sel" hidden></select>
+        <input type="text" id="team2" placeholder="Them" autocomplete="off" maxlength="40" />
+      </label>
       <button class="primary-btn" id="startMatch" type="button">Start Game 1</button>
 
       <div id="historyBox" hidden>
@@ -233,7 +255,7 @@
     <div class="sheet" role="dialog" aria-labelledby="installTitle">
       <h2 id="installTitle">Add Score Flip</h2>
       <p>Put it on your home screen or desktop. It works even with no internet connection.</p>
-      <div class="row"><img src="/coin-toss/icon-192.png" alt="" /><div><strong>Score Flip</strong><br /><span style="color:#64748b;font-size:12px">PTM</span></div></div>
+      <div class="row"><img src="/coin-toss/icon-192.png?v=8" alt="" /><div><strong>Score Flip</strong><br /><span style="color:#64748b;font-size:12px">PTM</span></div></div>
       <div id="installSteps"></div>
       <div class="btns">
         <button class="btn primary" id="installNow" type="button" hidden>Install</button>
@@ -243,7 +265,7 @@
   </div>
 
   <script src="/coin-toss/coin-art.js"></script>
-  <script src="/coin-toss/score.js?v=1" defer></script>
+  <script src="/coin-toss/score.js?v=2" defer></script>
   <script>
   (function () {
     "use strict";

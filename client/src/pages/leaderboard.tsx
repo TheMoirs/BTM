@@ -6,7 +6,7 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, FileText, Coins, Printer } from "lucide-react";
+import { ArrowLeft, Users, FileText, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildLeaderboardPdf, downloadAndPrintPdf } from "@/lib/pdf-reports";
 import { exportFilename } from "@/lib/utils";
@@ -249,10 +249,14 @@ export default function Leaderboard() {
               variant="outline"
               size="sm"
               className="flex-shrink-0 px-1.5 sm:px-2"
-              onClick={() => window.open("/coin-toss/", "btm-coin-toss", "popup,width=480,height=800")}
+              onClick={() => {
+                // Score Flip opens on (and installs for) this tournament
+                const key = (currentTournament as any).slug || currentTournament.id;
+                window.open(`/coin-toss/?t=${encodeURIComponent(key)}`, "btm-coin-toss", "popup,width=480,height=800");
+              }}
               data-testid="button-coin-toss"
             >
-              <Coins className="h-4 w-4 mr-1.5" />
+              <img src="/coin-toss/favicon.png?v=3" alt="" className="h-4 w-4 mr-1.5 rounded-sm" />
               Score Flip
             </Button>
             <AddToHomeScreenButton

@@ -64,8 +64,15 @@
     games.forEach(function (g) { if (g[0] > g[1]) w[0]++; else if (g[1] > g[0]) w[1]++; });
     return w;
   }
+  function divisionLabel(d) { return d ? "Division " + d : "No division"; }
+  function eventLine(m) {
+    if (!m.tournament) return "";
+    return m.tournament + (m.division != null ? " – " + divisionLabel(m.division) : "");
+  }
   function resultText(m) {
-    var lines = ["Pétanque – " + niceDate(m.date), m.t1 + " v " + m.t2];
+    var lines = ["Pétanque – " + niceDate(m.date)];
+    if (eventLine(m)) lines.push(eventLine(m));
+    lines.push(m.t1 + " v " + m.t2);
     m.games.forEach(function (g, i) { lines.push("Game " + (i + 1) + ": " + g[0] + "–" + g[1]); });
     var w = gamesWon(m.games);
     if (w[0] > w[1]) lines.push(m.t1 + " win " + w[0] + "–" + w[1]);
@@ -77,18 +84,160 @@
   // ── Match setup ─────────────────────────────────────────────────────────
   var match = load(KEY_CURRENT, null); // { date, t1, t2, games: [[a,b]...], cur: [a,b], timer }
 
-  function openSetup() {
+  // Tournaments, divisions and team names come from the server and are kept
+  // on the phone, so the lists still work at a piste with no signal.
+  var KEY_DATA = "ptm-score-data";     // { tournaments: [{ key, name, divisions: { "A": [names] } }] }
+  var KEY_HOME = "ptm-score-home";     // tournament the app was opened / installed from (set in index.html)
+  var KEY_LAST = "ptm-score-last";     // { home, tournament, division, team1 }
+  var OTHER = "__other";
+  var data = load(KEY_DATA, { tournaments: [] });
+
+  function tournamentByKey(key) {
+    for (var i = 0; i < data.tournaments.length; i++) if (data.tournaments[i].key === key) return data.tournaments[i];
+    return null;
+  }
+  function refreshData() {
+    if (!window.fetch) return Promise.resolve(false);
+    return fetch("/api/public/score-flip", { cache: "no-store" })
+      .then(function (res) { if (!res.ok) throw new Error(res.status); return res.json(); })
+      .then(function (json) {
+        if (!json || !Array.isArray(json.tournaments)) return false;
+        data = { tournaments: json.tournaments, fetchedAt: Date.now() };
+        store(KEY_DATA, data);
+        return true;
+      })
+      .catch(function () { return false; }); // offline: keep using the copy on the phone
+  }
+
+  function fillSelect(sel, items, selected) {
+    sel.innerHTML = "";
+    items.forEach(function (it) {
+      var o = document.createElement("option");
+      o.value = it.value; o.textContent = it.label;
+      if (it.value === selected) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  function sortedDivisions(t) {
+    return Object.keys(t.divisions || {}).sort(function (a, b) {
+      if (!a) return 1; if (!b) return -1; return a.localeCompare(b);
+    });
+  }
+  function currentTeams() {
+    var t = tournamentByKey($("tournamentSel").value);
+    var dSel = $("divisionSel");
+    if (!t || dSel.value === "" ) return null;
+    return (t.divisions || {})[dSel.value === "-" ? "" : dSel.value] || [];
+  }
+
+  function renderTournamentPicker(selectedKey) {
+    var items = [{ value: "", label: "None" }].concat(data.tournaments.map(function (t) { return { value: t.key, label: t.name }; }));
+    if (selectedKey && !tournamentByKey(selectedKey)) selectedKey = "";
+    fillSelect($("tournamentSel"), items, selectedKey || "");
+    var note = $("listNote");
+    note.hidden = data.tournaments.length > 0;
+    note.textContent = "Tournament lists need an internet connection the first time.";
+  }
+  function renderDivisionPicker(selectedDivision) {
+    var t = tournamentByKey($("tournamentSel").value);
+    var dSel = $("divisionSel");
+    if (!t) { fillSelect(dSel, [{ value: "", label: "None" }], ""); dSel.disabled = true; return; }
+    // "-" stands for teams with no division
+    var items = [{ value: "", label: "None" }].concat(sortedDivisions(t).map(function (d) {
+      return { value: d || "-", label: divisionLabel(d) };
+    }));
+    var want = selectedDivision == null ? "" : selectedDivision;
+    if (!items.some(function (i) { return i.value === want; })) want = "";
+    fillSelect(dSel, items, want);
+    dSel.disabled = false;
+  }
+  function renderTeamPicker(n, wantName) {
+    var sel = $("team" + n + "Sel"), input = $("team" + n);
+    var teams = currentTeams();
+    if (!teams) { // no tournament and division chosen: type the names
+      sel.hidden = true; input.hidden = false;
+      if (wantName != null) input.value = wantName;
+      return;
+    }
+    var items = [{ value: "", label: n === 1 ? "Choose team (or Us)" : "Choose team (or Them)" }]
+      .concat(teams.map(function (name) { return { value: name, label: name }; }))
+      .concat([{ value: OTHER, label: "Other (type a name)" }]);
+    var choose = "";
+    if (wantName) choose = teams.indexOf(wantName) >= 0 ? wantName : OTHER;
+    fillSelect(sel, items, choose);
+    sel.hidden = false;
+    input.value = choose === OTHER ? wantName : "";
+    input.hidden = choose !== OTHER;
+  }
+  function teamName(n, fallback) {
+    var sel = $("team" + n + "Sel"), input = $("team" + n);
+    if (!sel.hidden && sel.value && sel.value !== OTHER) return sel.value;
+    return input.value.trim() || fallback;
+  }
+  [1, 2].forEach(function (n) {
+    $("team" + n + "Sel").addEventListener("change", function () {
+      var other = this.value === OTHER;
+      $("team" + n).hidden = !other;
+      if (other) { $("team" + n).value = ""; $("team" + n).focus(); }
+    });
+  });
+  $("tournamentSel").addEventListener("change", function () {
+    renderDivisionPicker("");
+    renderTeamPicker(1, ""); renderTeamPicker(2, "");
+  });
+  $("divisionSel").addEventListener("change", function () {
+    renderTeamPicker(1, teamName(1, "")); renderTeamPicker(2, "");
+  });
+
+  // Defaults: the tournament the app was opened / installed from, then whatever
+  // was used last; Team 1 = last Team 1, Team 2 blank
+  function prepareSetup() {
+    var home = null;
+    try { home = localStorage.getItem(KEY_HOME); } catch (_) {}
+    var last = load(KEY_LAST, null);
+    var tKey, division = "", team1 = "";
+    if (last && last.home === home) {
+      tKey = last.tournament; division = last.division || ""; team1 = last.team1 || "";
+    } else if (home) {
+      tKey = home; // opened from a different tournament: start fresh on that one
+    } else {
+      tKey = data.tournaments.length ? data.tournaments[0].key : ""; // newest
+    }
+    renderTournamentPicker(tKey);
+    renderDivisionPicker(division);
+    renderTeamPicker(1, team1);
+    renderTeamPicker(2, "");
     $("matchDate").value = todayIso();
-    $("team1").value = "";
-    $("team2").value = "";
+  }
+
+  function openSetup() {
+    prepareSetup();
     renderHistory();
     open("setup");
+    // Fetch the latest lists (new tournament, new teams), then redraw keeping the choices
+    refreshData().then(function (changed) {
+      if (!changed || current !== "setup") return;
+      var keep = { t: $("tournamentSel").value, d: $("divisionSel").value, t1: teamName(1, ""), t2: teamName(2, "") };
+      renderTournamentPicker(keep.t);
+      renderDivisionPicker(keep.d);
+      renderTeamPicker(1, keep.t1);
+      renderTeamPicker(2, keep.t2);
+    });
   }
   $("startMatch").addEventListener("click", function () {
+    var t = tournamentByKey($("tournamentSel").value);
+    var dValue = $("divisionSel").value;
+    var division = t && dValue ? (dValue === "-" ? "" : dValue) : null;
+    var t1 = teamName(1, "Us"), t2 = teamName(2, "Them");
+    var home = null;
+    try { home = localStorage.getItem(KEY_HOME); } catch (_) {}
+    store(KEY_LAST, { home: home, tournament: t ? t.key : "", division: dValue && t ? dValue : "", team1: t1 === "Us" ? "" : t1 });
     match = {
       date: $("matchDate").value || todayIso(),
-      t1: $("team1").value.trim() || "Us",
-      t2: $("team2").value.trim() || "Them",
+      tournament: t ? t.name : "",
+      division: division,
+      t1: t1,
+      t2: t2,
       games: [],
       cur: [0, 0],
     };
@@ -107,7 +256,7 @@
     if (!match) return;
     var n = match.games.length + 1;
     $("gameTitle").textContent = "Game " + n;
-    $("gameDate").textContent = niceDate(match.date);
+    $("gameDate").textContent = niceDate(match.date) + (match.tournament ? " · " + eventLine(match) : "");
     $("name1").textContent = match.t1;
     $("name2").textContent = match.t2;
     $("score1").textContent = match.cur[0];
@@ -169,7 +318,7 @@
   });
 
   function finishMatch() {
-    var record = { id: String(Date.now()), date: match.date, t1: match.t1, t2: match.t2, games: match.games };
+    var record = { id: String(Date.now()), date: match.date, tournament: match.tournament || "", division: match.division == null ? null : match.division, t1: match.t1, t2: match.t2, games: match.games };
     var list = load(KEY_HISTORY, []);
     list.unshift(record);
     store(KEY_HISTORY, list.slice(0, 50));
@@ -210,9 +359,7 @@
     ta.remove();
   }
   $("newMatch").addEventListener("click", function () {
-    $("matchDate").value = todayIso();
-    $("team1").value = "";
-    $("team2").value = "";
+    prepareSetup();
     renderHistory();
     show("setup");
   });
@@ -230,7 +377,7 @@
       var title = document.createElement("strong");
       title.textContent = m.t1 + " v " + m.t2;
       var detail = document.createElement("span");
-      detail.textContent = niceDate(m.date, false) + " · " + m.games.map(function (g) { return g[0] + "–" + g[1]; }).join(", ");
+      detail.textContent = niceDate(m.date, false) + (m.tournament ? " · " + eventLine(m) : "") + " · " + m.games.map(function (g) { return g[0] + "–" + g[1]; }).join(", ");
       text.appendChild(title); text.appendChild(detail);
 
       var share = document.createElement("button");
@@ -404,4 +551,5 @@
     if (timer.state === "done") timer.ringing = false;
   }
   show("menu");
+  refreshData();
 })();
