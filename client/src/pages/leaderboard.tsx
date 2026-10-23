@@ -206,12 +206,14 @@ export default function Leaderboard() {
             <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight break-words" data-testid="text-tournament-name">
               {currentTournament.name}
             </h1>
-            <p className="text-sm text-muted-foreground" data-testid="text-title">
-              <span className="font-medium text-foreground">
+            <p className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground" data-testid="text-title">
+              <span className="text-xl sm:text-2xl font-bold leading-tight tracking-tight text-foreground">
                 {isForecast && !showMatchResults ? "Forecast Leaderboard" : "Leaderboard"}
               </span>
-              {" · "}
-              {new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+              <span>
+                ·{" "}
+                {new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </span>
             </p>
           </div>
         </div>
