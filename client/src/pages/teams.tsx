@@ -20,10 +20,14 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -184,6 +188,10 @@ export default function Teams() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
+  // Print: ask which division to print (one, or all) before building the PDF
+  const [printChooser, setPrintChooser] = useState<"preview" | "print" | null>(null);
+  const [printDivision, setPrintDivision] = useState<string>("all");
+  const [previewDivision, setPreviewDivision] = useState<string>("all");
   const [isSharingLink, setIsSharingLink] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTournamentRef = useRef<string | null>(null);
@@ -1083,6 +1091,10 @@ export default function Teams() {
     return groupedByDivision.map(([division]) => division);
   }, [groupedByDivision]);
 
+  // Teams grouped by division for a given choice ("all" or one division)
+  const groupsForDivision = (division: string) =>
+    division === "all" ? groupedByDivision : groupedByDivision.filter(([d]) => d === division);
+
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 ml-1 text-muted-foreground" />;
@@ -1117,7 +1129,7 @@ export default function Teams() {
   const showIdColumn =
     isEditAllMode || editingRowId !== null || (teams ?? []).some((team) => !!team.teamDisplayId);
 
-  const generatePDFDocument = () => {
+  const generatePDFDocument = (groups: [string, Team[]][]) => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
@@ -1125,7 +1137,7 @@ export default function Teams() {
     // Measure column content so the table fits its contents.
     // Email, Phone and ID are sized to their longest value so they never wrap;
     // the remaining columns ('auto') share the rest of the page width and wrap if needed.
-    const allTeams = filteredGroupedByDivision.flatMap(([, divisionTeams]) => divisionTeams);
+    const allTeams = groups.flatMap(([, divisionTeams]) => divisionTeams);
     const cellPaddingX = 2 * 2; // cellPadding on both sides
     const measureColumn = (header: string, values: string[]) => {
       doc.setFontSize(9);
@@ -1164,7 +1176,7 @@ export default function Teams() {
     
     let startY = teamsHeaderY + 6;
     
-    filteredGroupedByDivision.forEach(([division, divisionTeams], index) => {
+    groups.forEach(([division, divisionTeams], index) => {
       const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
       
       // Conservative estimate for space needed (accounting for text wrapping)
@@ -1240,14 +1252,38 @@ export default function Teams() {
   };
 
   // e.g. "Summer League - Teams - Division A - 2026-10-19.pdf"
-  const teamsFilename = (ext: "pdf" | "xlsx") =>
-    exportFilename(currentTournament?.name, "Teams", [divisionFilter !== "all" && `Division ${divisionFilter}`], ext);
+  const teamsFilename = (ext: "pdf" | "xlsx", division: string = divisionFilter) =>
+    exportFilename(
+      currentTournament?.name,
+      "Teams",
+      [division !== "all" && (division === "No Division" ? "No Division" : `Division ${division}`)],
+      ext,
+    );
 
-  const openPdfViewer = async () => {
-    if (filteredGroupedByDivision.length === 0) {
+  // Both print routes go through here: ask for a division first when there's more than one
+  const requestPrint = (mode: "preview" | "print") => {
+    if (availableDivisions.length > 1) {
+      setPrintDivision(availableDivisions.includes(divisionFilter) ? divisionFilter : "all");
+      setPrintChooser(mode);
+      return;
+    }
+    if (mode === "preview") openPdfViewer("all");
+    else handleDownloadAndPrint("all");
+  };
+
+  const confirmPrintChoice = () => {
+    const mode = printChooser;
+    setPrintChooser(null);
+    if (mode === "preview") openPdfViewer(printDivision);
+    else if (mode === "print") handleDownloadAndPrint(printDivision);
+  };
+
+  const openPdfViewer = async (division: string) => {
+    const groups = groupsForDivision(division);
+    if (groups.length === 0) {
       toast({
         title: "No teams to export",
-        description: divisionFilter === "all" 
+        description: division === "all" 
           ? "There are no teams to include in the PDF." 
           : "There are no teams in the selected division.",
         variant: "destructive",
@@ -1256,8 +1292,9 @@ export default function Teams() {
       return;
     }
     
-    const doc = generatePDFDocument();
-    const filename = teamsFilename("pdf");
+    const doc = generatePDFDocument(groups);
+    const filename = teamsFilename("pdf", division);
+    setPreviewDivision(division);
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -1274,22 +1311,22 @@ export default function Teams() {
     }
   };
 
-  const handleExcelSave = () => {
-    if (!filteredGroupedByDivision) return;
-    if (filteredGroupedByDivision.length === 0) {
+  const handleExcelSave = (division: string = divisionFilter) => {
+    const groups = groupsForDivision(division);
+    if (groups.length === 0) {
       toast({
         title: "No teams to export",
-        description: divisionFilter === "all" ? "There are no teams to download yet." : "There are no teams in the selected division.",
+        description: division === "all" ? "There are no teams to download yet." : "There are no teams in the selected division.",
         variant: "destructive",
       });
       return;
     }
     
     const exportData: any[] = [];
-    filteredGroupedByDivision.forEach(([division, divisionTeams]) => {
+    groups.forEach(([groupDivision, divisionTeams]) => {
       divisionTeams.forEach(team => {
         exportData.push({
-          Division: division,
+          Division: groupDivision,
           "Team ID": team.teamDisplayId || "",
           "Team Name": team.name,
           "Captain Name": team.captainName || "",
@@ -1306,7 +1343,7 @@ export default function Teams() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
     
-    const filename = teamsFilename("xlsx");
+    const filename = teamsFilename("xlsx", division);
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -1316,15 +1353,16 @@ export default function Teams() {
   };
 
   // Print button for view-only visitors: save the teams list as a PDF and print it
-  const handleDownloadAndPrint = () => {
-    if (filteredGroupedByDivision.length === 0) {
+  const handleDownloadAndPrint = (division: string) => {
+    const groups = groupsForDivision(division);
+    if (groups.length === 0) {
       toast({
         title: "Nothing to print",
-        description: divisionFilter === "all" ? "There are no teams yet." : "There are no teams in the selected division.",
+        description: division === "all" ? "There are no teams yet." : "There are no teams in the selected division.",
       });
       return;
     }
-    const outcome = downloadAndPrintPdf(generatePDFDocument(), teamsFilename("pdf"));
+    const outcome = downloadAndPrintPdf(generatePDFDocument(groups), teamsFilename("pdf", division));
     if (outcome === "printing") {
       toast({ title: "PDF downloaded", description: "Saved to your Downloads folder. The print window is opening." });
     } else if (outcome === "failed") {
@@ -1562,11 +1600,11 @@ export default function Teams() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
+                  <DropdownMenuItem onClick={() => handleExcelSave()} data-testid="menu-item-download-excel">
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     Excel
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
+                  <DropdownMenuItem onClick={() => requestPrint("preview")} data-testid="menu-item-preview-print">
                     <Printer className="h-4 w-4 mr-2" />
                     Preview / Print
                   </DropdownMenuItem>
@@ -1885,7 +1923,7 @@ export default function Teams() {
               </Link>
             )}
             {isReadOnly && (
-              <Button variant="outline" size="sm" className="flex-shrink-0" onClick={handleDownloadAndPrint} data-testid="button-print-teams">
+              <Button variant="outline" size="sm" className="flex-shrink-0" onClick={() => requestPrint("print")} data-testid="button-print-teams">
                 <Printer className="h-4 w-4 mr-1.5" />
                 Print
               </Button>
@@ -2565,11 +2603,49 @@ export default function Teams() {
           </AlertDialogContent>
         </AlertDialog>
 
+        <Dialog open={printChooser !== null} onOpenChange={(open) => { if (!open) setPrintChooser(null); }}>
+          <DialogContent className="sm:max-w-[380px]" data-testid="dialog-print-division">
+            <DialogHeader>
+              <DialogTitle>Print teams</DialogTitle>
+              <DialogDescription>Choose a division to print, or print all divisions.</DialogDescription>
+            </DialogHeader>
+            <RadioGroup value={printDivision} onValueChange={setPrintDivision} className="gap-1 max-h-[50vh] overflow-y-auto py-1">
+              {[["all", groupedByDivision.reduce((n, [, t]) => n + t.length, 0)] as const,
+                ...groupedByDivision.map(([d, t]) => [d, t.length] as const)].map(([value, count]) => {
+                const id = `print-division-${value.toLowerCase().replace(/\s+/g, '-')}`;
+                const label = value === "all" ? "All divisions" : value === "No Division" ? "No division assigned" : `Division ${value}`;
+                return (
+                  <Label
+                    key={value}
+                    htmlFor={id}
+                    className="flex items-center gap-3 rounded-md border px-3 py-2.5 cursor-pointer font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+                  >
+                    <RadioGroupItem value={value} id={id} data-testid={`radio-${id}`} />
+                    <span className={value === "all" ? "font-medium" : ""}>{label}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {count} {count === 1 ? "team" : "teams"}
+                    </span>
+                  </Label>
+                );
+              })}
+            </RadioGroup>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setPrintChooser(null)} data-testid="button-cancel-print-division">
+                Cancel
+              </Button>
+              <Button onClick={confirmPrintChoice} data-testid="button-confirm-print-division">
+                <Printer className="h-4 w-4 mr-2" />
+                {printChooser === "preview" ? "Preview" : "Print"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <PdfPreviewDialog
           title="Teams Report Preview"
           preview={pdfPreview}
           onClose={() => setPdfPreview(null)}
-          onExcel={handleExcelSave}
+          onExcel={() => handleExcelSave(previewDivision)}
         />
       </div>
     </div>
