@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MonitorSmartphone, Plus, Loader2 } from "lucide-react";
+import { MonitorSmartphone, Plus, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +48,7 @@ const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
 
 export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "" }: Props & { buttonClassName?: string }) {
   const [showHelp, setShowHelp] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [, setTick] = useState(0);
 
   // Android Chrome treats every installed app on a site as covering the whole site, so a
@@ -182,8 +183,17 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   // Browsers that can offer the one-click Install (the PTM app only)
   const canOneClick = isApp && (platform === "desktop-chromium" || platform === "android");
   const buttonLabel = isApp ? label : "Shortcut";
-  // Android: an intent link opens the page in Chrome itself rather than in the PTM app
-  const chromeUrl = `intent://${window.location.host}${startUrl}#Intent;scheme=https;package=com.android.chrome;end`;
+  // Inside the PTM app: copy the page's public link to paste into the browser
+  // (sending it to Chrome directly doesn't work: the app keeps PTM pages)
+  const copyLink = async () => {
+    const url = `${window.location.origin}${startUrl}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
+    setCopied(true);
+  };
   // Chrome/Edge only offer it after ~30 seconds on the page; give up waiting after a minute
   const gaveUpWaiting = !installReady && performance.now() > 60_000;
 
@@ -279,18 +289,23 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
               </ol>
             )}
             {inApp && !isApp && (
-              <div className="rounded-md bg-muted/60 p-3 space-y-2" data-testid="open-in-chrome-panel">
+              <div className="rounded-md bg-muted/60 p-3 space-y-2" data-testid="copy-link-panel">
                 <p>
-                  You're in the PTM app, which can't make shortcuts itself.
-                  {platform === "android"
-                    ? " Open this page in Chrome first, then follow the steps below there."
-                    : " Open this page in your browser first (the app window's menu has an Open in Chrome / Open in browser option), then follow the steps below there."}
+                  You're in the PTM app, which can't make shortcuts itself (and keeps PTM pages
+                  inside the app). Make the shortcut in your browser instead:
                 </p>
-                {platform === "android" && (
-                  <Button asChild className="w-full" data-testid="button-open-in-chrome">
-                    <a href={chromeUrl}>Open in Chrome</a>
-                  </Button>
-                )}
+                <ol className="list-decimal pl-5 space-y-1">
+                  <li>Tap <strong>Copy link</strong>.</li>
+                  <li>Open {platform === "android" ? "Chrome" : "your browser"}, paste the link into the address bar and go.</li>
+                  <li>Then follow the steps below there.</li>
+                </ol>
+                <Button className="w-full" onClick={copyLink} data-testid="button-copy-link">
+                  {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                  {copied ? "Link copied" : "Copy link"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Tip: make your Teams and Leaderboard shortcuts in the browser before installing the PTM app, and you won't need this step.
+                </p>
               </div>
             )}
             {platform === "android" && !isApp && (
