@@ -55,6 +55,7 @@ import { HelpDialog } from "@/components/help-dialog";
 import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
 import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 import { downloadAndPrintPdf } from "@/lib/pdf-reports";
+import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1512,6 +1513,26 @@ export default function Teams() {
     }
   };
 
+  // Phones: Download, Registration link, Share teams and Clear all teams live in the
+  // ☰ menu at the top right (the buttons below are hidden there to make room).
+  // A ref keeps the latest handlers so the item list only changes when its labels do.
+  const menuActions = useRef({ handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink });
+  menuActions.current = { handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink };
+  const pageMenuItems = useMemo<NavMenuItem[]>(() => {
+    if (isReadOnly) return [];
+    const items: NavMenuItem[] = [
+      { key: "download-excel", label: "Download Excel", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave() },
+      { key: "preview-print", label: "Preview / Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("preview") },
+      { key: "registration-link", label: "Registration link", icon: ClipboardList, onSelect: () => menuActions.current.handleCopyRegistrationLink() },
+      { key: "share-teams", label: isSharingLink ? "Creating link…" : "Share teams", icon: Share2, disabled: isSharingLink, onSelect: () => menuActions.current.handleCopyShareLink() },
+    ];
+    if (!isEditAllMode) {
+      items.push({ key: "clear-all", label: "Clear all teams", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
+    }
+    return items;
+  }, [isReadOnly, isEditAllMode, isSharingLink]);
+  usePageMenuItems(pageMenuItems);
+
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -1593,6 +1614,7 @@ export default function Teams() {
                   <Button
                     variant="outline"
                 size="sm"
+                    className="hidden sm:inline-flex"
                     data-testid="button-download"
                   >
                 <FileDown className="h-4 w-4 sm:mr-2" />
@@ -1665,6 +1687,7 @@ export default function Teams() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowClearConfirm(true)}
+                    className="hidden sm:inline-flex"
                     data-testid="button-clear-all-teams"
                   >
                     <Trash2 className="h-4 w-4 sm:mr-2" />
@@ -1890,6 +1913,7 @@ export default function Teams() {
                 variant="outline"
                 size="sm"
                 onClick={handleCopyRegistrationLink}
+                className="hidden sm:inline-flex"
                 title="Copy a link team captains can use to register themselves"
                 data-testid="button-registration-link"
               >
@@ -1901,6 +1925,7 @@ export default function Teams() {
                 size="sm"
                 onClick={handleCopyShareLink}
                 disabled={isSharingLink}
+                className="hidden sm:inline-flex"
                 data-testid="button-share-view"
               >
                 <Share2 className="h-4 w-4 sm:mr-2" />

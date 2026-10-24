@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu } from "lucide-react";
+import { useNavMenuItems } from "@/lib/nav-menu";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { PaymentDetailsSection } from "@/components/payment-details-section";
@@ -35,6 +36,7 @@ export function Navigation() {
   const { currentTournament } = useTournament();
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const { toast } = useToast();
+  const pageMenuItems = useNavMenuItems();
 
   // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -180,18 +182,6 @@ export function Navigation() {
                       </Button>
                     </Link>
                   )}
-                  {user.isSystemAdmin && (
-                    <Link href="/admin/users">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        data-testid="button-admin-users-mobile"
-                        className="sm:hidden"
-                      >
-                        <UserCog className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  )}
 
                   {/* User dropdown (desktop) */}
                   <DropdownMenu>
@@ -226,25 +216,59 @@ export function Navigation() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Mobile: separate icon buttons */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowChangePassword(true)}
-                    data-testid="button-change-password-mobile"
-                    className="sm:hidden"
-                  >
-                    <UserPen className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleLogout}
-                    data-testid="button-user-logout-mobile"
-                    className="sm:hidden"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
+                  {/* Phones: one ☰ menu with the page's own actions (e.g. Teams: Download,
+                      Registration link, Share teams, Clear all teams), then the account items */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Menu"
+                        data-testid="button-mobile-menu"
+                        className="sm:hidden"
+                      >
+                        <Menu className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {pageMenuItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <DropdownMenuItem
+                            key={item.key}
+                            onClick={item.onSelect}
+                            disabled={item.disabled}
+                            className={item.destructive ? "text-destructive focus:text-destructive" : undefined}
+                            data-testid={`menu-item-${item.key}`}
+                          >
+                            <Icon className="h-4 w-4 mr-2" />
+                            {item.label}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      {pageMenuItems.length > 0 && <DropdownMenuSeparator />}
+                      {user.isSystemAdmin && (
+                        <DropdownMenuItem asChild data-testid="menu-item-admin-users-mobile">
+                          <Link href="/admin/users">
+                            <UserCog className="h-4 w-4 mr-2" />
+                            User management
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
+                        <UserPen className="h-4 w-4 mr-2" />
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="text-destructive focus:text-destructive"
+                        data-testid="menu-item-logout-mobile"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Log out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               ) : null /* view-only visitors: no Sign in; organisers sign in at the site address */}
             </div>
