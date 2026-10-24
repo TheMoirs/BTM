@@ -68,7 +68,9 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
 
   // Point the page's manifest and home-screen title at this tournament + page while it's open
   useEffect(() => {
-    const href = `/api/public/manifest?name=${encodeURIComponent(shortcutName)}&start=${encodeURIComponent(startUrl)}&icon=${iconKind}`;
+    // Each shortcut gets its own address (see server/routes.ts), e.g. /api/public/manifest/leaderboard-test-tournament
+    const pageKey = `${iconKind}-${startUrl}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 150);
+    const href = `/api/public/manifest/${pageKey}?name=${encodeURIComponent(shortcutName)}&start=${encodeURIComponent(startUrl)}&icon=${iconKind}`;
     let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const createdLink = !link;
     if (!link) {
@@ -187,7 +189,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3 rounded-md border p-3">
-              <img src={`/icons/${iconKind}-192.png?v=3`} alt="" className="h-10 w-10 rounded-lg border" />
+              <img src={`/icons/${iconKind}-192.png?v=4`} alt="" className="h-10 w-10 rounded-lg border" />
               <div className="min-w-0">
                 <p className="font-medium break-words">{shortcutName}</p>
                 <p className="text-xs text-muted-foreground">Shortcut name</p>

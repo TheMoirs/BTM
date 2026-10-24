@@ -561,7 +561,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Web app manifest for "Add to home screen / desktop" shortcuts ─────────
   // /api/public/manifest?name=Summer League-Leaderboard&start=/leaderboard/summer-league
   // The shortcut is named after the tournament and page, and opens that page.
-  app.get("/api/public/manifest", (req, res) => {
+  // New shortcuts use /api/public/manifest/<page-key>?… so each one has its own
+  // address: Android Chrome ignores the ?… part when checking whether an app is
+  // already installed, so with one shared address a second shortcut was taken
+  // for the first ("app already exists", then "could not open app").
+  // The bare address stays for shortcuts installed before the change.
+  app.get(["/api/public/manifest", "/api/public/manifest/:key"], (req, res) => {
     const rawName = String(req.query.name || "").trim().slice(0, 100);
     const rawStart = String(req.query.start || "/").trim();
     // Only same-site paths: must start with a single "/" (not "//host")
