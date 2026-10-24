@@ -591,10 +591,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
         // Press and hold the app icon for these
         shortcuts: [
-          { name: "Teams", url: "/teams", icons: [{ src: "/icons/teams-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+          { name: "Teams", url: "/teams", icons: [{ src: "/icons/teams-192.png?v=5", sizes: "192x192", type: "image/png" }] },
           { name: "Matches", url: "/matches", icons: [{ src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png" }] },
           { name: "Results", url: "/results", icons: [{ src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png" }] },
-          { name: "Leaderboard", url: "/leaderboard", icons: [{ src: "/icons/leaderboard-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+          { name: "Leaderboard", url: "/leaderboard", icons: [{ src: "/icons/leaderboard-192.png?v=5", sizes: "192x192", type: "image/png" }] },
         ],
       }));
     }
