@@ -48,7 +48,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy, ClipboardList } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy, ClipboardList, Eye, MonitorSmartphone, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
@@ -186,6 +186,9 @@ export default function Teams() {
   const [deletionImpact, setDeletionImpact] = useState<{ matchCount: number; resultCount: number } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showImportChoice, setShowImportChoice] = useState(false);
+  // View page on phones: Shortcut and Help open from the ☰ menu
+  const [showShortcut, setShowShortcut] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
@@ -1560,7 +1563,14 @@ export default function Teams() {
   const menuActions = useRef({ handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink });
   menuActions.current = { handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink };
   const pageMenuItems = useMemo<NavMenuItem[]>(() => {
-    if (isReadOnly) return [];
+    if (isReadOnly) {
+      // View page: Print, Shortcut and Help (their buttons are hidden on phones)
+      return [
+        { key: "print-teams", label: "Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("print") },
+        { key: "shortcut-teams", label: "Shortcut", icon: MonitorSmartphone, onSelect: () => setShowShortcut(true) },
+        { key: "help-teams", label: "Help", icon: HelpCircle, onSelect: () => setShowHelp(true) },
+      ];
+    }
     const items: NavMenuItem[] = [
       { key: "download-excel", label: "Download Excel", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave() },
       { key: "preview-print", label: "Preview / Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("preview") },
@@ -1598,6 +1608,10 @@ export default function Teams() {
                   {teams.length}
                 </Badge>
               )}
+              {/* View page on phones: the View Only mark sits here rather than in the menu bar */}
+              {isReadOnly && (
+                <Eye className="sm:hidden h-4 w-4 text-muted-foreground flex-shrink-0" aria-label="View only" data-testid="icon-view-only" />
+              )}
               {teams && teams.length > 0 && (
                 <Select value={divisionFilter} onValueChange={setDivisionFilter}>
                   <SelectTrigger className="ml-auto lg:ml-3 h-8 w-[150px] text-sm" aria-label="Division filter" data-testid="select-division-filter">
@@ -1625,7 +1639,8 @@ export default function Teams() {
               Click the captain's phone number or email to send them a message.
             </p>
           </div>
-          <div className="flex flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5">
+          {/* View page on phones: this row's buttons are in the ☰ menu, so the row is hidden to close the gap */}
+          <div className={`${isReadOnly ? "hidden sm:flex" : "flex"} flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5`}>
             {!isReadOnly && (
               <>
                 <input
@@ -2002,9 +2017,11 @@ export default function Teams() {
                 edit={!isReadOnly}
                 tournamentId={currentTournament.id}
                 variant="sm"
+                open={showShortcut}
+                onOpenChange={setShowShortcut}
               />
             )}
-            <HelpDialog title="Teams - Help">
+            <HelpDialog title="Teams - Help" open={showHelp} onOpenChange={setShowHelp}>
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>

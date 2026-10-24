@@ -29,6 +29,9 @@ type Props = {
   label?: string;
   /** "icon" for a compact square button, "sm" for an icon + label button */
   variant?: "icon" | "sm";
+  /** Let a page open the box from elsewhere too (e.g. the phone ☰ menu, which closes when tapped) */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type Platform = "ios" | "android" | "mac-safari" | "desktop-chromium" | "firefox" | "other";
@@ -46,8 +49,10 @@ function detectPlatform(): Platform {
 
 const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
 
-export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "" }: Props & { buttonClassName?: string }) {
-  const [showHelp, setShowHelp] = useState(false);
+export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "", open, onOpenChange }: Props & { buttonClassName?: string }) {
+  const [showHelpState, setShowHelpState] = useState(false);
+  const showHelp = open ?? showHelpState;
+  const setShowHelp = (value: boolean) => (onOpenChange ? onOpenChange(value) : setShowHelpState(value));
   const [copied, setCopied] = useState(false);
   const [, setTick] = useState(0);
 

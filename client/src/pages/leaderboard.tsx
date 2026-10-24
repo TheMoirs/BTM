@@ -6,7 +6,13 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, FileText, Printer } from "lucide-react";
+import { ArrowLeft, Users, FileText, Printer, Menu, MonitorSmartphone, HelpCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { buildLeaderboardPdf, downloadAndPrintPdf } from "@/lib/pdf-reports";
 import { exportFilename } from "@/lib/utils";
@@ -43,6 +49,9 @@ export default function Leaderboard() {
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
+  // Public page on phones: Shortcut and Help open from the ☰ menu
+  const [showShortcut, setShowShortcut] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const { toast } = useToast();
 
   const { data: results, isLoading: resultsLoading } = useQuery<Result[]>({
@@ -155,6 +164,13 @@ export default function Leaderboard() {
   }, [matches, selectedTeamId]);
 
   // Print: save the standings (Leaderboard or Forecast, as on screen) as a PDF and print it
+  // Score Flip opens on (and installs for) this tournament
+  const openScoreFlip = () => {
+    if (!currentTournament) return;
+    const key = (currentTournament as any).slug || currentTournament.id;
+    window.open(`/coin-toss/?t=${encodeURIComponent(key)}`, "btm-coin-toss", "popup,width=480,height=800");
+  };
+
   const handlePrint = () => {
     if (!currentTournament || displayData.length === 0) {
       toast({ title: "Nothing to print yet", description: "There are no standings to print." });
@@ -216,10 +232,49 @@ export default function Leaderboard() {
               </span>
             </p>
           </div>
+          {/* Public page on phones: Score Flip and a ☰ menu (Print, Rules, Shortcut, Help)
+              replace the button row below, so the tabs sit right under the title */}
+          {isReadOnly && (
+            <div className="flex items-center gap-1 self-start flex-shrink-0 sm:hidden">
+              <Button variant="outline" size="icon" onClick={openScoreFlip} aria-label="Score Flip" data-testid="button-coin-toss-mobile">
+                <img src="/coin-toss/favicon.png?v=3" alt="" className="h-5 w-5 rounded-sm" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={handlePrint} data-testid="menu-item-print-leaderboard">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print
+                  </DropdownMenuItem>
+                  {(currentTournament as any).rulesPdfName && (
+                    <DropdownMenuItem
+                      onClick={() => window.open(`/api/tournaments/${currentTournament.id}/rules`, "_blank", "noopener,noreferrer")}
+                      data-testid="menu-item-rules"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Rules
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setShowShortcut(true)} data-testid="menu-item-shortcut-leaderboard">
+                    <MonitorSmartphone className="h-4 w-4 mr-2" />
+                    Shortcut
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowHelp(true)} data-testid="menu-item-help-leaderboard">
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Help
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
 
         {/* Action buttons with labels, on their own row (scrolls sideways on narrow phones) */}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className={`${isReadOnly ? "hidden sm:flex" : "flex"} flex-wrap items-center gap-1`}>
             {/* Signed-in organisers only; visitors have a separate public Teams link */}
             {!isReadOnly && (
               <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
@@ -249,11 +304,7 @@ export default function Leaderboard() {
               variant="outline"
               size="sm"
               className="flex-shrink-0 px-1.5 sm:px-2"
-              onClick={() => {
-                // Score Flip opens on (and installs for) this tournament
-                const key = (currentTournament as any).slug || currentTournament.id;
-                window.open(`/coin-toss/?t=${encodeURIComponent(key)}`, "btm-coin-toss", "popup,width=480,height=800");
-              }}
+              onClick={openScoreFlip}
               data-testid="button-coin-toss"
             >
               <img src="/coin-toss/favicon.png?v=3" alt="" className="h-4 w-4 mr-1.5 rounded-sm" />
@@ -266,8 +317,10 @@ export default function Leaderboard() {
               variant="sm"
               label="Install"
               buttonClassName="px-1.5 sm:px-2"
+              open={showShortcut}
+              onOpenChange={setShowShortcut}
             />
-            <HelpDialog title="Leaderboard - Help" label="Help">
+            <HelpDialog title="Leaderboard - Help" label="Help" open={showHelp} onOpenChange={setShowHelp}>
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>

@@ -160,9 +160,10 @@ export function Navigation() {
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {/* View-only badge sits at the top right so it doesn't need its own line */}
+              {/* View-only badge sits at the top right so it doesn't need its own line
+                  (on phones the Teams page shows an eye after the team count instead) */}
               {currentTournament && isReadOnly && !isMasterAdmin && (
-                <Badge variant="secondary" className="gap-1.5 shrink-0" data-testid="badge-view-only">
+                <Badge variant="secondary" className="hidden sm:inline-flex gap-1.5 shrink-0" data-testid="badge-view-only">
                   <Eye className="h-3 w-3" />
                   <span className="hidden sm:inline">View Only</span>
                 </Badge>
@@ -275,7 +276,28 @@ export function Navigation() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </>
-              ) : null /* view-only visitors: no Sign in; organisers sign in at the site address */}
+              ) : pageMenuItems.length > 0 ? (
+                /* View-only visitors (no Sign in; organisers sign in at the site address):
+                   phones get a ☰ menu with the page's items, e.g. Teams: Print, Shortcut, Help */
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu" className="sm:hidden">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {pageMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.key} onClick={item.onSelect} disabled={item.disabled} data-testid={`menu-item-${item.key}`}>
+                          <Icon className="h-4 w-4 mr-2" />
+                          {item.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </div>
           </div>
 
