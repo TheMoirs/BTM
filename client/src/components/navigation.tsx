@@ -37,6 +37,8 @@ export function Navigation() {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const { toast } = useToast();
   const pageMenuItems = useNavMenuItems();
+  // Phone ☰ menu: User management and Profile aren't offered on Matches and Results
+  const showAccountItems = !["/matches", "/results"].includes(location.split("?")[0]);
 
   // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -247,7 +249,8 @@ export function Navigation() {
                         );
                       })}
                       {pageMenuItems.length > 0 && <DropdownMenuSeparator />}
-                      {user.isSystemAdmin && (
+                      {/* Matches and Results keep the menu short: just their clear-all and Log out */}
+                      {showAccountItems && user.isSystemAdmin && (
                         <DropdownMenuItem asChild data-testid="menu-item-admin-users-mobile">
                           <Link href="/admin/users">
                             <UserCog className="h-4 w-4 mr-2" />
@@ -255,10 +258,12 @@ export function Navigation() {
                           </Link>
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
-                        <UserPen className="h-4 w-4 mr-2" />
-                        Profile
-                      </DropdownMenuItem>
+                      {showAccountItems && (
+                        <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
+                          <UserPen className="h-4 w-4 mr-2" />
+                          Profile
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={handleLogout}
                         className="text-destructive focus:text-destructive"
