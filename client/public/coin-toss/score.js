@@ -433,6 +433,30 @@
     show("setup");
   });
 
+  // Number fields in the boxes: tapping one selects the whole number (typing replaces it)
+  // and scrolls it into view above the keypad
+  function selectNumber(inp) {
+    setTimeout(function () {
+      try { inp.select(); } catch (_) {}
+      if (inp.scrollIntoView) inp.scrollIntoView({ block: "nearest" });
+    }, 0);
+  }
+  document.addEventListener("focusin", function (e) {
+    var t = e.target;
+    if (t && t.tagName === "INPUT" && t.type === "number" && t.closest(".modal")) selectNumber(t);
+  });
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t && t.tagName === "INPUT" && t.type === "number" && t.closest(".modal")) selectNumber(t);
+  });
+  // Once the keypad has opened (the page shrinks to fit), keep the field being typed in visible
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", function () {
+      var a = document.activeElement;
+      if (a && a.tagName === "INPUT" && a.closest(".modal") && a.scrollIntoView) a.scrollIntoView({ block: "nearest" });
+    });
+  }
+
   // ── Edit saved games (a game in the current match, or a previous match) ──
   var gamesEdit = null;
   function openGamesEditor(opts) {

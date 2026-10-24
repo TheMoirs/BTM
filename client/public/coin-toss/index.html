@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>Score Flip – PTM</title>
   <meta name="description" content="Pétanque Tournament Manager - Score Flip: coin flip, match score keeper and game timer. Simply click the link &amp; install on your phone home page." />
   <meta property="og:title" content="Score Flip – PTM" />
@@ -108,7 +108,7 @@
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
   </style>
-  <link rel="stylesheet" href="/coin-toss/score.css?v=5" />
+  <link rel="stylesheet" href="/coin-toss/score.css?v=6" />
 </head>
 <body>
   <div class="top" id="topBar">
@@ -240,7 +240,7 @@
   </section>
 
   <!-- Change timer length -->
-  <div class="modal" id="timerModal" hidden>
+  <div class="modal top" id="timerModal" hidden>
     <div class="sheet" role="dialog" aria-labelledby="timerModalTitle">
       <h2 id="timerModalTitle">Timer length</h2>
       <label class="minutes">Minutes <input type="number" id="timerMinutes" min="1" max="180" inputmode="numeric" /></label>
@@ -252,7 +252,7 @@
   </div>
 
   <!-- Type a score (tap a big number on the game screen) -->
-  <div class="modal" id="scoreModal" hidden>
+  <div class="modal top" id="scoreModal" hidden>
     <div class="sheet" role="dialog" aria-labelledby="scoreModalTitle">
       <h2 id="scoreModalTitle">Score</h2>
       <label class="minutes">Score <input type="number" id="scoreInput" min="0" max="99" inputmode="numeric" /></label>
@@ -264,7 +264,7 @@
   </div>
 
   <!-- Edit saved games: a game in the current match, or a previous match -->
-  <div class="modal" id="gamesModal" hidden>
+  <div class="modal top" id="gamesModal" hidden>
     <div class="sheet" role="dialog" aria-labelledby="gamesModalTitle">
       <h2 id="gamesModalTitle">Edit game</h2>
       <div class="game-rows" id="gamesRows"></div>
@@ -302,7 +302,7 @@
   </div>
 
   <script src="/coin-toss/coin-art.js"></script>
-  <script src="/coin-toss/score.js?v=5" defer></script>
+  <script src="/coin-toss/score.js?v=6" defer></script>
   <script>
   (function () {
     "use strict";
