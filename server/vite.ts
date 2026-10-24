@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { storage } from "./storage";
 
 const viteLogger = createLogger();
 
@@ -78,8 +79,34 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
+  const indexPath = path.resolve(distPath, "index.html");
+  const indexHtml = fs.readFileSync(indexPath, "utf-8");
+
+  // Public Teams / Leaderboard links: send the page already titled with the tournament
+  // (e.g. "Summer League-Leaderboard"). Android Chrome names a home-screen shortcut from
+  // the title the page arrived with, before the app's own code renames it.
+  app.get(["/leaderboard/:slug", "/teams/:slug"], async (req, res, next) => {
+    try {
+      const tournament = await storage.getTournamentBySlug(String(req.params.slug));
+      if (!tournament) return next();
+      const page = req.path.startsWith("/leaderboard/") ? "Leaderboard" : "Teams";
+      const name = escapeHtml(`${tournament.name}-${page}`);
+      const html = indexHtml.replace(
+        /<title>[^<]*<\/title>/,
+        `<title>${name}</title>\n    <meta name="application-name" content="${name}" />`,
+      );
+      res.status(200).set({ "Content-Type": "text/html", "Cache-Control": "no-cache" }).end(html);
+    } catch {
+      next();
+    }
+  });
+
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(indexPath);
   });
+}
+
+function escapeHtml(text: string) {
+  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
