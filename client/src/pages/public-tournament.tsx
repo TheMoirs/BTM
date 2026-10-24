@@ -54,7 +54,7 @@ export default function PublicTournamentPage({ slug, page }: { slug: string; pag
   if (state === "missing") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center gap-3">
-        <img src="/ptm-logo.png?v=3" alt="PTM" className="h-20 w-20 rounded-xl object-cover" />
+        <img src="/ptm-logo.png?v=4" alt="PTM" className="h-20 w-20 rounded-xl object-cover" />
         <h1 className="text-xl font-semibold">Tournament not found</h1>
         <p className="text-muted-foreground max-w-sm">
           There's no tournament at this address. It may have been renamed, so please ask the organiser for the latest link.

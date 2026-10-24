@@ -201,7 +201,7 @@ export default function Leaderboard() {
       {/* Compact header: one title row, one tab row (plus a team row when filtering) */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <img src="/ptm-logo.png?v=3" alt="PTM" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
+          <img src="/ptm-logo.png?v=4" alt="PTM" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight break-words" data-testid="text-tournament-name">
               {currentTournament.name}

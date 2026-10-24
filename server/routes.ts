@@ -585,15 +585,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         background_color: "#ffffff",
         theme_color: "#ffffff",
         icons: [
-          { src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         // Press and hold the app icon for these
         shortcuts: [
           { name: "Teams", url: "/teams", icons: [{ src: "/icons/teams-192.png?v=5", sizes: "192x192", type: "image/png" }] },
-          { name: "Matches", url: "/matches", icons: [{ src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png" }] },
-          { name: "Results", url: "/results", icons: [{ src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+          { name: "Matches", url: "/matches", icons: [{ src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png" }] },
+          { name: "Results", url: "/results", icons: [{ src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png" }] },
           { name: "Leaderboard", url: "/leaderboard", icons: [{ src: "/icons/leaderboard-192.png?v=5", sizes: "192x192", type: "image/png" }] },
         ],
       }));
@@ -617,8 +617,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           { src: `/icons/${iconKind}-512.png?v=4`, sizes: "512x512", type: "image/png", purpose: "any" },
         ]
       : [
-          { src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "any" },
         ];
     res.type("application/manifest+json");
     res.set("Cache-Control", "no-cache");

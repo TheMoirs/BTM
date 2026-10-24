@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src="/ptm-logo.png?v=3" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover" />
+            <img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Pétanque Tournament Manager</h1>
         </div>
