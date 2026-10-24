@@ -149,7 +149,10 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   // Running inside an installed app, or (PTM app only) already installed in this
   // browser: nothing to add. View pages always offer the Shortcut button, since a
   // plain shortcut can't be detected and an old "installed" note could hide it.
-  if (isRunningAsInstalledApp() || (isApp && hasShortcut(startUrl))) return null;
+  // Inside the PTM app, the Teams / Leaderboard views still offer the Shortcut button:
+  // it sends the page to Chrome, where the shortcut is made (the app has no browser menu).
+  const inApp = isRunningAsInstalledApp();
+  if ((inApp && isApp) || (isApp && hasShortcut(startUrl))) return null;
 
   // The browser's own one-click install, when it offers it (Chrome / Edge / Android)
   // (only for the PTM app: view pages are plain shortcuts and have nothing to install)
@@ -179,6 +182,8 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   // Browsers that can offer the one-click Install (the PTM app only)
   const canOneClick = isApp && (platform === "desktop-chromium" || platform === "android");
   const buttonLabel = isApp ? label : "Shortcut";
+  // Android: an intent link opens the page in Chrome itself rather than in the PTM app
+  const chromeUrl = `intent://${window.location.host}${startUrl}#Intent;scheme=https;package=com.android.chrome;end`;
   // Chrome/Edge only offer it after ~30 seconds on the page; give up waiting after a minute
   const gaveUpWaiting = !installReady && performance.now() > 60_000;
 
@@ -272,6 +277,21 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
                 <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
                 <li>Tap <strong>Install</strong> to confirm.</li>
               </ol>
+            )}
+            {inApp && !isApp && (
+              <div className="rounded-md bg-muted/60 p-3 space-y-2" data-testid="open-in-chrome-panel">
+                <p>
+                  You're in the PTM app, which can't make shortcuts itself.
+                  {platform === "android"
+                    ? " Open this page in Chrome first, then follow the steps below there."
+                    : " Open this page in your browser first (the app window's menu has an Open in Chrome / Open in browser option), then follow the steps below there."}
+                </p>
+                {platform === "android" && (
+                  <Button asChild className="w-full" data-testid="button-open-in-chrome">
+                    <a href={chromeUrl}>Open in Chrome</a>
+                  </Button>
+                )}
+              </div>
             )}
             {platform === "android" && !isApp && (
               <ol className="list-decimal pl-5 space-y-1">
