@@ -33,6 +33,7 @@ import {
 import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision, applyForecastSort, type TeamSummary } from "@/lib/leaderboard";
 import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet, ArrowLeft } from "lucide-react";
+import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
@@ -742,6 +743,16 @@ export default function Results() {
     });
   };
 
+  // Phones: "Clear all results" lives in the ☰ menu at the top right
+  const hasResults = !!results && results.length > 0;
+  const pageMenuItems = useMemo<NavMenuItem[]>(
+    () => (!isReadOnly && hasResults
+      ? [{ key: "clear-all-results", label: "Clear all results", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) }]
+      : []),
+    [isReadOnly, hasResults],
+  );
+  usePageMenuItems(pageMenuItems);
+
   return (
     <div className="container mx-auto py-3 sm:py-6 space-y-3">
       {/* Compact header: title + stage filter, then one scrollable row of actions */}
@@ -809,6 +820,7 @@ export default function Results() {
                   variant="destructive"
                   size="sm"
                   title="Clear all results"
+                  className="hidden sm:inline-flex"
                   onClick={() => setShowClearConfirm(true)}
                   data-testid="button-clear-all-results"
                 >

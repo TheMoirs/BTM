@@ -47,6 +47,7 @@ import {
   type InsertMatch,
 } from "@shared/schema";
 import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2 } from "lucide-react";
+import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
 import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
@@ -1352,6 +1353,15 @@ export default function Matches() {
     });
   };
 
+  // Phones: "Clear all matches" lives in the ☰ menu at the top right
+  const pageMenuItems = useMemo<NavMenuItem[]>(
+    () => (isReadOnly
+      ? []
+      : [{ key: "clear-all-matches", label: "Clear all matches", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) }]),
+    [isReadOnly],
+  );
+  usePageMenuItems(pageMenuItems);
+
   if (isLoading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -1490,6 +1500,7 @@ export default function Matches() {
                   variant="outline"
                   onClick={() => setShowClearConfirm(true)}
                   size="sm"
+                  className="hidden sm:inline-flex"
                       title="Clear all data"
                       data-testid="button-clear-all-matches"
                 >
