@@ -185,6 +185,7 @@ export default function Teams() {
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
   const [deletionImpact, setDeletionImpact] = useState<{ matchCount: number; resultCount: number } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showImportChoice, setShowImportChoice] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
@@ -359,6 +360,46 @@ export default function Teams() {
         duration: Infinity,
       });
     }
+  };
+
+  // Sample import file: 8 made-up teams in the columns the import reads (first sheet),
+  // plus a Notes sheet. Phone numbers are from Ofcom's drama range (07700 900xxx)
+  // and emails use example.com, so nothing reaches a real person.
+  const handleDownloadSample = () => {
+    const sampleTeams = [
+      ["The Jack Russells", "A", "Riverside Green", "Sam Hale, Priya Nair", "Tom Ashby", "07700 900101", "tom.ashby@example.com"],
+      ["Boules Brothers", "A", "Abbey Gardens", "Leo Marsh, Kit Marsh", "Ben Marsh", "07700 900102", "ben.marsh@example.com"],
+      ["Carreau Club", "A", "Station Road", "Ana Silva, Joe Pike", "Rachel Moss", "07700 900103", "rachel.moss@example.com"],
+      ["Pointers United", "A", "Riverside Green", "Will Grant, Eve Cole", "Hannah Price", "07700 900104", "hannah.price@example.com"],
+      ["Tête à Tête", "B", "Village Hall", "Nina Rowe, Dev Shah", "Claire Doyle", "07700 900105", "claire.doyle@example.com"],
+      ["The Shooters", "B", "Abbey Gardens", "Max Reid, Lily Hart", "Owen Clarke", "07700 900106", "owen.clarke@example.com"],
+      ["Cochonnet Crew", "B", "Station Road", "Ruth Bell, Alfie Long", "Gary Webb", "07700 900107", "gary.webb@example.com"],
+      ["Rolling Boules", "B", "Village Hall", "Jas Kaur, Pete Wood", "Mia Turner", "07700 900108", "mia.turner@example.com"],
+    ];
+    const teamsSheet = XLSX.utils.aoa_to_sheet([
+      ["Team Name", "Division", "Home Piste", "Other Players", "Captain Name", "Captain Phone", "Captain Email"],
+      ...sampleTeams,
+    ]);
+    teamsSheet["!cols"] = [{ wch: 20 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 16 }, { wch: 15 }, { wch: 26 }];
+    const notesSheet = XLSX.utils.aoa_to_sheet([
+      ["How to use this file"],
+      ["1. Save it under your own name, then replace the made-up teams on the Teams sheet with yours."],
+      ["2. Keep the column headings in row 1 as they are. Only the first sheet (Teams) is imported."],
+      ["3. Team Name, Captain Name and Captain Phone are required."],
+      ["4. Division is a letter (A, B, ...). Other Players: separate names with commas."],
+      ["5. In PTM, tap Import, choose \"No, choose my file\" and pick your file."],
+      ["A team whose name is already in the tournament is updated rather than added twice."],
+    ]);
+    notesSheet["!cols"] = [{ wch: 95 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, teamsSheet, "Teams");
+    XLSX.utils.book_append_sheet(workbook, notesSheet, "Notes");
+    XLSX.writeFile(workbook, "PTM sample teams.xlsx");
+    setShowImportChoice(false);
+    toast({
+      title: "Sample file downloaded",
+      description: "Open \"PTM sample teams.xlsx\" from your downloads, save it under your own name, edit it, then import it.",
+    });
   };
 
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1598,7 +1639,7 @@ export default function Teams() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setShowImportChoice(true)}
                   data-testid="button-import-excel"
                 >
                   <Upload className="h-4 w-4 sm:mr-2" />
@@ -2606,6 +2647,35 @@ export default function Teams() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Import: offer a sample file first, or go straight to choosing a file */}
+        <Dialog open={showImportChoice} onOpenChange={setShowImportChoice}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Import teams from Excel</DialogTitle>
+              <DialogDescription>
+                Do you want a sample file to start from? It has 8 made-up teams in the right columns.
+                Save it under your own name, replace the teams with yours, then come back here and choose your file.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={handleDownloadSample} data-testid="button-import-sample">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Yes, get a sample
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowImportChoice(false);
+                  fileInputRef.current?.click();
+                }}
+                data-testid="button-import-choose-file"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                No, choose my file
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
           <AlertDialogContent>
