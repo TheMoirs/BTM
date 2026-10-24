@@ -265,8 +265,21 @@
     var saved = $("savedGames");
     saved.innerHTML = "";
     match.games.forEach(function (g, i) {
-      var chip = document.createElement("span");
+      // Tap a saved game to edit or delete it
+      var chip = document.createElement("button");
+      chip.type = "button";
       chip.textContent = "G" + (i + 1) + " " + g[0] + "–" + g[1];
+      chip.setAttribute("aria-label", "Edit game " + (i + 1));
+      chip.addEventListener("click", function () {
+        openGamesEditor({
+          title: "Edit Game " + (i + 1),
+          t1: match.t1, t2: match.t2,
+          games: [match.games[i].slice()],
+          firstNumber: i + 1,
+          onSave: function (games) { match.games[i] = games[0]; saveMatch(); renderGame(); },
+          onDelete: function () { match.games.splice(i, 1); saveMatch(); renderGame(); },
+        });
+      });
       saved.appendChild(chip);
     });
     renderTimer();
@@ -420,6 +433,71 @@
     show("setup");
   });
 
+  // ── Edit saved games (a game in the current match, or a previous match) ──
+  var gamesEdit = null;
+  function openGamesEditor(opts) {
+    gamesEdit = opts;
+    $("gamesModalTitle").textContent = opts.title;
+    var box = $("gamesRows");
+    box.innerHTML = "";
+    var head = document.createElement("div");
+    head.className = "g-row g-head";
+    ["", opts.t1, opts.t2].forEach(function (t) {
+      var sp = document.createElement("span");
+      sp.textContent = t;
+      head.appendChild(sp);
+    });
+    box.appendChild(head);
+    opts.games.forEach(function (g, i) {
+      var row = document.createElement("div");
+      row.className = "g-row";
+      var label = document.createElement("span");
+      label.textContent = "Game " + (opts.firstNumber + i);
+      row.appendChild(label);
+      [0, 1].forEach(function (k) {
+        var inp = document.createElement("input");
+        inp.type = "number"; inp.min = "0"; inp.max = "99";
+        inp.setAttribute("inputmode", "numeric");
+        inp.value = g[k];
+        inp.setAttribute("aria-label", "Game " + (opts.firstNumber + i) + " " + (k === 0 ? opts.t1 : opts.t2));
+        row.appendChild(inp);
+      });
+      box.appendChild(row);
+    });
+    var del = $("gamesDelete");
+    del.hidden = !opts.onDelete;
+    del.textContent = "Delete game";
+    $("gamesModal").hidden = false;
+    // Focus during the tap, so the number keypad opens straight away
+    var first = box.querySelector("input");
+    if (first) { first.focus(); first.select(); }
+  }
+  function closeGamesEditor() { $("gamesModal").hidden = true; gamesEdit = null; }
+  $("gamesSave").addEventListener("click", function () {
+    if (!gamesEdit) return;
+    var inputs = $("gamesRows").querySelectorAll("input");
+    var games = [];
+    for (var i = 0; i < inputs.length; i += 2) {
+      var a = inputs[i].value === "" ? NaN : Math.round(Number(inputs[i].value));
+      var b = inputs[i + 1].value === "" ? NaN : Math.round(Number(inputs[i + 1].value));
+      if (!isFinite(a) || !isFinite(b) || a < 0 || b < 0 || a > 99 || b > 99) { toast("Scores must be 0 to 99"); return; }
+      games.push([a, b]);
+    }
+    var done = gamesEdit.onSave;
+    closeGamesEditor();
+    done(games);
+  });
+  $("gamesDelete").addEventListener("click", function () {
+    if (!gamesEdit || !gamesEdit.onDelete) return;
+    var del = $("gamesDelete");
+    if (del.textContent !== "Sure?") { del.textContent = "Sure?"; return; }
+    var done = gamesEdit.onDelete;
+    closeGamesEditor();
+    done();
+  });
+  $("gamesCancel").addEventListener("click", closeGamesEditor);
+  $("gamesModal").addEventListener("click", function (e) { if (e.target === $("gamesModal")) closeGamesEditor(); });
+
   // ── Previous matches ────────────────────────────────────────────────────
   function renderHistory() {
     var list = load(KEY_HISTORY, []);
@@ -448,7 +526,24 @@
         renderHistory();
       });
 
-      li.appendChild(text); li.appendChild(share); li.appendChild(del);
+      var edit = document.createElement("button");
+      edit.type = "button"; edit.textContent = "Edit";
+      edit.addEventListener("click", function () {
+        openGamesEditor({
+          title: "Edit match",
+          t1: m.t1, t2: m.t2,
+          games: m.games.map(function (g) { return g.slice(); }),
+          firstNumber: 1,
+          onSave: function (games) {
+            var list = load(KEY_HISTORY, []);
+            list.forEach(function (x) { if (x.id === m.id) x.games = games; });
+            store(KEY_HISTORY, list);
+            renderHistory();
+          },
+        });
+      });
+
+      li.appendChild(text); li.appendChild(edit); li.appendChild(share); li.appendChild(del);
       ul.appendChild(li);
     });
   }

@@ -108,7 +108,7 @@
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
   </style>
-  <link rel="stylesheet" href="/coin-toss/score.css?v=4" />
+  <link rel="stylesheet" href="/coin-toss/score.css?v=5" />
 </head>
 <body>
   <div class="top" id="topBar">
@@ -263,6 +263,19 @@
     </div>
   </div>
 
+  <!-- Edit saved games: a game in the current match, or a previous match -->
+  <div class="modal" id="gamesModal" hidden>
+    <div class="sheet" role="dialog" aria-labelledby="gamesModalTitle">
+      <h2 id="gamesModalTitle">Edit game</h2>
+      <div class="game-rows" id="gamesRows"></div>
+      <div class="btns">
+        <button class="btn danger-text" id="gamesDelete" type="button" hidden>Delete game</button>
+        <button class="btn" id="gamesCancel" type="button">Cancel</button>
+        <button class="btn primary" id="gamesSave" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- End Match while the game isn't finished -->
   <div class="modal" id="abandonModal" hidden>
     <div class="sheet" role="dialog" aria-labelledby="abandonTitle">
@@ -289,7 +302,7 @@
   </div>
 
   <script src="/coin-toss/coin-art.js"></script>
-  <script src="/coin-toss/score.js?v=4" defer></script>
+  <script src="/coin-toss/score.js?v=5" defer></script>
   <script>
   (function () {
     "use strict";
