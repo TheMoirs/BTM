@@ -105,6 +105,16 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
     }
     meta.content = shortcutName;
 
+    // Android Chrome's "Create shortcut" checks application-name before the page title
+    let appName = document.querySelector<HTMLMetaElement>('meta[name="application-name"]');
+    const createdAppName = !appName;
+    if (!appName) {
+      appName = document.createElement("meta");
+      appName.name = "application-name";
+      document.head.appendChild(appName);
+    }
+    appName.content = shortcutName;
+
     // iPhone/iPad take the home-screen picture from the apple-touch-icon
     const touchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
     const previousTouchIcon = touchIcon?.getAttribute("href") ?? null;
@@ -119,23 +129,27 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
       if (createdLink) link?.remove();
       pageIcon?.remove();
       if (createdMeta) meta?.remove();
+      if (createdAppName) appName?.remove();
     };
   }, [shortcutName, startUrl, iconKind, isApp]);
 
   useEffect(() => onInstallPromptChange(() => setTick((t) => t + 1)), []);
+  // Only the PTM app is remembered as installed; plain shortcuts can't be detected
   useEffect(() => {
+    if (!isApp) return;
     setCurrentShortcutKey(startUrl);
     return () => setCurrentShortcutKey(null);
-  }, [startUrl]);
+  }, [startUrl, isApp]);
   useEffect(() => {
     if (!showHelp) return;
     const timer = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(timer);
   }, [showHelp]);
 
-  // Already opened from a home-screen / desktop shortcut, or this browser already
-  // has the shortcut for this page: nothing to add
-  if (isRunningAsInstalledApp() || hasShortcut(startUrl)) return null;
+  // Running inside an installed app, or (PTM app only) already installed in this
+  // browser: nothing to add. View pages always offer the Shortcut button, since a
+  // plain shortcut can't be detected and an old "installed" note could hide it.
+  if (isRunningAsInstalledApp() || (isApp && hasShortcut(startUrl))) return null;
 
   // The browser's own one-click install, when it offers it (Chrome / Edge / Android)
   // (only for the PTM app: view pages are plain shortcuts and have nothing to install)
