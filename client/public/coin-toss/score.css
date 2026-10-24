@@ -155,3 +155,9 @@
 .game .game-actions { flex-direction: row; margin-top: 0; }
 .game .game-actions .primary-btn,
 .game .game-actions .secondary-btn { flex: 1; min-height: 52px; font-size: 18px; padding: 0 8px; }
+
+/* Tap a big score to type it */
+.score[role="button"] { cursor: pointer; border-radius: 12px; }
+.score[role="button"]:active { background: #f1f5f9; }
+/* Abandon match button */
+.sheet .btn.primary.danger { background: #dc2626; border-color: #dc2626; }

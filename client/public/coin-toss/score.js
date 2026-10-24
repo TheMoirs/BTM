@@ -308,14 +308,67 @@
     window.scrollTo(0, 0);
   });
 
-  $("endMatch").addEventListener("click", function () {
-    if (!match) return;
+  function endMatchNow() {
     if (match.cur[0] !== 0 || match.cur[1] !== 0) match.games.push(match.cur.slice()); // include the game in progress
     match.cur = [0, 0];
-    if (!match.games.length) { toast("No scores to save yet"); return; }
     resetTimer();
     finishMatch();
+  }
+
+  $("endMatch").addEventListener("click", function () {
+    if (!match) return;
+    var inProgress = match.cur[0] !== 0 || match.cur[1] !== 0;
+    if (!inProgress && !match.games.length) { toast("No scores to save yet"); return; }
+    // The game in progress, or the last saved one if the current game hasn't started
+    var last = inProgress ? match.cur : match.games[match.games.length - 1];
+    var finished = last.some(function (s) { return s === 9 || s === 13; });
+    if (!finished) { $("abandonModal").hidden = false; return; }
+    endMatchNow();
   });
+
+  // Abandon: the match is thrown away, not saved to the history
+  $("abandonKeep").addEventListener("click", function () { $("abandonModal").hidden = true; });
+  $("abandonModal").addEventListener("click", function (e) { if (e.target === $("abandonModal")) $("abandonModal").hidden = true; });
+  $("abandonYes").addEventListener("click", function () {
+    $("abandonModal").hidden = true;
+    resetTimer();
+    match = null;
+    store(KEY_CURRENT, null);
+    goMenu();
+    toast("Match abandoned");
+  });
+
+  // Tap a big score to type it in
+  var scoreTeam = 0;
+  [1, 2].forEach(function (n) {
+    var el = $("score" + n);
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", "Type a score");
+    function openScoreBox() {
+      if (!match) return;
+      scoreTeam = n - 1;
+      $("scoreModalTitle").textContent = "Score for " + (n === 1 ? match.t1 : match.t2);
+      $("scoreInput").value = match.cur[scoreTeam];
+      $("scoreModal").hidden = false;
+      setTimeout(function () { $("scoreInput").select(); }, 50);
+    }
+    el.addEventListener("click", openScoreBox);
+    el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openScoreBox(); } });
+  });
+  function setTypedScore() {
+    var v = Math.round(Number($("scoreInput").value));
+    if (!isFinite(v) || v < 0 || v > 99) { toast("Enter a score from 0 to 99"); return; }
+    $("scoreModal").hidden = true;
+    if (!match) return;
+    match.cur[scoreTeam] = v;
+    saveMatch();
+    renderGame();
+  }
+  $("scoreSet").addEventListener("click", setTypedScore);
+  $("scoreInput").addEventListener("keydown", function (e) { if (e.key === "Enter") setTypedScore(); });
+  $("scoreCancel").addEventListener("click", function () { $("scoreModal").hidden = true; });
+  $("scoreModal").addEventListener("click", function (e) { if (e.target === $("scoreModal")) $("scoreModal").hidden = true; });
 
   function finishMatch() {
     var record = { id: String(Date.now()), date: match.date, tournament: match.tournament || "", division: match.division == null ? null : match.division, t1: match.t1, t2: match.t2, games: match.games };

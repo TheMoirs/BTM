@@ -108,7 +108,7 @@
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
   </style>
-  <link rel="stylesheet" href="/coin-toss/score.css?v=3" />
+  <link rel="stylesheet" href="/coin-toss/score.css?v=4" />
 </head>
 <body>
   <div class="top" id="topBar">
@@ -251,6 +251,30 @@
     </div>
   </div>
 
+  <!-- Type a score (tap a big number on the game screen) -->
+  <div class="modal" id="scoreModal" hidden>
+    <div class="sheet" role="dialog" aria-labelledby="scoreModalTitle">
+      <h2 id="scoreModalTitle">Score</h2>
+      <label class="minutes">Score <input type="number" id="scoreInput" min="0" max="99" inputmode="numeric" /></label>
+      <div class="btns">
+        <button class="btn" id="scoreCancel" type="button">Cancel</button>
+        <button class="btn primary" id="scoreSet" type="button">Set</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Match while the game isn't finished -->
+  <div class="modal" id="abandonModal" hidden>
+    <div class="sheet" role="dialog" aria-labelledby="abandonTitle">
+      <h2 id="abandonTitle">Abandon match?</h2>
+      <p>The game isn't finished: neither team has 9 or 13. Abandoning throws this match away, and it isn't saved.</p>
+      <div class="btns">
+        <button class="btn" id="abandonKeep" type="button">Keep playing</button>
+        <button class="btn primary danger" id="abandonYes" type="button">Abandon match</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="installHelp" hidden>
     <div class="sheet" role="dialog" aria-labelledby="installTitle">
       <h2 id="installTitle">Add Score Flip</h2>
@@ -265,7 +289,7 @@
   </div>
 
   <script src="/coin-toss/coin-art.js"></script>
-  <script src="/coin-toss/score.js?v=2" defer></script>
+  <script src="/coin-toss/score.js?v=3" defer></script>
   <script>
   (function () {
     "use strict";
