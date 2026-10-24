@@ -121,3 +121,37 @@
 .form label select + input { margin-top: 6px; }
 .note-small { margin: -6px 0 0; font-size: 13px; color: #64748b; }
 .summary-sub { font-size: 15px; color: #64748b; }
+
+/* Title pill (Score Flip / Log Score) centred in the top bar; Back left, Install/Close right */
+#titlePill {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: max(12px, env(safe-area-inset-top));
+}
+
+/* Game screen: the whole form fits the phone screen, no scrolling.
+   The score cards take whatever height is left; arrows and scores shrink to fit. */
+.screen.game { overflow: hidden; display: flex; flex-direction: column; }
+.game .wrap { flex: 1; min-height: 0; width: 100%; gap: 10px; }
+.game .game-head { flex-wrap: nowrap; align-items: baseline; }
+.game .game-head h1 { font-size: 26px; white-space: nowrap; }
+.game .game-head span { font-size: 14px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game .teams { flex: 1; min-height: 0; }
+.game .team { min-height: 0; padding: 10px 8px; gap: 6px; }
+.game .team-name { font-size: 18px; }
+.game .arrow { flex: 1; min-height: 52px; max-height: 120px; font-size: clamp(30px, 6dvh, 46px); }
+.game .score { flex: 0 0 auto; font-size: clamp(52px, min(26vw, 12dvh), 120px); line-height: 1; }
+
+/* Timer: time and Start side by side, hint underneath */
+.game .timer {
+  display: grid; grid-template-columns: auto 1fr; align-items: center;
+  gap: 4px 12px; padding: 8px 12px;
+}
+.game .timer-time { font-size: clamp(38px, min(13vw, 7dvh), 64px); padding: 2px 4px; }
+.game .timer-btns { width: auto; }
+.game .tbtn { min-height: 48px; font-size: 18px; }
+.game .timer-hint { grid-column: 1 / -1; text-align: center; font-size: 12px; }
+
+/* Save Game and End Match side by side */
+.game .game-actions { flex-direction: row; margin-top: 0; }
+.game .game-actions .primary-btn,
+.game .game-actions .secondary-btn { flex: 1; min-height: 52px; font-size: 18px; padding: 0 8px; }
