@@ -567,6 +567,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // for the first ("app already exists", then "could not open app").
   // The bare address stays for shortcuts installed before the change.
   app.get(["/api/public/manifest", "/api/public/manifest/:key"], (req, res) => {
+    // The one PTM organiser app (/api/public/manifest/ptm-app?app=1). Android Chrome
+    // treats any installed app on this site as covering every page, so new installs
+    // are this single app; Teams/Leaderboard views are plain shortcuts with no manifest.
+    // Opens at "/", which restores the tournament last used on that device.
+    if (req.query.app === "1") {
+      res.type("application/manifest+json");
+      res.set("Cache-Control", "no-cache");
+      return res.send(JSON.stringify({
+        id: "/",
+        name: "Pétanque Tournament Manager",
+        short_name: "PTM",
+        description: "Pétanque Tournament Manager",
+        start_url: "/?from=shortcut",
+        scope: "/",
+        display: "minimal-ui",
+        background_color: "#ffffff",
+        theme_color: "#ffffff",
+        icons: [
+          { src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+        // Press and hold the app icon for these
+        shortcuts: [
+          { name: "Teams", url: "/teams", icons: [{ src: "/icons/teams-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+          { name: "Matches", url: "/matches", icons: [{ src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+          { name: "Results", url: "/results", icons: [{ src: "/icon-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+          { name: "Leaderboard", url: "/leaderboard", icons: [{ src: "/icons/leaderboard-192.png?v=4", sizes: "192x192", type: "image/png" }] },
+        ],
+      }));
+    }
+    // Older per-page shortcuts already on people's devices keep using what follows
     const rawName = String(req.query.name || "").trim().slice(0, 100);
     const rawStart = String(req.query.start || "/").trim();
     // Only same-site paths: must start with a single "/" (not "//host")

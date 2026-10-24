@@ -50,35 +50,51 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   const [showHelp, setShowHelp] = useState(false);
   const [, setTick] = useState(0);
 
-  const isEdit = edit && page === "teams";
-  // Which icon: people = Teams, ranked rows = Leaderboard, sliders = Teams Edit
-  const iconKind = isEdit ? "teams-edit" : page;
+  // Android Chrome treats every installed app on a site as covering the whole site, so a
+  // second per-tournament install was taken for the first ("app already exists", then
+  // "could not open app"). So organisers install ONE PTM app (opens on the tournament
+  // they last used), and the Teams / Leaderboard views get a plain shortcut instead.
+  const isApp = edit && page === "teams";
+  // Which icon: people = Teams, ranked rows = Leaderboard
+  const iconKind = page;
 
-  // e.g. "Summer League 2026-Leaderboard", "Summer League 2026-Teams-Edit"
-  const shortcutName = `${tournamentName}-${pageLabels[page]}${isEdit ? "-Edit" : ""}`;
+  // e.g. "Summer League 2026-Leaderboard"; the organiser app is just "PTM"
+  const shortcutName = isApp ? "PTM" : `${tournamentName}-${pageLabels[page]}`;
 
-  // View shortcuts open the public page (anyone, no sign-in needed);
-  // the organiser's edit shortcut opens the editable Teams page for this tournament
+  // View shortcuts open the public page (anyone, no sign-in needed); the app opens at the start
   const startUrl = useMemo(() => {
-    if (isEdit) return tournamentId ? `/edit/teams?tournament=${encodeURIComponent(tournamentId)}` : "/edit/teams";
+    if (isApp) return "/";
     if (slug) return `/${page}/${slug}`;
-    // No public address: use the page's own path (never "/", which would cover the whole site)
     return `/${page}${window.location.search}`;
-  }, [slug, page, isEdit, tournamentId]);
+  }, [slug, page, isApp, tournamentId]);
 
-  // Point the page's manifest and home-screen title at this tournament + page while it's open
+  // App: point the page's manifest at the PTM app. Shortcut: no manifest at all, so
+  // Chrome makes a plain home-screen shortcut (named from the page title, with the icon below)
   useEffect(() => {
-    // Each shortcut gets its own address (see server/routes.ts), e.g. /api/public/manifest/leaderboard-test-tournament
-    const pageKey = `${iconKind}-${startUrl}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 150);
-    const href = `/api/public/manifest/${pageKey}?name=${encodeURIComponent(shortcutName)}&start=${encodeURIComponent(startUrl)}&icon=${iconKind}`;
     let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    const createdLink = !link;
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "manifest";
-      document.head.appendChild(link);
+    const createdLink = isApp && !link;
+    if (isApp) {
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "manifest";
+        document.head.appendChild(link);
+      }
+      link.href = "/api/public/manifest/ptm-app?app=1";
+    } else {
+      link?.remove();
+      link = null;
     }
-    link.href = href;
+
+    // Android shortcuts take the largest page icon: offer the Teams / Leaderboard one
+    let pageIcon: HTMLLinkElement | null = null;
+    if (!isApp) {
+      pageIcon = document.createElement("link");
+      pageIcon.rel = "icon";
+      pageIcon.setAttribute("sizes", "192x192");
+      pageIcon.type = "image/png";
+      pageIcon.href = `/icons/${iconKind}-192.png?v=4`;
+      document.head.appendChild(pageIcon);
+    }
 
     let meta = document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]');
     const createdMeta = !meta;
@@ -92,7 +108,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
     // iPhone/iPad take the home-screen picture from the apple-touch-icon
     const touchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
     const previousTouchIcon = touchIcon?.getAttribute("href") ?? null;
-    if (touchIcon) touchIcon.href = `/icons/${iconKind}-180.png?v=4`;
+    if (touchIcon) touchIcon.href = isApp ? "/apple-touch-icon.png?v=4" : `/icons/${iconKind}-180.png?v=4`;
 
     const previousTitle = document.title;
     document.title = shortcutName;
@@ -101,9 +117,10 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
       document.title = previousTitle;
       if (touchIcon && previousTouchIcon) touchIcon.setAttribute("href", previousTouchIcon);
       if (createdLink) link?.remove();
+      pageIcon?.remove();
       if (createdMeta) meta?.remove();
     };
-  }, [shortcutName, startUrl, iconKind]);
+  }, [shortcutName, startUrl, iconKind, isApp]);
 
   useEffect(() => onInstallPromptChange(() => setTick((t) => t + 1)), []);
   useEffect(() => {
@@ -121,8 +138,9 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   if (isRunningAsInstalledApp() || hasShortcut(startUrl)) return null;
 
   // The browser's own one-click install, when it offers it (Chrome / Edge / Android)
+  // (only for the PTM app: view pages are plain shortcuts and have nothing to install)
   const runInstallPrompt = async () => {
-    const prompt = getInstallPrompt();
+    const prompt = isApp ? getInstallPrompt() : null;
     if (!prompt) return false;
     try {
       await prompt.prompt();
@@ -143,9 +161,10 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   };
 
   const platform = detectPlatform();
-  const installReady = !!getInstallPrompt();
-  // Browsers that can offer the one-click Install
-  const canOneClick = platform === "desktop-chromium" || platform === "android";
+  const installReady = isApp && !!getInstallPrompt();
+  // Browsers that can offer the one-click Install (the PTM app only)
+  const canOneClick = isApp && (platform === "desktop-chromium" || platform === "android");
+  const buttonLabel = isApp ? label : "Shortcut";
   // Chrome/Edge only offer it after ~30 seconds on the page; give up waiting after a minute
   const gaveUpWaiting = !installReady && performance.now() > 60_000;
 
@@ -173,26 +192,26 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
           data-testid={`button-add-shortcut-${page}`}
         >
           <MonitorSmartphone className="h-4 w-4 mr-1.5" />
-          {label}
+          {buttonLabel}
         </Button>
       )}
 
       <Dialog open={showHelp} onOpenChange={setShowHelp}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Add a shortcut</DialogTitle>
+            <DialogTitle>{isApp ? "Install the PTM app" : "Add a shortcut"}</DialogTitle>
             <DialogDescription>
-              {isEdit
-                ? "Put the editable teams page on your home screen or desktop. It opens signed in, as long as you're signed in on this browser."
-                : `Put the ${pageLabels[page].toLowerCase()} on your home screen or desktop, with the PTM logo.`}
+              {isApp
+                ? "Put PTM on your home screen or desktop. It opens on the tournament you last used, signed in as long as you're signed in on this browser. Press and hold its icon for Teams, Matches, Results and Leaderboard."
+                : `Put the ${pageLabels[page].toLowerCase()} for this tournament on your home screen or desktop. Anyone can use it, no sign-in needed.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3 rounded-md border p-3">
-              <img src={`/icons/${iconKind}-192.png?v=4`} alt="" className="h-10 w-10 rounded-lg border" />
+              <img src={isApp ? "/icon-192.png?v=4" : `/icons/${iconKind}-192.png?v=4`} alt="" className="h-10 w-10 rounded-lg border" />
               <div className="min-w-0">
                 <p className="font-medium break-words">{shortcutName}</p>
-                <p className="text-xs text-muted-foreground">Shortcut name</p>
+                <p className="text-xs text-muted-foreground">{isApp ? "App name" : "Shortcut name"}</p>
               </div>
             </div>
 
@@ -233,14 +252,28 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
                 <li>Check the name, then tap <strong>Add</strong>.</li>
               </ol>
             )}
-            {platform === "android" && !installReady && (
+            {platform === "android" && isApp && !installReady && (
               <ol className="list-decimal pl-5 space-y-1">
                 <li>Tap the browser's <strong>⋮</strong> menu (top right).</li>
                 <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
-                <li>Tap <strong>Add</strong> to confirm.</li>
+                <li>Tap <strong>Install</strong> to confirm.</li>
               </ol>
             )}
-            {platform === "desktop-chromium" && (
+            {platform === "android" && !isApp && (
+              <ol className="list-decimal pl-5 space-y-1">
+                <li>Tap the browser's <strong>⋮</strong> menu (top right).</li>
+                <li>Tap <strong>Add to Home screen</strong>.</li>
+                <li>If it asks <strong>Install</strong> or <strong>Create shortcut</strong>, choose <strong>Create shortcut</strong>.</li>
+                <li>Check the name, then tap <strong>Add</strong>.</li>
+              </ol>
+            )}
+            {platform === "desktop-chromium" && !isApp && (
+              <ol className="list-decimal pl-5 space-y-1">
+                <li>In Chrome open the <strong>⋮</strong> menu → <strong>Cast, save and share</strong> → <strong>Create shortcut</strong>.</li>
+                <li>In Edge open <strong>…</strong> → <strong>More tools</strong> → <strong>Pin to taskbar</strong> or <strong>Pin to Start</strong>.</li>
+              </ol>
+            )}
+            {platform === "desktop-chromium" && isApp && (
               <details open={gaveUpWaiting} className="text-muted-foreground">
                 <summary className="cursor-pointer select-none">Other ways to add it</summary>
                 <ol className="list-decimal pl-5 space-y-1 mt-2 text-foreground">
