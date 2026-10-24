@@ -351,7 +351,10 @@
       $("scoreModalTitle").textContent = "Score for " + (n === 1 ? match.t1 : match.t2);
       $("scoreInput").value = match.cur[scoreTeam];
       $("scoreModal").hidden = false;
-      setTimeout(function () { $("scoreInput").select(); }, 50);
+      // Focus during the tap itself, so the phone opens the number keypad straight away
+      var input = $("scoreInput");
+      input.focus();
+      input.select();
     }
     el.addEventListener("click", openScoreBox);
     el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openScoreBox(); } });
