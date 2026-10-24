@@ -64,7 +64,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background flex justify-center px-4 py-8 sm:py-12">
       <div className="w-full max-w-xl space-y-6">
         <div className="flex items-center gap-3">
-          <img src="/ptm-logo.png?v=2" alt="" className="h-10 w-10 rounded-lg object-cover" />
+          <img src="/ptm-logo.png?v=3" alt="" className="h-14 w-14 rounded-lg object-cover" />
           <span className="font-semibold">Pétanque Tournament Manager</span>
         </div>
         {children}

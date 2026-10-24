@@ -188,7 +188,7 @@ export function TeamPerformanceDialog({ teamId, teams, matches, results, tournam
             )}
             <div ref={cardRef} className={`${showPicture && imageUrl ? "hidden " : ""}rounded-xl border bg-card text-card-foreground p-4 space-y-3`} data-testid="card-team-performance">
               <div className="flex items-center gap-2">
-                <img src="/ptm-logo.png?v=2" alt="" className="h-9 w-9 rounded-md object-cover flex-shrink-0" />
+                <img src="/ptm-logo.png?v=3" alt="" className="h-11 w-11 rounded-md object-cover flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground truncate">{tournamentName}</p>
                   <p className="text-[11px] text-muted-foreground">
