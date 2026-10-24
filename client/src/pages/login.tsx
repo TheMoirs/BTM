@@ -162,7 +162,7 @@ export default function Login({ defaultTab = "signin" }: { defaultTab?: "signin"
         {/* Logo / Title */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src="/ptm-logo.png" alt="PTM Logo" className="h-32 w-32 rounded-xl object-cover" />
+            <img src="/ptm-logo.png?v=2" alt="PTM Logo" className="h-32 w-32 rounded-xl object-cover" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Pétanque Tournament Manager</h1>
           <p className="text-muted-foreground text-sm">Sign in to manage your tournaments</p>

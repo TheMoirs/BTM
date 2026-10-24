@@ -134,7 +134,7 @@ export function Navigation() {
           {/* Top Row: logo, tournament picker and account buttons on one line */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <img src="/ptm-logo.png" alt="PTM" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
+              <img src="/ptm-logo.png?v=2" alt="PTM" className="h-8 w-8 rounded-md object-cover flex-shrink-0" />
               <h1 className="hidden lg:block text-lg font-semibold text-foreground whitespace-nowrap">
                 Pétanque Tournament Manager
               </h1>

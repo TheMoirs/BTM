@@ -51,7 +51,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   const [, setTick] = useState(0);
 
   const isEdit = edit && page === "teams";
-  // Which badge the icon gets: people = Teams, trophy = Leaderboard, pencil = Teams Edit
+  // Which icon: people = Teams, ranked rows = Leaderboard, sliders = Teams Edit
   const iconKind = isEdit ? "teams-edit" : page;
 
   // e.g. "Summer League 2026-Leaderboard", "Summer League 2026-Teams-Edit"
@@ -90,7 +90,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
     // iPhone/iPad take the home-screen picture from the apple-touch-icon
     const touchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
     const previousTouchIcon = touchIcon?.getAttribute("href") ?? null;
-    if (touchIcon) touchIcon.href = `/icons/${iconKind}-180.png?v=3`;
+    if (touchIcon) touchIcon.href = `/icons/${iconKind}-180.png?v=4`;
 
     const previousTitle = document.title;
     document.title = shortcutName;
