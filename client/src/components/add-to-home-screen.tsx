@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   clearInstallPrompt,
+  forgetShortcut,
   getInstallPrompt,
   hasShortcut,
   rememberShortcut,
@@ -32,6 +33,8 @@ type Props = {
   /** Let a page open the box from elsewhere too (e.g. the phone ☰ menu, which closes when tapped) */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Keep the box available even when PTM is already installed (the account menu uses this) */
+  alwaysShow?: boolean;
 };
 
 type Platform = "ios" | "android" | "mac-safari" | "desktop-chromium" | "firefox" | "other";
@@ -49,7 +52,7 @@ function detectPlatform(): Platform {
 
 const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
 
-export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "", open, onOpenChange }: Props & { buttonClassName?: string }) {
+export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "", open, onOpenChange, alwaysShow = false }: Props & { buttonClassName?: string }) {
   const [showHelpState, setShowHelpState] = useState(false);
   const showHelp = open ?? showHelpState;
   const setShowHelp = (value: boolean) => (onOpenChange ? onOpenChange(value) : setShowHelpState(value));
@@ -158,7 +161,8 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   // Inside the PTM app, the Teams / Leaderboard views still offer the Shortcut button:
   // it sends the page to Chrome, where the shortcut is made (the app has no browser menu).
   const inApp = isRunningAsInstalledApp();
-  if ((inApp && isApp) || (isApp && hasShortcut(startUrl))) return null;
+  const alreadyInstalled = isApp && (inApp || hasShortcut(startUrl));
+  if (alreadyInstalled && !alwaysShow) return null;
 
   // The browser's own one-click install, when it offers it (Chrome / Edge / Android)
   // (only for the PTM app: view pages are plain shortcuts and have nothing to install)
@@ -249,7 +253,30 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
               </div>
             </div>
 
-            {(installReady || canOneClick) && (
+            {alreadyInstalled && (
+              <div className="rounded-md bg-muted/60 p-3 space-y-2" data-testid="already-installed-panel">
+                <p>
+                  <strong>PTM is already installed on this device.</strong> A web page can't replace an installed app, so to put a fresh copy on,
+                  remove the old one first:
+                </p>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {platform === "android" && <li>Press and hold the PTM icon on your home screen, then tap <strong>Uninstall</strong> (or <strong>Remove</strong>).</li>}
+                  {platform === "ios" && <li>Press and hold the PTM icon, tap <strong>Remove App</strong>, then <strong>Delete from Home Screen</strong>.</li>}
+                  {platform === "desktop-chromium" && <li>Open the PTM app window, click <strong>⋮</strong> (top right), then <strong>Uninstall PTM</strong>. Or open <strong>chrome://apps</strong>, right-click PTM and choose <strong>Remove from Chrome</strong>.</li>}
+                  {platform === "mac-safari" && <li>Right-click the PTM icon in the Dock and choose <strong>Options</strong> → <strong>Remove from Dock</strong>.</li>}
+                  {(platform === "firefox" || platform === "other") && <li>Delete the old PTM icon or shortcut from your home screen or desktop.</li>}
+                  <li>{inApp ? <>Then open <strong>ptm.themoirs.uk</strong> in your browser (the installed app closes when it is removed), sign in, and choose <strong>Install PTM app</strong> from the menu.</> : <>Then tap <strong>Install again</strong> below.</>}</li>
+                </ol>
+                {!inApp && (
+                  <Button className="w-full" variant="outline" onClick={() => forgetShortcut(startUrl)} data-testid="button-install-again">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Install again
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {(installReady || canOneClick) && !alreadyInstalled && (
               <div className="rounded-md bg-muted/60 p-3 space-y-2" data-testid="install-panel">
                 {installReady ? (
                   <>

@@ -301,6 +301,7 @@ export function Navigation() {
                     tournamentId={currentTournament?.id}
                     variant="sm"
                     buttonClassName="!hidden"
+                    alwaysShow
                     open={showInstallApp}
                     onOpenChange={setShowInstallApp}
                   />

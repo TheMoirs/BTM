@@ -28,6 +28,16 @@ export function rememberShortcut(key: string) {
   listeners.forEach((fn) => fn());
 }
 
+/** Forget that a shortcut was installed (used when the person is replacing it) */
+export function forgetShortcut(key: string) {
+  try {
+    localStorage.removeItem(SHORTCUT_KEY_PREFIX + key);
+  } catch {
+    /* storage unavailable: nothing to forget */
+  }
+  listeners.forEach((fn) => fn());
+}
+
 export function hasShortcut(key: string) {
   try {
     const at = Number(localStorage.getItem(SHORTCUT_KEY_PREFIX + key));
