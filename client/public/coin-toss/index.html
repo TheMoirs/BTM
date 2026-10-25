@@ -163,7 +163,10 @@
   <section class="screen form" id="setupScreen" hidden>
     <div class="wrap">
       <h1>New match</h1>
-      <label>Tournament<select id="tournamentSel"><option value="">None</option></select></label>
+      <label>Tournament
+        <select id="tournamentSel" hidden></select>
+        <input type="text" id="tournamentName" placeholder="Type tournament name (optional)" autocomplete="off" maxlength="60" />
+      </label>
       <label>Division<select id="divisionSel" disabled><option value="">None</option></select></label>
       <p class="note-small" id="listNote" hidden></p>
       <label>Date<input type="date" id="matchDate" /></label>

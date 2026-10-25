@@ -88,7 +88,7 @@
   // on the phone, so the lists still work at a piste with no signal.
   var KEY_DATA = "ptm-score-data";     // { tournaments: [{ key, name, divisions: { "A": [names] } }] }
   var KEY_HOME = "ptm-score-home";     // tournament the app was opened / installed from (set in index.html)
-  var KEY_LAST = "ptm-score-last";     // { home, tournament, division, team1 }
+  var KEY_LAST = "ptm-score-last";     // { home, tournament, tournamentName (if typed), division, team1 }
   var OTHER = "__other";
   var data = load(KEY_DATA, { tournaments: [] });
 
@@ -123,27 +123,60 @@
       if (!a) return 1; if (!b) return -1; return a.localeCompare(b);
     });
   }
+  function homeKey() {
+    try { return localStorage.getItem(KEY_HOME); } catch (_) { return null; }
+  }
+  // The tournament Score Flip was opened / installed from, if its details are on this phone
+  function homeTournament() { var k = homeKey(); return k ? tournamentByKey(k) : null; }
+  // The tournament picked from the list (null when a name is typed instead)
+  function pickedTournament() {
+    var sel = $("tournamentSel");
+    if (sel.hidden || !sel.value || sel.value === OTHER) return null;
+    return tournamentByKey(sel.value);
+  }
+  function tournamentName() {
+    var t = pickedTournament();
+    return t ? t.name : $("tournamentName").value.trim();
+  }
+  function allTeams(t) {
+    var seen = {}, out = [];
+    Object.keys(t.divisions || {}).forEach(function (d) {
+      (t.divisions[d] || []).forEach(function (n) { if (!seen[n]) { seen[n] = 1; out.push(n); } });
+    });
+    return out.sort(function (a, b) { return a.localeCompare(b); });
+  }
+  // Teams to offer: the chosen division, or every team in the tournament when no division is chosen
   function currentTeams() {
-    var t = tournamentByKey($("tournamentSel").value);
-    var dSel = $("divisionSel");
-    if (!t || dSel.value === "" ) return null;
-    return (t.divisions || {})[dSel.value === "-" ? "" : dSel.value] || [];
+    var t = pickedTournament();
+    if (!t) return null;
+    var d = $("divisionSel").value;
+    return d === "" ? allTeams(t) : ((t.divisions || {})[d === "-" ? "" : d] || []);
   }
 
-  function renderTournamentPicker(selectedKey) {
-    var items = [{ value: "", label: "None" }].concat(data.tournaments.map(function (t) { return { value: t.key, label: t.name }; }));
-    if (selectedKey && !tournamentByKey(selectedKey)) selectedKey = "";
-    fillSelect($("tournamentSel"), items, selectedKey || "");
-    var note = $("listNote");
-    note.hidden = data.tournaments.length > 0;
-    note.textContent = "Tournament lists need an internet connection the first time.";
+  // The only list choice is the tournament Score Flip was opened from, or "Other" to
+  // type a name. With no tournament available, just a box to type one.
+  function renderTournamentPicker(want, typed) {
+    var sel = $("tournamentSel"), input = $("tournamentName"), note = $("listNote");
+    var home = homeTournament();
+    if (!home) {
+      sel.hidden = true; input.hidden = false;
+      if (typed != null) input.value = typed;
+      note.hidden = !homeKey(); // opened from a tournament, but its details aren't on this phone yet
+      note.textContent = "This phone hasn't saved that tournament's teams yet. Open Score Flip once with a signal to get them. You can type names meanwhile.";
+      return;
+    }
+    note.hidden = true;
+    fillSelect(sel, [{ value: home.key, label: home.name }, { value: OTHER, label: "Other (type a name)" }], want === OTHER ? OTHER : home.key);
+    sel.hidden = false;
+    input.hidden = sel.value !== OTHER;
+    input.value = sel.value === OTHER ? (typed || "") : "";
   }
   function renderDivisionPicker(selectedDivision) {
-    var t = tournamentByKey($("tournamentSel").value);
+    var t = pickedTournament();
     var dSel = $("divisionSel");
     if (!t) { fillSelect(dSel, [{ value: "", label: "None" }], ""); dSel.disabled = true; return; }
-    // "-" stands for teams with no division
-    var items = [{ value: "", label: "None" }].concat(sortedDivisions(t).map(function (d) {
+    // "" = no division chosen (all teams); "-" stands for teams with no division
+    var items = [{ value: "", label: "None (all teams)" }].concat(sortedDivisions(t).map(function (d) {
       return { value: d || "-", label: divisionLabel(d) };
     }));
     var want = selectedDivision == null ? "" : selectedDivision;
@@ -154,7 +187,7 @@
   function renderTeamPicker(n, wantName) {
     var sel = $("team" + n + "Sel"), input = $("team" + n);
     var teams = currentTeams();
-    if (!teams) { // no tournament and division chosen: type the names
+    if (!teams) { // no tournament chosen from the list: type the names
       sel.hidden = true; input.hidden = false;
       if (wantName != null) input.value = wantName;
       return;
@@ -182,32 +215,43 @@
     });
   });
   $("tournamentSel").addEventListener("change", function () {
+    var other = this.value === OTHER;
+    $("tournamentName").hidden = !other;
+    if (other) { $("tournamentName").value = ""; $("tournamentName").focus(); }
     renderDivisionPicker("");
-    renderTeamPicker(1, ""); renderTeamPicker(2, "");
+    renderTeamPicker(1, teamName(1, "")); renderTeamPicker(2, "");
   });
   $("divisionSel").addEventListener("change", function () {
     renderTeamPicker(1, teamName(1, "")); renderTeamPicker(2, "");
   });
 
-  // Defaults: the tournament the app was opened / installed from, then whatever
-  // was used last; Team 1 = last Team 1, Team 2 blank
+  // Defaults: whatever was used last (tournament, division and Team 1, even if typed);
+  // otherwise the tournament the app was opened / installed from. Team 2 starts blank.
   function prepareSetup() {
-    var home = null;
-    try { home = localStorage.getItem(KEY_HOME); } catch (_) {}
+    var home = homeKey();
     var last = load(KEY_LAST, null);
-    var tKey, division = "", team1 = "";
-    if (last && last.home === home) {
-      tKey = last.tournament; division = last.division || ""; team1 = last.team1 || "";
-    } else if (home) {
-      tKey = home; // opened from a different tournament: start fresh on that one
-    } else {
-      tKey = data.tournaments.length ? data.tournaments[0].key : ""; // newest
+    var want = "", typed = "", division = "", team1 = "";
+    if (last && last.home === home) { // opened from a different tournament: start fresh on that one
+      want = last.tournament || ""; typed = last.tournamentName || "";
+      division = last.division || ""; team1 = last.team1 || "";
     }
-    renderTournamentPicker(tKey);
+    renderTournamentPicker(want, typed);
     renderDivisionPicker(division);
     renderTeamPicker(1, team1);
     renderTeamPicker(2, "");
     $("matchDate").value = todayIso();
+  }
+  // Redraw after the lists are refreshed, keeping whatever has been chosen or typed
+  function redrawKeepingChoices() {
+    var sel = $("tournamentSel"), typed = $("tournamentName").value;
+    var keep = {
+      t: sel.hidden ? (typed.trim() ? OTHER : "") : sel.value,
+      typed: typed, d: $("divisionSel").value, t1: teamName(1, ""), t2: teamName(2, ""),
+    };
+    renderTournamentPicker(keep.t, keep.typed);
+    renderDivisionPicker(keep.d);
+    renderTeamPicker(1, keep.t1);
+    renderTeamPicker(2, keep.t2);
   }
 
   function openSetup() {
@@ -216,25 +260,29 @@
     open("setup");
     // Fetch the latest lists (new tournament, new teams), then redraw keeping the choices
     refreshData().then(function (changed) {
-      if (!changed || current !== "setup") return;
-      var keep = { t: $("tournamentSel").value, d: $("divisionSel").value, t1: teamName(1, ""), t2: teamName(2, "") };
-      renderTournamentPicker(keep.t);
-      renderDivisionPicker(keep.d);
-      renderTeamPicker(1, keep.t1);
-      renderTeamPicker(2, keep.t2);
+      if (changed && current === "setup") redrawKeepingChoices();
     });
   }
+  // Save the lists on the phone as soon as the app opens with a signal, so they work offline later
+  refreshData().then(function (changed) {
+    if (changed && current === "setup") redrawKeepingChoices();
+  });
   $("startMatch").addEventListener("click", function () {
-    var t = tournamentByKey($("tournamentSel").value);
+    var t = pickedTournament();
+    var tName = tournamentName();
     var dValue = $("divisionSel").value;
     var division = t && dValue ? (dValue === "-" ? "" : dValue) : null;
     var t1 = teamName(1, "Us"), t2 = teamName(2, "Them");
-    var home = null;
-    try { home = localStorage.getItem(KEY_HOME); } catch (_) {}
-    store(KEY_LAST, { home: home, tournament: t ? t.key : "", division: dValue && t ? dValue : "", team1: t1 === "Us" ? "" : t1 });
+    store(KEY_LAST, {
+      home: homeKey(),
+      tournament: t ? t.key : (tName ? OTHER : ""),
+      tournamentName: t ? "" : tName,
+      division: dValue && t ? dValue : "",
+      team1: t1 === "Us" ? "" : t1,
+    });
     match = {
       date: $("matchDate").value || todayIso(),
-      tournament: t ? t.name : "",
+      tournament: tName,
       division: division,
       t1: t1,
       t2: t2,
