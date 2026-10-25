@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone, Coins } from "lucide-react";
 import { useNavMenuItems } from "@/lib/nav-menu";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
 import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
+import { ScoreFlipShortcutDialog } from "@/components/score-flip-shortcut-dialog";
 import { PaymentDetailsSection } from "@/components/payment-details-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,10 @@ export function Navigation() {
   // Phone ☰ menu: User management and Profile aren't offered on Matches and Results
   const showAccountItems = !["/matches", "/results"].includes(location.split("?")[0]);
 
-  // "Install PTM app" box, opened from the account menus (always offered)
-  const [showInstallApp, setShowInstallApp] = useState(false);
+  // Install / shortcut boxes opened from the account menus (always offered). Only the open one is
+  // mounted, because each box adjusts the page's manifest and title while it is open.
+  const [installBox, setInstallBox] = useState<null | "app" | "teams" | "leaderboard" | "scoreflip">(null);
+  const closeInstallBox = (open: boolean) => { if (!open) setInstallBox(null); };
 
   // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -203,7 +206,7 @@ export function Navigation() {
                         <span className="max-w-[120px] truncate">{user.displayName || user.email.split("@")[0]}</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuContent align="end" className="w-60">
                       <DropdownMenuItem
                         onClick={() => setShowChangePassword(true)}
                         data-testid="menu-item-change-password"
@@ -211,12 +214,22 @@ export function Navigation() {
                         <UserPen className="h-4 w-4 mr-2" />
                         Profile Settings
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setShowInstallApp(true)}
-                        data-testid="menu-item-install-app"
-                      >
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app">
                         <MonitorSmartphone className="h-4 w-4 mr-2" />
                         Install PTM app
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("teams")} data-testid="menu-item-shortcut-teams">
+                        <Users className="h-4 w-4 mr-2" />
+                        Shortcut: Teams view
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("leaderboard")} data-testid="menu-item-shortcut-leaderboard">
+                        <Trophy className="h-4 w-4 mr-2" />
+                        Shortcut: Leaderboard view
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setInstallBox("scoreflip")} data-testid="menu-item-shortcut-scoreflip">
+                        <Coins className="h-4 w-4 mr-2" />
+                        Shortcut: Score Flip
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -277,10 +290,24 @@ export function Navigation() {
                         </DropdownMenuItem>
                       )}
                       {showAccountItems && (
-                        <DropdownMenuItem onClick={() => setShowInstallApp(true)} data-testid="menu-item-install-app-mobile">
-                          <MonitorSmartphone className="h-4 w-4 mr-2" />
-                          Install PTM app
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app-mobile">
+                            <MonitorSmartphone className="h-4 w-4 mr-2" />
+                            Install PTM app
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("teams")} data-testid="menu-item-shortcut-teams-mobile">
+                            <Users className="h-4 w-4 mr-2" />
+                            Shortcut: Teams view
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("leaderboard")} data-testid="menu-item-shortcut-leaderboard-mobile">
+                            <Trophy className="h-4 w-4 mr-2" />
+                            Shortcut: Leaderboard view
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setInstallBox("scoreflip")} data-testid="menu-item-shortcut-scoreflip-mobile">
+                            <Coins className="h-4 w-4 mr-2" />
+                            Shortcut: Score Flip
+                          </DropdownMenuItem>
+                        </>
                       )}
                       <DropdownMenuItem
                         onClick={handleLogout}
@@ -293,17 +320,36 @@ export function Navigation() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* The PTM app install box; opened from the menu items above (its own button stays hidden) */}
-                  <AddToHomeScreenButton
-                    tournamentName={currentTournament?.name ?? "PTM"}
-                    page="teams"
-                    edit
-                    tournamentId={currentTournament?.id}
-                    variant="sm"
-                    buttonClassName="!hidden"
-                    alwaysShow
-                    open={showInstallApp}
-                    onOpenChange={setShowInstallApp}
+                  {/* Install / shortcut boxes opened from the menu items above (their own buttons stay hidden) */}
+                  {installBox === "app" && (
+                    <AddToHomeScreenButton
+                      tournamentName={currentTournament?.name ?? "PTM"}
+                      page="teams"
+                      edit
+                      tournamentId={currentTournament?.id}
+                      variant="sm"
+                      buttonClassName="!hidden"
+                      alwaysShow
+                      open
+                      onOpenChange={closeInstallBox}
+                    />
+                  )}
+                  {(installBox === "teams" || installBox === "leaderboard") && currentTournament && (
+                    <AddToHomeScreenButton
+                      tournamentName={currentTournament.name}
+                      slug={(currentTournament as any).slug}
+                      page={installBox}
+                      tournamentId={currentTournament.id}
+                      variant="sm"
+                      buttonClassName="!hidden"
+                      open
+                      onOpenChange={closeInstallBox}
+                    />
+                  )}
+                  <ScoreFlipShortcutDialog
+                    open={installBox === "scoreflip"}
+                    onOpenChange={closeInstallBox}
+                    tournamentKey={(currentTournament as any)?.slug || currentTournament?.id}
                   />
                 </>
               ) : pageMenuItems.length > 0 ? (

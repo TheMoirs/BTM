@@ -82,6 +82,9 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   useEffect(() => {
     let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const createdLink = isApp && !link;
+    // A plain shortcut takes the manifest away while it is open; put it back afterwards so the
+    // PTM app can still be installed from the same page
+    const removedLink = !isApp ? link : null;
     if (isApp) {
       if (!link) {
         link = document.createElement("link");
@@ -136,6 +139,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
       document.title = previousTitle;
       if (touchIcon && previousTouchIcon) touchIcon.setAttribute("href", previousTouchIcon);
       if (createdLink) link?.remove();
+      if (removedLink && !removedLink.isConnected) document.head.appendChild(removedLink);
       pageIcon?.remove();
       if (createdMeta) meta?.remove();
       if (createdAppName) appName?.remove();

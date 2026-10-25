@@ -113,6 +113,9 @@
     .install-choice[hidden] { display: none; }
     .install-choice .ic { font-size: 22px; }
     .install-choice:active { transform: scale(.98); }
+    .copy-panel { background: #f1f5f9; border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-size: 14px; }
+    .copy-panel p { margin: 0 0 8px; }
+    .copy-panel input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; margin-bottom: 8px; }
   </style>
   <link rel="stylesheet" href="/coin-toss/score.css?v=6" />
 </head>
@@ -121,7 +124,7 @@
     <button class="pill" id="backBtn" type="button" hidden>‹ Back</button>
     <div class="pill" id="titlePill"><img src="/coin-toss/logo.png?v=3" alt="" /> <span id="titleText">Score Flip</span></div>
     <div class="actions">
-      <button class="pill" id="installBtn" type="button" hidden>⤓ Install</button>
+      <button class="pill" id="installBtn" type="button" hidden>⤓ Create shortcut</button>
       <button class="pill" id="closeBtn" type="button" hidden>Close</button>
     </div>
   </div>
@@ -162,7 +165,7 @@
       <h1>Score Flip</h1>
       <button class="big-choice" id="goCoin" type="button"><span class="ic">🪙</span><span>Coin Flip</span></button>
       <button class="big-choice" id="goScore" type="button"><span class="ic">📋</span><span id="goScoreLabel">Log Score</span></button>
-      <button class="install-choice" id="menuInstall" type="button" hidden><span class="ic">⤓</span><span>Add to home screen</span></button>
+      <button class="install-choice" id="menuInstall" type="button" hidden><span class="ic">⤓</span><span>Create shortcut</span></button>
     </div>
   </section>
 
@@ -300,12 +303,16 @@
 
   <div class="modal" id="installHelp" hidden>
     <div class="sheet" role="dialog" aria-labelledby="installTitle">
-      <h2 id="installTitle">Add Score Flip</h2>
-      <p>Put it on your home screen or desktop. It works even with no internet connection.</p>
+      <h2 id="installTitle">Create a shortcut</h2>
+      <p>Put Score Flip on your home screen or desktop. It works even with no internet connection.</p>
       <div class="row"><img src="/coin-toss/icon-192.png?v=8" alt="" /><div><strong>Score Flip</strong><br /><span style="color:#64748b;font-size:12px">PTM</span></div></div>
+      <div id="copyPanel" class="copy-panel" hidden>
+        <p>You're in an app window, which has no browser menu. Copy this link, paste it into your browser's address bar, then follow the steps below there.</p>
+        <input id="linkBox" type="text" readonly />
+        <button class="btn" id="copyLink" type="button">Copy link</button>
+      </div>
       <div id="installSteps"></div>
       <div class="btns">
-        <button class="btn primary" id="installNow" type="button" hidden>Install</button>
         <button class="btn" id="installClose" type="button">Close</button>
       </div>
     </div>
@@ -463,63 +470,15 @@
     if (window.opener) closeBtn.hidden = false;
     closeBtn.addEventListener("click", function () { window.close(); });
 
-    // ── Install (home screen / desktop) and offline ────────────────────────
-    var INSTALLED_KEY = "btm-coin-toss-installed";
-    var REMEMBER_MS = 60 * 24 * 60 * 60 * 1000;
-    var standalone = (window.matchMedia && (window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: minimal-ui)").matches)) || navigator.standalone === true;
-    function remember() { try { localStorage.setItem(INSTALLED_KEY, String(Date.now())); } catch (_) {} }
-    function remembered() { try { var t = Number(localStorage.getItem(INSTALLED_KEY)); return !!t && Date.now() - t < REMEMBER_MS; } catch (_) { return false; } }
+    // ── Create shortcut (home screen / desktop) ────────────────────────────
+    // Browsers don't let a page make a shortcut by itself, so the button shows the steps for this device.
+    // It is always offered: the start-menu button on phones, the top-bar one on computers.
+    var installBtn = $("installBtn"), menuInstall = $("menuInstall"), help = $("installHelp");
+    // An app window (e.g. opened from the installed PTM app) has no browser menu to make a shortcut from
+    var inAppWindow = (window.matchMedia && (window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: minimal-ui)").matches)) || navigator.standalone === true;
 
-    // Opened from the installed app: remember it, tidy the address
-    if (/[?&]from=app\b/.test(location.search)) {
-      remember();
-      history.replaceState(null, "", "/coin-toss/");
-    }
-
-    var deferredPrompt = null;
-    var installBtn = $("installBtn"), help = $("installHelp"), installNow = $("installNow");
-    // On phones and tablets the buttons show in any normal browser tab (the "installed recently" memory is
-    // ignored, since the shortcut may have been deleted); they hide only inside the installed app itself.
-    var runningInstalled = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-    function isPhone() { var p = platform(); return p === "ios" || p === "android"; }
-    function updateInstallButton() {
-      // Phones use the "Add to home screen" button on the start menu instead of the top-bar one
-      installBtn.hidden = isPhone() ? true : (standalone || remembered());
-      $("menuInstall").hidden = !isPhone() || runningInstalled;
-    }
-    updateInstallButton();
-
-    window.addEventListener("beforeinstallprompt", function (e) {
-      e.preventDefault();
-      deferredPrompt = e;
-      installNow.hidden = false;
-    });
-    window.addEventListener("appinstalled", function () {
-      remember(); deferredPrompt = null; help.hidden = true; updateInstallButton();
-    });
-
-    function runPrompt() {
-      if (!deferredPrompt) return;
-      var p = deferredPrompt; deferredPrompt = null;
-      var show = function () {
-        p.prompt();
-        p.userChoice.then(function (c) {
-          if (c.outcome === "accepted") { remember(); help.hidden = true; updateInstallButton(); }
-        });
-      };
-      // Chrome's own install box is fitted inside this window. In the narrow pop-up
-      // opened from the Leaderboard it gets cut off, so make the window roomier first.
-      var isComputer = !/Android|iPhone|iPad|iPod|Mobile/.test(navigator.userAgent);
-      if (isComputer && window.opener && window.outerWidth < 640) {
-        try {
-          window.resizeTo(Math.max(640, window.outerWidth), Math.max(820, window.outerHeight));
-          window.moveTo(Math.max(0, Math.round((screen.availWidth - 640) / 2)), Math.max(0, Math.round((screen.availHeight - 820) / 2)));
-        } catch (_) {}
-        setTimeout(show, 250);
-      } else {
-        show();
-      }
-    }
+    // Opened from the installed app: tidy the address
+    if (/[?&]from=app\b/.test(location.search)) history.replaceState(null, "", "/coin-toss/");
 
     function platform() {
       var ua = navigator.userAgent;
@@ -530,22 +489,38 @@
       if (/Macintosh/.test(ua) && /Safari\//.test(ua)) return "mac-safari";
       return "other";
     }
+    function isPhone() { var p = platform(); return p === "ios" || p === "android"; }
+    installBtn.hidden = isPhone();
+    menuInstall.hidden = !isPhone();
+
     var steps = {
       ios: "<ol><li>Tap the <strong>Share</strong> button (square with an arrow pointing up), at the bottom of Safari or next to the address bar in Chrome.</li><li>Scroll down and tap <strong>Add to Home Screen</strong> (tap <strong>View More</strong> first if you don't see it).</li><li>Tap <strong>Add</strong>.</li></ol><p style=\"font-size:13px;color:#64748b\">Do this in Safari or Chrome itself. It won't work from inside another app's built-in browser, such as a link opened from WhatsApp or Facebook.</p>",
-      android: "<ol><li>Tap the browser's <strong>⋮</strong> menu.</li><li>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>, then confirm.</li></ol>",
-      chromium: "<ol><li>Click the <strong>install</strong> icon at the right of the address bar.</li><li>Or in Chrome: <strong>⋮</strong> → <strong>Cast, save and share</strong> → <strong>Install page as app</strong>. In Edge: <strong>…</strong> → <strong>Apps</strong> → <strong>Install this site as an app</strong>.</li></ol>",
+      android: "<ol><li>Tap the browser's <strong>⋮</strong> menu (top right).</li><li>Tap <strong>Add to Home screen</strong>.</li><li>If it asks <strong>Install</strong> or <strong>Create shortcut</strong>, choose <strong>Create shortcut</strong>.</li><li>Check the name, then tap <strong>Add</strong>.</li></ol>",
+      chromium: "<ol><li>In Chrome open the <strong>⋮</strong> menu → <strong>Cast, save and share</strong> → <strong>Create shortcut</strong>, and tick <strong>Open as window</strong> if you want it in its own window.</li><li>In Edge open <strong>…</strong> → <strong>More tools</strong> → <strong>Pin to taskbar</strong> or <strong>Pin to Start</strong>.</li></ol>",
       "mac-safari": "<ol><li>In the menu bar choose <strong>File</strong> → <strong>Add to Dock</strong>, then <strong>Add</strong>.</li></ol>",
-      firefox: "<p>Firefox can't install apps. Open this page in Chrome, Edge or Safari to add it.</p>",
-      other: "<p>Use your browser's menu to <strong>Install</strong> or <strong>Add to Home Screen</strong>.</p>"
+      firefox: "<p>Firefox can't create app shortcuts. Drag the <strong>padlock</strong> icon at the left of the address bar onto your desktop, or open this page in Chrome, Edge or Safari.</p>",
+      other: "<p>Use your browser's menu to <strong>Add to Home Screen</strong> or <strong>Create shortcut</strong>.</p>"
     };
-    function onInstallClick() {
-      if (deferredPrompt) { runPrompt(); return; }
+    function shortcutLink() {
+      var t = null;
+      try { t = localStorage.getItem("ptm-score-home"); } catch (_) {}
+      return location.origin + "/coin-toss/" + (t ? "?t=" + encodeURIComponent(t) : "");
+    }
+    function openShortcutHelp() {
       $("installSteps").innerHTML = steps[platform()];
+      $("copyPanel").hidden = !inAppWindow;
+      if (inAppWindow) { $("linkBox").value = shortcutLink(); $("copyLink").textContent = "Copy link"; }
       help.hidden = false;
     }
-    installBtn.addEventListener("click", onInstallClick);
-    $("menuInstall").addEventListener("click", onInstallClick);
-    installNow.addEventListener("click", runPrompt);
+    installBtn.addEventListener("click", openShortcutHelp);
+    menuInstall.addEventListener("click", openShortcutHelp);
+    $("copyLink").addEventListener("click", function () {
+      var box = $("linkBox"), btn = this;
+      box.focus(); box.select();
+      var done = function () { btn.textContent = "Link copied"; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(box.value).then(done, function () { try { document.execCommand("copy"); done(); } catch (_) {} });
+      else { try { document.execCommand("copy"); done(); } catch (_) {} }
+    });
     $("installClose").addEventListener("click", function () { help.hidden = true; });
     help.addEventListener("click", function (e) { if (e.target === help) help.hidden = true; });
 
