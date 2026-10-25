@@ -483,8 +483,8 @@
     var runningInstalled = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
     function isPhone() { var p = platform(); return p === "ios" || p === "android"; }
     function updateInstallButton() {
-      var hide = isPhone() ? runningInstalled : (standalone || remembered());
-      installBtn.hidden = hide;
+      // Phones use the "Add to home screen" button on the start menu instead of the top-bar one
+      installBtn.hidden = isPhone() ? true : (standalone || remembered());
       $("menuInstall").hidden = !isPhone() || runningInstalled;
     }
     updateInstallButton();
