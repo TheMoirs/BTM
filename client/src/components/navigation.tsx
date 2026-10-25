@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone } from "lucide-react";
 import { useNavMenuItems } from "@/lib/nav-menu";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 import { PaymentDetailsSection } from "@/components/payment-details-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,9 @@ export function Navigation() {
   const pageMenuItems = useNavMenuItems();
   // Phone ☰ menu: User management and Profile aren't offered on Matches and Results
   const showAccountItems = !["/matches", "/results"].includes(location.split("?")[0]);
+
+  // "Install PTM app" box, opened from the account menus (always offered)
+  const [showInstallApp, setShowInstallApp] = useState(false);
 
   // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -207,6 +211,13 @@ export function Navigation() {
                         <UserPen className="h-4 w-4 mr-2" />
                         Profile Settings
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setShowInstallApp(true)}
+                        data-testid="menu-item-install-app"
+                      >
+                        <MonitorSmartphone className="h-4 w-4 mr-2" />
+                        Install PTM app
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={handleLogout}
@@ -265,6 +276,10 @@ export function Navigation() {
                           Profile
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem onClick={() => setShowInstallApp(true)} data-testid="menu-item-install-app-mobile">
+                        <MonitorSmartphone className="h-4 w-4 mr-2" />
+                        Install PTM app
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={handleLogout}
                         className="text-destructive focus:text-destructive"
@@ -275,6 +290,18 @@ export function Navigation() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+
+                  {/* The PTM app install box; opened from the menu items above (its own button stays hidden) */}
+                  <AddToHomeScreenButton
+                    tournamentName={currentTournament?.name ?? "PTM"}
+                    page="teams"
+                    edit
+                    tournamentId={currentTournament?.id}
+                    variant="sm"
+                    buttonClassName="!hidden"
+                    open={showInstallApp}
+                    onOpenChange={setShowInstallApp}
+                  />
                 </>
               ) : pageMenuItems.length > 0 ? (
                 /* View-only visitors (no Sign in; organisers sign in at the site address):
