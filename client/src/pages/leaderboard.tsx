@@ -236,8 +236,8 @@ export default function Leaderboard() {
               replace the button row below, so the tabs sit right under the title */}
           {isReadOnly && (
             <div className="flex items-center gap-1 self-start flex-shrink-0 sm:hidden">
-              <Button variant="outline" size="icon" onClick={openScoreFlip} aria-label="Score Flip" data-testid="button-coin-toss-mobile">
-                <img src="/coin-toss/favicon.png?v=3" alt="" className="h-5 w-5 rounded-sm" />
+              <Button variant="outline" size="icon" className="h-12 w-12" onClick={openScoreFlip} aria-label="Score Flip" data-testid="button-coin-toss-mobile">
+                <img src="/coin-toss/favicon.png?v=3" alt="" className="h-9 w-9 rounded-sm" />
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -302,12 +302,11 @@ export default function Leaderboard() {
             )}
             <Button
               variant="outline"
-              size="sm"
-              className="flex-shrink-0 px-1.5 sm:px-2"
+              className="flex-shrink-0 h-11 px-3 sm:px-4 text-base font-semibold"
               onClick={openScoreFlip}
               data-testid="button-coin-toss"
             >
-              <img src="/coin-toss/favicon.png?v=3" alt="" className="h-4 w-4 mr-1.5 rounded-sm" />
+              <img src="/coin-toss/favicon.png?v=3" alt="" className="h-8 w-8 mr-2 rounded-sm" />
               Score Flip
             </Button>
             <AddToHomeScreenButton
