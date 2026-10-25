@@ -276,10 +276,12 @@ export function Navigation() {
                           Profile
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => setShowInstallApp(true)} data-testid="menu-item-install-app-mobile">
-                        <MonitorSmartphone className="h-4 w-4 mr-2" />
-                        Install PTM app
-                      </DropdownMenuItem>
+                      {showAccountItems && (
+                        <DropdownMenuItem onClick={() => setShowInstallApp(true)} data-testid="menu-item-install-app-mobile">
+                          <MonitorSmartphone className="h-4 w-4 mr-2" />
+                          Install PTM app
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={handleLogout}
                         className="text-destructive focus:text-destructive"
