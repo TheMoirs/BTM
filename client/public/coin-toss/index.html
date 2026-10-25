@@ -107,6 +107,12 @@
     .sheet .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .install-choice { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 320px;
+      margin: 18px auto 0; padding: 14px 16px; border-radius: 14px; border: 2px dashed #64748b; background: rgba(255,255,255,.6);
+      font-size: 17px; font-weight: 700; color: #0f172a; cursor: pointer; }
+    .install-choice[hidden] { display: none; }
+    .install-choice .ic { font-size: 22px; }
+    .install-choice:active { transform: scale(.98); }
   </style>
   <link rel="stylesheet" href="/coin-toss/score.css?v=6" />
 </head>
@@ -156,6 +162,7 @@
       <h1>Score Flip</h1>
       <button class="big-choice" id="goCoin" type="button"><span class="ic">🪙</span><span>Coin Flip</span></button>
       <button class="big-choice" id="goScore" type="button"><span class="ic">📋</span><span id="goScoreLabel">Log Score</span></button>
+      <button class="install-choice" id="menuInstall" type="button" hidden><span class="ic">⤓</span><span>Add to home screen</span></button>
     </div>
   </section>
 
@@ -471,7 +478,15 @@
 
     var deferredPrompt = null;
     var installBtn = $("installBtn"), help = $("installHelp"), installNow = $("installNow");
-    function updateInstallButton() { installBtn.hidden = standalone || remembered(); }
+    // On phones and tablets the buttons show in any normal browser tab (the "installed recently" memory is
+    // ignored, since the shortcut may have been deleted); they hide only inside the installed app itself.
+    var runningInstalled = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+    function isPhone() { var p = platform(); return p === "ios" || p === "android"; }
+    function updateInstallButton() {
+      var hide = isPhone() ? runningInstalled : (standalone || remembered());
+      installBtn.hidden = hide;
+      $("menuInstall").hidden = !isPhone() || runningInstalled;
+    }
     updateInstallButton();
 
     window.addEventListener("beforeinstallprompt", function (e) {
@@ -516,18 +531,20 @@
       return "other";
     }
     var steps = {
-      ios: "<ol><li>Tap the <strong>Share</strong> button (square with an arrow pointing up).</li><li>Tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li></ol>",
+      ios: "<ol><li>Tap the <strong>Share</strong> button (square with an arrow pointing up), at the bottom of Safari or next to the address bar in Chrome.</li><li>Scroll down and tap <strong>Add to Home Screen</strong> (tap <strong>View More</strong> first if you don't see it).</li><li>Tap <strong>Add</strong>.</li></ol><p style=\"font-size:13px;color:#64748b\">Do this in Safari or Chrome itself. It won't work from inside another app's built-in browser, such as a link opened from WhatsApp or Facebook.</p>",
       android: "<ol><li>Tap the browser's <strong>⋮</strong> menu.</li><li>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>, then confirm.</li></ol>",
       chromium: "<ol><li>Click the <strong>install</strong> icon at the right of the address bar.</li><li>Or in Chrome: <strong>⋮</strong> → <strong>Cast, save and share</strong> → <strong>Install page as app</strong>. In Edge: <strong>…</strong> → <strong>Apps</strong> → <strong>Install this site as an app</strong>.</li></ol>",
       "mac-safari": "<ol><li>In the menu bar choose <strong>File</strong> → <strong>Add to Dock</strong>, then <strong>Add</strong>.</li></ol>",
       firefox: "<p>Firefox can't install apps. Open this page in Chrome, Edge or Safari to add it.</p>",
       other: "<p>Use your browser's menu to <strong>Install</strong> or <strong>Add to Home Screen</strong>.</p>"
     };
-    installBtn.addEventListener("click", function () {
+    function onInstallClick() {
       if (deferredPrompt) { runPrompt(); return; }
       $("installSteps").innerHTML = steps[platform()];
       help.hidden = false;
-    });
+    }
+    installBtn.addEventListener("click", onInstallClick);
+    $("menuInstall").addEventListener("click", onInstallClick);
     installNow.addEventListener("click", runPrompt);
     $("installClose").addEventListener("click", function () { help.hidden = true; });
     help.addEventListener("click", function (e) { if (e.target === help) help.hidden = true; });
