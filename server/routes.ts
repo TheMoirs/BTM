@@ -1532,19 +1532,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Work out which single tournament a bulk delete applies to, and check the
+  // caller may edit it. Returns null (and sends the error) if not allowed.
+  // Bulk deletes must ALWAYS be scoped to one tournament — never "everything".
+  async function resolveBulkDeleteTournament(req: any, res: any): Promise<string | null> {
+    if (!req.isAdminAccess) {
+      res.status(403).json({ error: "Access denied: admin access required" });
+      return null;
+    }
+    const queryId = (req.query.tournamentId as string | undefined)?.trim() || undefined;
+    if (req.tokenTournamentId) {
+      if (queryId && queryId !== req.tokenTournamentId) {
+        res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+        return null;
+      }
+      return req.tokenTournamentId;
+    }
+    if (!queryId) {
+      res.status(400).json({ error: "tournamentId is required" });
+      return null;
+    }
+    const tournament = await storage.getTournament(queryId);
+    if (!tournament) {
+      res.status(404).json({ error: "Tournament not found" });
+      return null;
+    }
+    if (!req.isMasterAdmin) {
+      const userId = req.sessionUser?.userId;
+      const isOwner = !!userId && tournament.userId === userId;
+      const isCollab = !isOwner && !!userId && await storage.isCollaborator(queryId, userId);
+      if (!isOwner && !isCollab) {
+        res.status(403).json({ error: "Access denied: you do not have access to this tournament" });
+        return null;
+      }
+    }
+    return queryId;
+  }
+
   app.delete("/api/teams", async (req: any, res) => {
     try {
-      // Require admin access for bulk team deletion
-      if (!req.isAdminAccess) {
-        return res.status(403).json({ error: "Access denied: admin token required" });
-      }
-      // Use token's tournament ID and reject mismatched query params
-      const queryTournamentId = req.query.tournamentId as string | undefined;
-      if (queryTournamentId && queryTournamentId !== req.tokenTournamentId) {
-        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
-      }
-      // Default to token's tournament if no query param provided
-      const tournamentId = req.tokenTournamentId;
+      const tournamentId = await resolveBulkDeleteTournament(req, res);
+      if (!tournamentId) return;
+      console.log(`[AUDIT] Clear all teams for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"}`);
       await storage.deleteAllTeams(tournamentId);
       res.status(204).send();
     } catch (error) {
@@ -1908,9 +1938,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/results", async (req, res) => {
+  app.delete("/api/results", async (req: any, res) => {
     try {
-      const tournamentId = req.query.tournamentId as string | undefined;
+      const tournamentId = await resolveBulkDeleteTournament(req, res);
+      if (!tournamentId) return;
+      console.log(`[AUDIT] Clear all results for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"}`);
       await storage.deleteAllResults(tournamentId);
       res.status(204).send();
     } catch (error) {
@@ -1941,17 +1973,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/matches", async (req: any, res) => {
     try {
-      // Require admin access for bulk match deletion
-      if (!req.isAdminAccess) {
-        return res.status(403).json({ error: "Access denied: admin token required" });
-      }
-      // Use token's tournament ID and reject mismatched query params
-      const queryTournamentId = req.query.tournamentId as string | undefined;
-      if (queryTournamentId && queryTournamentId !== req.tokenTournamentId) {
-        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
-      }
-      // Default to token's tournament if no query param provided
-      const tournamentId = req.tokenTournamentId;
+      const tournamentId = await resolveBulkDeleteTournament(req, res);
+      if (!tournamentId) return;
+      console.log(`[AUDIT] Clear all matches for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"}`);
       await storage.deleteAllMatches(tournamentId);
       res.status(204).send();
     } catch (error) {

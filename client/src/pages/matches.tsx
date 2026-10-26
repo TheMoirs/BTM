@@ -356,7 +356,8 @@ export default function Matches() {
 
   const handleClearAllMatches = async () => {
     try {
-      await apiRequest("DELETE", "/api/matches");
+      if (!currentTournament?.id) throw new Error("No tournament selected");
+      await apiRequest("DELETE", `/api/matches?tournamentId=${encodeURIComponent(currentTournament.id)}`);
       queryClient.invalidateQueries({ queryKey: ["/api/matches", currentTournament?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/results", currentTournament?.id] });
       setShowClearConfirm(false);

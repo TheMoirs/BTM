@@ -38,7 +38,7 @@ export interface IStorage {
   updateTeam(id: string, team: InsertTeam): Promise<Team | undefined>;
   getTeamDeletionImpact(id: string): Promise<{ matchCount: number; resultCount: number }>;
   deleteTeam(id: string): Promise<boolean>;
-  deleteAllTeams(tournamentId?: string): Promise<boolean>;
+  deleteAllTeams(tournamentId: string): Promise<boolean>;
   
   getAllMatches(tournamentId?: string): Promise<Match[]>;
   getMatch(id: string): Promise<Match | undefined>;
@@ -57,12 +57,12 @@ export interface IStorage {
     pisteId?: string | null
   ): Promise<Match | undefined>;
   deleteMatch(id: string): Promise<boolean>;
-  deleteAllMatches(tournamentId?: string): Promise<boolean>;
+  deleteAllMatches(tournamentId: string): Promise<boolean>;
   
   getAllResults(tournamentId?: string): Promise<Result[]>;
   getResultsByStage(tournamentId: string, stage: string): Promise<Result[]>;
   createResult(result: InsertResult): Promise<Result>;
-  deleteAllResults(tournamentId?: string): Promise<boolean>;
+  deleteAllResults(tournamentId: string): Promise<boolean>;
   deleteResultsByMatchId(matchId: string): Promise<boolean>;
   
   // Short link methods
@@ -404,18 +404,12 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async deleteAllTeams(tournamentId?: string): Promise<boolean> {
-    if (tournamentId) {
-      // Delete matches (results are automatically deleted via CASCADE constraint)
-      await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
-      // Delete all teams for this tournament
-      await db.delete(teams).where(eq(teams.tournamentId, tournamentId));
-    } else {
-      // Delete matches (results are automatically deleted via CASCADE constraint)
-      await db.delete(matches);
-      // Delete all teams
-      await db.delete(teams);
-    }
+  async deleteAllTeams(tournamentId: string): Promise<boolean> {
+    // Never allow an unscoped wipe: that would delete every tournament's data.
+    if (!tournamentId) throw new Error("deleteAllTeams requires a tournamentId");
+    // Delete matches (results are automatically deleted via CASCADE constraint)
+    await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
+    await db.delete(teams).where(eq(teams.tournamentId, tournamentId));
     return true;
   }
 
@@ -820,14 +814,10 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async deleteAllMatches(tournamentId?: string): Promise<boolean> {
-    if (tournamentId) {
-      // Results are automatically deleted via CASCADE constraint
-      await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
-    } else {
-      // Results are automatically deleted via CASCADE constraint
-      await db.delete(matches);
-    }
+  async deleteAllMatches(tournamentId: string): Promise<boolean> {
+    if (!tournamentId) throw new Error("deleteAllMatches requires a tournamentId");
+    // Results are automatically deleted via CASCADE constraint
+    await db.delete(matches).where(eq(matches.tournamentId, tournamentId));
     return true;
   }
 
@@ -856,12 +846,9 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async deleteAllResults(tournamentId?: string): Promise<boolean> {
-    if (tournamentId) {
-      await db.delete(results).where(eq(results.tournamentId, tournamentId));
-    } else {
-      await db.delete(results);
-    }
+  async deleteAllResults(tournamentId: string): Promise<boolean> {
+    if (!tournamentId) throw new Error("deleteAllResults requires a tournamentId");
+    await db.delete(results).where(eq(results.tournamentId, tournamentId));
     return true;
   }
 

@@ -345,7 +345,8 @@ export default function Teams() {
 
   const handleClearAllTeams = async () => {
     try {
-      await apiRequest("DELETE", "/api/teams");
+      if (!currentTournament?.id) throw new Error("No tournament selected");
+      await apiRequest("DELETE", `/api/teams?tournamentId=${encodeURIComponent(currentTournament.id)}`);
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/results"] });

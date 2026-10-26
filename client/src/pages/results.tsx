@@ -430,7 +430,8 @@ export default function Results() {
     });
     
     try {
-      await apiRequest("DELETE", "/api/results");
+      if (!currentTournament?.id) throw new Error("No tournament selected");
+      await apiRequest("DELETE", `/api/results?tournamentId=${encodeURIComponent(currentTournament.id)}`);
       queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setShowClearConfirm(false);
       toast({
