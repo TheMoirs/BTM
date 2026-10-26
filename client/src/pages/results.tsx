@@ -1,3 +1,6 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { showClearedToast } from "@/components/undo-clear-toast";
+import { snapshotIdFrom } from "@/lib/backup";
 import { useState, useMemo, useEffect } from "react";
 import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery } from "@tanstack/react-query";
@@ -77,6 +80,7 @@ const statusLabels = {
 
 export default function Results() {
   const { currentTournament } = useTournament();
+  const { user } = useAuth();
   const { isReadOnly } = useViewMode();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -431,12 +435,16 @@ export default function Results() {
     
     try {
       if (!currentTournament?.id) throw new Error("No tournament selected");
-      await apiRequest("DELETE", `/api/results?tournamentId=${encodeURIComponent(currentTournament.id)}`);
+      const clearRes = await apiRequest("DELETE", `/api/results?tournamentId=${encodeURIComponent(currentTournament.id)}`);
+      const snapshotId = await snapshotIdFrom(clearRes);
       queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setShowClearConfirm(false);
-      toast({
+      showClearedToast({
         title: "Results cleared",
         description: "All results have been removed.",
+        tournamentId: currentTournament.id,
+        snapshotId,
+        canUndo: !!user,
       });
     } catch (error) {
       console.error("Error clearing results:", error);

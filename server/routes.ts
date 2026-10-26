@@ -6,6 +6,7 @@ import { formatFee, paymentReference, buildPayNowUrl, payeeDetailsProblem, norma
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
+import { exportTournament, exportAllTournaments, makeBackupFile, parseEntry, restoreEntry, createSnapshot, listSnapshots, getSnapshotEntry, countsOf, BackupError, type SnapshotReason } from "./backup";
 import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
@@ -1533,6 +1534,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
+  // Save an automatic safety backup before something destructive. Returns the
+  // snapshot id (null if there was nothing to save), or false if saving failed —
+  // in which case the error has been sent and the caller must stop.
+  async function takeSafetySnapshot(req: any, res: any, tournamentId: string, reason: SnapshotReason): Promise<string | null | false> {
+    try {
+      return await createSnapshot(tournamentId, reason, req.sessionUser?.email ?? null);
+    } catch (error) {
+      console.error(`[BACKUP] Safety snapshot failed for ${tournamentId}:`, error);
+      res.status(500).json({ error: "Couldn't save a safety backup first, so nothing was changed. Please try again." });
+      return false;
+    }
+  }
+
+  // ── Backup & restore ─────────────────────────────────────────────────────
+  // Logged-in owner, co-editor or system admin only (not share-link tokens).
+  async function resolveBackupTournament(req: any, res: any, tournamentId: string): Promise<Tournament | null> {
+    if (!req.sessionUser) {
+      res.status(401).json({ error: "Please log in to use backups" });
+      return null;
+    }
+    if (req.tokenTournamentId && req.tokenTournamentId !== tournamentId) {
+      res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      return null;
+    }
+    const tournament = await storage.getTournament(tournamentId);
+    if (!tournament) {
+      res.status(404).json({ error: "Tournament not found" });
+      return null;
+    }
+    if (!req.isMasterAdmin) {
+      const userId = req.sessionUser.userId;
+      const isOwner = tournament.userId === userId;
+      const isCollab = !isOwner && await storage.isCollaborator(tournamentId, userId);
+      if (!isOwner && !isCollab) {
+        res.status(403).json({ error: "Access denied: you do not have access to this tournament" });
+        return null;
+      }
+    }
+    return tournament;
+  }
+
+  function sendBackupError(res: any, error: unknown, fallback: string) {
+    if (error instanceof BackupError) return res.status(400).json({ error: error.message });
+    if (error instanceof SyntaxError) return res.status(400).json({ error: "That backup file couldn't be read." });
+    console.error(`[BACKUP] ${fallback}:`, error);
+    return res.status(500).json({ error: fallback });
+  }
+
+  function backupFileName(label: string) {
+    const date = new Date().toISOString().slice(0, 10);
+    const safe = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tournament";
+    return `btm-backup-${safe}-${date}.json`;
+  }
+
+  // Download one tournament as a backup file
+  app.get("/api/tournaments/:id/backup", async (req: any, res) => {
+    try {
+      const tournament = await resolveBackupTournament(req, res, req.params.id);
+      if (!tournament) return;
+      const entry = await exportTournament(tournament.id, { includeRulesPdf: true });
+      if (!entry) return res.status(404).json({ error: "Tournament not found" });
+      console.log(`[AUDIT] Backup downloaded for tournament ${tournament.id} by ${req.sessionUser?.email}`);
+      res.setHeader("Content-Disposition", `attachment; filename="${backupFileName(tournament.slug || tournament.name)}"`);
+      res.json(makeBackupFile("tournament", [entry], req.sessionUser?.email ?? null));
+    } catch (error) {
+      sendBackupError(res, error, "Failed to create backup");
+    }
+  });
+
+  // Restore this tournament from a backup entry (from a single-tournament or an "everything" file)
+  app.post("/api/tournaments/:id/restore", async (req: any, res) => {
+    try {
+      const tournament = await resolveBackupTournament(req, res, req.params.id);
+      if (!tournament) return;
+      const entry = parseEntry(req.body?.entry);
+      if (String(entry.tournament.id) !== tournament.id) {
+        return res.status(400).json({ error: `This backup is for a different tournament ("${entry.tournament.name}"). It can only be restored into that tournament.` });
+      }
+      const snapshotId = await takeSafetySnapshot(req, res, tournament.id, "before-restore");
+      if (snapshotId === false) return;
+      const result = await restoreEntry(entry, { allowRecreate: false, fallbackOwnerId: null });
+      console.log(`[AUDIT] Tournament ${tournament.id} restored from backup by ${req.sessionUser?.email} (${JSON.stringify(result.counts)})`);
+      res.json({ ...result, snapshotId });
+    } catch (error) {
+      sendBackupError(res, error, "Failed to restore backup");
+    }
+  });
+
+  // Automatic safety backups for a tournament
+  app.get("/api/tournaments/:id/snapshots", async (req: any, res) => {
+    try {
+      const tournament = await resolveBackupTournament(req, res, req.params.id);
+      if (!tournament) return;
+      res.json(await listSnapshots(tournament.id));
+    } catch (error) {
+      sendBackupError(res, error, "Failed to load automatic backups");
+    }
+  });
+
+  app.post("/api/tournaments/:id/snapshots/:snapshotId/restore", async (req: any, res) => {
+    try {
+      const tournament = await resolveBackupTournament(req, res, req.params.id);
+      if (!tournament) return;
+      const entry = await getSnapshotEntry(tournament.id, req.params.snapshotId);
+      if (!entry) return res.status(404).json({ error: "That automatic backup no longer exists" });
+      const snapshotId = await takeSafetySnapshot(req, res, tournament.id, "before-restore");
+      if (snapshotId === false) return;
+      const result = await restoreEntry(entry, { allowRecreate: false, fallbackOwnerId: null });
+      console.log(`[AUDIT] Tournament ${tournament.id} restored from snapshot ${req.params.snapshotId} by ${req.sessionUser?.email}`);
+      res.json({ ...result, snapshotId });
+    } catch (error) {
+      sendBackupError(res, error, "Failed to restore automatic backup");
+    }
+  });
+
+  // System admin: download every tournament in one file
+  app.get("/api/admin/backup", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const entries = await exportAllTournaments();
+      console.log(`[AUDIT] Full backup downloaded by ${req.sessionUser?.email} (${entries.length} tournaments)`);
+      res.setHeader("Content-Disposition", `attachment; filename="${backupFileName("everything")}"`);
+      res.json(makeBackupFile("all", entries, req.sessionUser?.email ?? null));
+    } catch (error) {
+      sendBackupError(res, error, "Failed to create full backup");
+    }
+  });
+
+  // System admin: which tournaments currently exist (to show restore vs recreate)
+  app.get("/api/admin/tournament-ids", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const all = await storage.getAllTournaments();
+      res.json(all.map((t) => t.id));
+    } catch (error) {
+      sendBackupError(res, error, "Failed to load tournaments");
+    }
+  });
+
+  // System admin: restore any one tournament, recreating it if it was deleted
+  app.post("/api/admin/restore", async (req: any, res) => {
+    if (!req.isMasterAdmin) return res.status(403).json({ error: "System admin access required" });
+    try {
+      const entry = parseEntry(req.body?.entry);
+      const exists = await storage.getTournament(String(entry.tournament.id));
+      let snapshotId: string | null = null;
+      if (exists) {
+        const taken = await takeSafetySnapshot(req, res, exists.id, "before-restore");
+        if (taken === false) return;
+        snapshotId = taken;
+      }
+      const result = await restoreEntry(entry, { allowRecreate: true, fallbackOwnerId: req.sessionUser?.userId ?? null });
+      console.log(`[AUDIT] System admin ${result.recreated ? "recreated" : "restored"} tournament ${entry.tournament.id} (${JSON.stringify(countsOf(entry))})`);
+      res.json({ ...result, snapshotId });
+    } catch (error) {
+      sendBackupError(res, error, "Failed to restore tournament");
+    }
+  });
+
   // Work out which single tournament a bulk delete applies to, and check the
   // caller may edit it. Returns null (and sends the error) if not allowed.
   // Bulk deletes must ALWAYS be scoped to one tournament — never "everything".
@@ -1574,9 +1734,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tournamentId = await resolveBulkDeleteTournament(req, res);
       if (!tournamentId) return;
-      console.log(`[AUDIT] Clear all teams for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"}`);
+      const snapshotId = await takeSafetySnapshot(req, res, tournamentId, "clear-teams");
+      if (snapshotId === false) return;
+      console.log(`[AUDIT] Clear all teams for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"} (snapshot ${snapshotId ?? "none"})`);
       await storage.deleteAllTeams(tournamentId);
-      res.status(204).send();
+      res.json({ snapshotId });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete all teams" });
     }
@@ -1942,9 +2104,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tournamentId = await resolveBulkDeleteTournament(req, res);
       if (!tournamentId) return;
-      console.log(`[AUDIT] Clear all results for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"}`);
+      const snapshotId = await takeSafetySnapshot(req, res, tournamentId, "clear-results");
+      if (snapshotId === false) return;
+      console.log(`[AUDIT] Clear all results for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"} (snapshot ${snapshotId ?? "none"})`);
       await storage.deleteAllResults(tournamentId);
-      res.status(204).send();
+      res.json({ snapshotId });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete results" });
     }
@@ -1975,9 +2139,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const tournamentId = await resolveBulkDeleteTournament(req, res);
       if (!tournamentId) return;
-      console.log(`[AUDIT] Clear all matches for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"}`);
+      const snapshotId = await takeSafetySnapshot(req, res, tournamentId, "clear-matches");
+      if (snapshotId === false) return;
+      console.log(`[AUDIT] Clear all matches for tournament ${tournamentId} by ${req.sessionUser?.email ?? "token"} (snapshot ${snapshotId ?? "none"})`);
       await storage.deleteAllMatches(tournamentId);
-      res.status(204).send();
+      res.json({ snapshotId });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete all matches" });
     }

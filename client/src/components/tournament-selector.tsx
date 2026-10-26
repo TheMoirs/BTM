@@ -44,7 +44,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTournamentSchema, type InsertTournament, type Tournament } from "@shared/schema";
-import { Trophy, Plus, ChevronDown, Trash2, Pencil, UserRoundCheck, Users, X, FileText, Upload } from "lucide-react";
+import { Trophy, Plus, ChevronDown, Trash2, Pencil, UserRoundCheck, Users, X, FileText, Upload, DatabaseBackup } from "lucide-react";
+import { BackupDialog } from "@/components/backup-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -61,6 +62,7 @@ export function TournamentSelector() {
   const [transferEmail, setTransferEmail] = useState("");
   const [sharingTournament, setSharingTournament] = useState<Tournament | null>(null);
   const [collaboratorEmail, setCollaboratorEmail] = useState("");
+  const [backupTournament, setBackupTournament] = useState<Tournament | null>(null);
   const [rulesFile, setRulesFile] = useState<File | null>(null);
   const [isUploadingRules, setIsUploadingRules] = useState(false);
   const [pendingEditData, setPendingEditData] = useState<InsertTournament | null>(null);
@@ -796,6 +798,22 @@ export function TournamentSelector() {
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
+                  {/* Backups — needs a login (owner, co-editor or system admin) */}
+                  {user && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBackupTournament(tournament);
+                      }}
+                      data-testid={`button-backup-tournament-${tournament.id}`}
+                      title="Backups (download or restore)"
+                    >
+                      <DatabaseBackup className="h-3 w-3" />
+                    </Button>
+                  )}
                   {/* Share / co-editors — owner and master admin only, not collaborators */}
                   {(isMasterAdmin || (user && tournament.userId === user.id)) && (
                     <>
@@ -1553,6 +1571,8 @@ export function TournamentSelector() {
       </Dialog>
 
       {/* Share Tournament / Co-editors dialog */}
+      <BackupDialog tournament={backupTournament} onOpenChange={(open) => !open && setBackupTournament(null)} />
+
       <Dialog open={!!sharingTournament} onOpenChange={(open) => {
         if (!open) { setSharingTournament(null); setCollaboratorEmail(""); }
       }}>

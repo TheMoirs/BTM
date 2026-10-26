@@ -20,6 +20,11 @@ vi.mock('../storage', () => ({
   },
 }))
 
+// Backup code talks to the database directly; not needed for these tests
+vi.mock('../backup', () => ({
+  BackupError: class BackupError extends Error {},
+}))
+
 vi.mock('../resend', () => ({
   getUncachableResendClient: vi.fn(async () => ({
     client: { emails: { send: vi.fn() } },

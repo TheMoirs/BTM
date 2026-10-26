@@ -1,3 +1,6 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { showClearedToast } from "@/components/undo-clear-toast";
+import { snapshotIdFrom } from "@/lib/backup";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -178,6 +181,7 @@ function getMailtoUrl(email: string, tournamentName: string): string {
 
 export default function Teams() {
   const { currentTournament } = useTournament();
+  const { user } = useAuth();
   const { isReadOnly, viewToken } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -346,14 +350,18 @@ export default function Teams() {
   const handleClearAllTeams = async () => {
     try {
       if (!currentTournament?.id) throw new Error("No tournament selected");
-      await apiRequest("DELETE", `/api/teams?tournamentId=${encodeURIComponent(currentTournament.id)}`);
+      const clearRes = await apiRequest("DELETE", `/api/teams?tournamentId=${encodeURIComponent(currentTournament.id)}`);
+      const snapshotId = await snapshotIdFrom(clearRes);
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       setShowClearConfirm(false);
-      toast({
+      showClearedToast({
         title: "All data cleared",
         description: "All teams, matches, and results have been removed.",
+        tournamentId: currentTournament.id,
+        snapshotId,
+        canUndo: !!user,
       });
     } catch (error) {
       console.error("Error clearing teams:", error);

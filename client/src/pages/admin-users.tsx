@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { AdminBackupCard } from "@/components/admin-backup-card";
 import { ShieldAlert, ShieldCheck, Trash2, Users, ArrowLeft, KeyRound } from "lucide-react";
 
 interface UserRow {
@@ -251,6 +252,8 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      <AdminBackupCard />
 
       {/* Reset password dialog */}
       <Dialog open={!!resetTarget} onOpenChange={open => { if (!open) { setResetTarget(null); setNewPassword(""); setConfirmPassword(""); } }}>

@@ -256,3 +256,25 @@ export const tournamentCollaborators = pgTable("tournament_collaborators", {
 }));
 
 export type TournamentCollaborator = typeof tournamentCollaborators.$inferSelect;
+
+// ── Tournament Snapshots ──────────────────────────────────────────────────
+// Automatic safety backups of one tournament's teams, matches and results,
+// saved on the server just before a "Clear all" or a restore, so a mistake
+// can be undone. Only the most recent few per tournament are kept.
+export const tournamentSnapshots = pgTable("tournament_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tournaments.id, { onDelete: "cascade" }),
+  // Why it was taken: "clear-teams", "clear-matches", "clear-results" or "before-restore"
+  reason: text("reason").notNull(),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  teamCount: integer("team_count").notNull().default(0),
+  matchCount: integer("match_count").notNull().default(0),
+  resultCount: integer("result_count").notNull().default(0),
+  // The backup itself, in the same format as a downloaded backup entry (JSON)
+  data: text("data").notNull(),
+}, (table) => ({
+  snapshotsByTournament: index("tournament_snapshots_tournament_idx").on(table.tournamentId, table.createdAt),
+}));
+
+export type TournamentSnapshot = typeof tournamentSnapshots.$inferSelect;
