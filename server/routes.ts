@@ -2,12 +2,208 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result, type Tournament } from "@shared/schema";
+import { formatFee, paymentReference, buildPayNowUrl, payeeDetailsProblem, normaliseSortCode, normaliseIban, formatSortCode, formatIban, describePaymentLink } from "@shared/payments";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
-import { getAuth, clerkClient } from "@clerk/express";
 import bcrypt from "bcryptjs";
-import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
+import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
+import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
+import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
+import { publicRegistrationSchema, REGISTRATION_CONTACT, type PublicRegistration } from "@shared/registration";
+
+function escapeHtml(v: string): string {
+  return v.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+// Confirmation email sent to a team captain after they register (or update) via /register/<tournament>
+// What teams see about paying the registration fee (null when there's no fee)
+type FeePayment = {
+  amount: string;          // e.g. "£10"
+  minor: number;
+  currency: string;
+  reference: string;       // e.g. "BATH BOMBERS"
+  payNowUrl: string | null;
+  payNowLabel: string | null;
+  bank: { accountName: string | null; sortCode: string | null; accountNumber: string | null; iban: string | null } | null;
+};
+
+async function feePaymentFor(t: { registrationFeeMinor: number | null; registrationFeeCurrency: string; userId: string | null }, teamName: string | null): Promise<FeePayment | null> {
+  if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0) return null;
+  const owner = t.userId ? await storage.getUserById(t.userId) : undefined;
+  const reference = paymentReference(teamName || "TEAM FEE");
+  const link = owner?.paymentLink ? describePaymentLink(owner.paymentLink) : null;
+  const hasBank = !!(owner?.payeeSortCode || owner?.payeeIban);
+  return {
+    amount: formatFee(t.registrationFeeMinor, t.registrationFeeCurrency),
+    minor: t.registrationFeeMinor,
+    currency: t.registrationFeeCurrency,
+    reference,
+    payNowUrl: owner?.paymentLink ? buildPayNowUrl(owner.paymentLink, t.registrationFeeMinor, t.registrationFeeCurrency, reference) : null,
+    payNowLabel: link ? (link.kind === "monzo" ? "Monzo" : link.kind === "paypal" ? "PayPal" : null) : null,
+    bank: hasBank && owner
+      ? {
+          accountName: owner.payeeAccountName,
+          sortCode: owner.payeeSortCode ? formatSortCode(owner.payeeSortCode) : null,
+          accountNumber: owner.payeeAccountNumber,
+          iban: owner.payeeIban ? formatIban(owner.payeeIban) : null,
+        }
+      : null,
+  };
+}
+
+export function feeEmailHtml(p: FeePayment): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:0 12px 0 0;color:#555;white-space:nowrap">${label}</td><td style="padding:0"><strong>${escapeHtml(value)}</strong></td></tr>`;
+  const bankRows = p.bank
+    ? [
+        p.bank.accountName && row("Account name", p.bank.accountName),
+        p.bank.sortCode && row("Sort code", p.bank.sortCode),
+        p.bank.accountNumber && row("Account number", p.bank.accountNumber),
+        p.bank.iban && row("IBAN", p.bank.iban),
+        row("Reference", p.reference),
+      ].filter(Boolean).join("")
+    : "";
+  return `<div style="margin:16px 0;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
+<p style="margin:0 0 8px"><strong>Registration fee: ${escapeHtml(p.amount)}</strong></p>
+${p.payNowUrl ? `<p style="margin:0 0 10px"><a href="${p.payNowUrl}" style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">PAY NOW${p.payNowLabel ? ` (${p.payNowLabel})` : ""}</a></p>` : ""}
+${bankRows ? `<p style="margin:0 0 4px">${p.payNowUrl ? "Or pay by bank transfer:" : "Please pay by bank transfer:"}</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
+${!p.payNowUrl && !bankRows ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
+</div>`;
+}
+
+export function registrationEmailHtml(tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, editUrl: string | null, fee: FeePayment | null = null): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:0 12px 0 0;margin:0;line-height:1.4;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:0;margin:0;line-height:1.4;vertical-align:top"><strong>${value}</strong></td></tr>`;
+  const c = REGISTRATION_CONTACT;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222;max-width:560px">
+<p>Hello ${escapeHtml(d.captainName)},</p>
+<p>${updated ? "Your registration details have been updated" : "Thank you for registering"} — <strong>${escapeHtml(d.name)}</strong> ${updated ? "is" : "is now"} registered for <strong>${escapeHtml(tournamentName)}</strong>.</p>
+<p>These are the details we have for your team:</p>
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:8px 0 16px">${[
+  row("Team name", escapeHtml(d.name)),
+  row("Captain", escapeHtml(d.captainName)),
+  row("Phone", escapeHtml(d.captainPhone)),
+  row("Email", escapeHtml(d.captainEmail)),
+  row("Home piste", escapeHtml(d.homePiste)),
+  row("Other players", d.otherPlayers.map(escapeHtml).join("<br>")),
+].join("")}</table>
+${fee ? feeEmailHtml(fee) : ""}
+${editUrl
+  ? `<p style="margin:20px 0"><strong>Need to change your details?</strong> <a href="${editUrl}" style="display:inline-block;margin-left:6px;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">CLICK HERE</a></p>
+<p style="color:#555;font-size:14px">Any questions? Contact ${c.name} by email at <a href="mailto:${c.email}">${c.email}</a> or on WhatsApp at <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a>.</p>`
+  : `<p>If you need to change any of these details, please contact ${c.name}:<br>
+Email: <a href="mailto:${c.email}">${c.email}</a><br>
+WhatsApp: <a href="https://wa.me/${c.whatsappIntl}">${c.whatsapp}</a></p>`}
+<p>Good luck in the tournament!</p>
+<p style="color:#888;font-size:13px">Pétanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
+</div>`;
+}
+
+// Let the tournament's organiser know a team has registered (or changed its details),
+// including whether the registration fee has been marked as paid.
+export function organiserEmailHtml(
+  tournamentName: string, d: PublicRegistration, updated: boolean, siteUrl: string, teamsUrl: string,
+  fee: { amount: string; reference: string } | null, feePaid: boolean,
+): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:0 12px 0 0;margin:0;line-height:1.4;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:0;margin:0;line-height:1.4;vertical-align:top"><strong>${value}</strong></td></tr>`;
+  const paidBadge = feePaid
+    ? `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:bold">Paid</span>`
+    : `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:bold">Not paid yet</span>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222;max-width:560px">
+<p><strong>${escapeHtml(d.name)}</strong> ${updated ? "has updated its registration for" : "has registered for"} <strong>${escapeHtml(tournamentName)}</strong>.</p>
+<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:8px 0 16px">${[
+  row("Team name", escapeHtml(d.name)),
+  row("Captain", escapeHtml(d.captainName)),
+  row("Phone", escapeHtml(d.captainPhone)),
+  row("Email", escapeHtml(d.captainEmail)),
+  row("Home piste", escapeHtml(d.homePiste)),
+  row("Other players", d.otherPlayers.map(escapeHtml).join("<br>")),
+  fee ? row("Registration fee", `${escapeHtml(fee.amount)} &nbsp;${paidBadge}`) : "",
+  fee ? row("Payment reference", escapeHtml(fee.reference)) : "",
+].join("")}</table>
+${fee && !feePaid ? `<p style="color:#555;font-size:14px">When the payment arrives, tick <strong>Paid</strong> for this team on the Teams page.</p>` : ""}
+<p><a href="${teamsUrl}" style="display:inline-block;padding:8px 14px;background:#1f6f4a;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">OPEN TEAMS</a></p>
+<p style="color:#888;font-size:13px">Pétanque Tournament Manager · <a href="${siteUrl}" style="color:#888">${siteUrl.replace(/^https?:\/\//, "")}</a></p>
+</div>`;
+}
+
+async function sendOrganiserEmail(
+  req: any, t: { id: string; name: string; userId: string | null }, data: PublicRegistration, updated: boolean, teamId: string, fee: FeePayment | null,
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY || !t.userId) return;
+  try {
+    const owner = await storage.getUserById(t.userId);
+    if (!owner?.email) return;
+    const team = await storage.getTeam(teamId);
+    const { client, fromEmail } = await getUncachableResendClient();
+    const siteUrl = baseUrlOf(req);
+    const teamsUrl = `${siteUrl}/edit/teams?tournament=${encodeURIComponent(t.id)}`;
+    const subject = `${updated ? "Registration updated" : "New team registered"}: ${data.name} – ${t.name}`;
+    const result = await client.emails.send({
+      from: fromEmail, to: owner.email, replyTo: data.captainEmail, subject,
+      html: organiserEmailHtml(t.name, data, updated, siteUrl, teamsUrl, fee, !!team?.feePaid),
+    });
+    if (result.error) throw new Error(result.error.message);
+  } catch (e) {
+    console.error("[REGISTER] Failed to email the organiser:", e);
+  }
+}
+
+// Send the captain their confirmation (with an edit link), and if the contact email changed,
+// let the previous address know. Returns whether the captain's email was sent.
+// Registration still counts if sending fails.
+async function sendRegistrationEmails(
+  req: any, tournamentName: string, data: PublicRegistration, updated: boolean, teamId: string, previousEmail?: string | null, fee: FeePayment | null = null,
+): Promise<boolean> {
+  if (!process.env.RESEND_API_KEY) return false;
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    const siteUrl = baseUrlOf(req);
+    const editUrl = `${siteUrl}/register/${encodeURIComponent(String(req.params.slug))}?edit=${encodeURIComponent(createTeamEditCode(teamId))}`;
+    const subject = `${updated ? "Registration updated" : "You're registered"}: ${tournamentName}`;
+    const result = await client.emails.send({
+      from: fromEmail, to: data.captainEmail, replyTo: REGISTRATION_CONTACT.email, subject,
+      html: registrationEmailHtml(tournamentName, data, updated, siteUrl, editUrl, fee),
+    });
+    if (result.error) throw new Error(result.error.message);
+
+    const oldEmail = previousEmail?.trim();
+    if (updated && oldEmail && oldEmail.toLowerCase() !== data.captainEmail.toLowerCase()) {
+      // No edit link for the previous contact: they should go through the organiser
+      await client.emails.send({
+        from: fromEmail, to: oldEmail, replyTo: REGISTRATION_CONTACT.email, subject, html:
+          `<p style="font-family:Arial,Helvetica,sans-serif">You are receiving this because you were previously the contact for this team. If you didn't expect this change, please contact ${REGISTRATION_CONTACT.name}.</p>` +
+          registrationEmailHtml(tournamentName, data, updated, siteUrl, null),
+      }).catch(e => console.error("[REGISTER] Failed to notify previous captain:", e));
+    }
+    return true;
+  } catch (e) {
+    console.error("[REGISTER] Failed to send confirmation email:", e);
+    return false;
+  }
+}
+
+// What the browser is told about the signed-in user
+function publicUser(u: { id: string; email: string; displayName: string | null; isSystemAdmin: boolean; passwordHash: string }) {
+  return { id: u.id, email: u.email, displayName: u.displayName, isSystemAdmin: u.isSystemAdmin, hasPassword: hasUsablePassword(u.passwordHash) };
+}
+
+// Public address of this site, used in links BTM hands out (share links, reset emails).
+// PUBLIC_URL (e.g. https://btm.themoirs.uk) wins; otherwise use the address the request came in on
+// (Render sits behind a proxy, so trust its forwarded protocol).
+function publicUrlSetting(): string | null {
+  const v = (process.env.PUBLIC_URL || "").trim().replace(/\/+$/, "");
+  return v || null;
+}
+
+function baseUrlOf(req: { protocol: string; get(name: string): string | undefined; headers: Record<string, any> }) {
+  const configured = publicUrlSetting();
+  if (configured) return configured;
+  const proto = String(req.headers["x-forwarded-proto"] || req.protocol).split(",")[0].trim();
+  return `${proto}://${req.get("host")}`;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Short URL redirect endpoint (before token middleware - no auth required)
@@ -49,7 +245,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedEmail = email.toLowerCase().trim();
       const existing = await storage.getUserByEmail(normalizedEmail);
-      if (existing) return res.status(409).json({ error: "An account with this email already exists" });
+      if (existing) {
+        return res.status(409).json({
+          error: hasUsablePassword(existing.passwordHash)
+            ? "An account with this email already exists. Please sign in instead."
+            : "An account with this email already exists. Sign in with Google, or use \"Forgot password?\" to set a password.",
+        });
+      }
 
       const isSystemAdmin = normalizedEmail === SYSTEM_ADMIN_EMAIL;
       const passwordHash = await bcrypt.hash(password, 12);
@@ -57,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin });
       console.log(`[AUTH] Registered: ${user.email} (sysAdmin: ${isSystemAdmin})`);
-      res.status(201).json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+      res.status(201).json({ user: publicUser(user) });
     } catch (error) {
       console.error("[AUTH] Registration error:", error);
       res.status(500).json({ error: "Registration failed" });
@@ -73,16 +275,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) return res.status(401).json({ error: "Invalid email or password" });
       if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
 
+      if (!hasUsablePassword(user.passwordHash)) {
+        return res.status(401).json({
+          error: "This account doesn't have a PTM password yet. Sign in with Google, or use \"Forgot password?\" to set one.",
+        });
+      }
+
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) return res.status(401).json({ error: "Invalid email or password" });
 
       const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
       setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
       console.log(`[AUTH] Login: ${user.email}`);
-      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin } });
+      res.json({ user: { ...publicUser(user), isSystemAdmin } });
     } catch (error) {
       console.error("[AUTH] Login error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // ── Google sign-in ───────────────────────────────────────────────────────
+  // The browser uses Google's own "Sign in with Google" button (client ID from
+  // GOOGLE_CLIENT_ID) and sends us the ID token it gets back. We check it with
+  // Google, then sign the person in, creating an account on first use.
+  app.get("/api/auth/google-client-id", (_req, res) => {
+    res.json({ clientId: process.env.GOOGLE_CLIENT_ID || null });
+  });
+
+  app.post("/api/auth/google", async (req, res) => {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) return res.status(503).json({ error: "Google sign-in is not set up on this server." });
+      const { credential } = req.body || {};
+      if (!credential) return res.status(400).json({ error: "Missing Google credential." });
+
+      const verify = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+      if (!verify.ok) return res.status(401).json({ error: "Couldn't verify that Google sign-in. Please try again." });
+      const info = await verify.json() as Record<string, any>;
+      const validIssuer = info.iss === "accounts.google.com" || info.iss === "https://accounts.google.com";
+      const notExpired = Number(info.exp) * 1000 > Date.now();
+      if (info.aud !== clientId || !validIssuer || !notExpired) {
+        return res.status(401).json({ error: "Couldn't verify that Google sign-in. Please try again." });
+      }
+      if (info.email_verified !== true && info.email_verified !== "true") {
+        return res.status(401).json({ error: "Your Google account's email address isn't verified." });
+      }
+
+      const email = String(info.email).toLowerCase().trim();
+      let user = await storage.getUserByEmail(email);
+      if (!user) {
+        const name = typeof info.name === "string" && info.name.trim() ? info.name.trim() : null;
+        user = await storage.createUser(email, GOOGLE_ONLY_PASSWORD, name, email === SYSTEM_ADMIN_EMAIL);
+        console.log(`[AUTH] Registered via Google: ${email}`);
+      }
+      if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+
+      const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
+      console.log(`[AUTH] Google login: ${user.email}`);
+      res.json({ user: { ...publicUser(user), isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Google login error:", error);
+      res.status(500).json({ error: "Google sign-in failed" });
+    }
+  });
+
+  // ── Forgot / reset password ─────────────────────────────────────────────
+  app.post("/api/auth/forgot", async (req, res) => {
+    try {
+      const email = String(req.body?.email || "").toLowerCase().trim();
+      if (!email) return res.status(400).json({ error: "Email is required" });
+      if (!process.env.RESEND_API_KEY) {
+        return res.status(503).json({ error: "Password reset emails aren't set up yet. Please contact the administrator." });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      // Always give the same answer, so this can't be used to find out who has an account
+      if (user && !user.isBlocked) {
+        const token = createResetToken(user.id, user.passwordHash);
+        // Uses ?code= (not ?token=, which the app reserves for tournament share links)
+        const link = `${baseUrlOf(req)}/reset-password?code=${encodeURIComponent(token)}`;
+        try {
+          const { client, fromEmail } = await getUncachableResendClient();
+          await client.emails.send({
+            from: fromEmail,
+            to: user.email,
+            subject: "Reset your Pétanque Tournament Manager password",
+            html: `<p>Hello${user.displayName ? ` ${user.displayName}` : ""},</p>
+<p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Pétanque Tournament Manager account.</p>
+<p><a href="${link}">Click here to choose a new password</a></p>
+<p>This link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>`,
+          });
+          console.log(`[AUTH] Password reset email sent to ${user.email}`);
+        } catch (e) {
+          console.error("[AUTH] Failed to send reset email:", e);
+        }
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Forgot password error:", error);
+      res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
+
+  app.post("/api/auth/reset", async (req, res) => {
+    try {
+      const { token, password } = req.body || {};
+      if (!token || !password) return res.status(400).json({ error: "Token and new password are required" });
+      if (String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+      const decoded = decodeResetToken(String(token));
+      const user = decoded ? await storage.getUserById(decoded.userId) : undefined;
+      if (!decoded || !user || !resetTokenMatches(decoded.fp, user.passwordHash)) {
+        return res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+      }
+      if (user.isBlocked) return res.status(401).json({ error: "Your account has been blocked. Please contact the administrator." });
+
+      const newHash = await bcrypt.hash(String(password), 12);
+      await storage.updateUserPassword(user.id, newHash);
+      const isSystemAdmin = user.email === SYSTEM_ADMIN_EMAIL || user.isSystemAdmin;
+      setAuthCookie(res, { userId: user.id, email: user.email, displayName: user.displayName, isSystemAdmin });
+      console.log(`[AUTH] Password reset for: ${user.email}`);
+      res.json({ user: { ...publicUser({ ...user, passwordHash: newHash }), isSystemAdmin } });
+    } catch (error) {
+      console.error("[AUTH] Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
     }
   });
 
@@ -93,17 +410,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/auth/profile", async (req: any, res) => {
     try {
-      const { userId: clerkUserId } = getAuth(req);
-      let targetUser: Awaited<ReturnType<typeof storage.getUserById>>;
-
-      if (clerkUserId) {
-        targetUser = await storage.getUserByClerkId(clerkUserId);
-      } else {
-        const session = getSessionFromRequest(req);
-        if (!session) return res.status(401).json({ error: "Not authenticated" });
-        targetUser = await storage.getUserById(session.userId);
-      }
-
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+      const targetUser = await storage.getUserById(session.userId);
       if (!targetUser || targetUser.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
 
       const { displayName } = req.body;
@@ -112,15 +421,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await storage.updateUserProfile(targetUser.id, trimmed || null);
       if (!updated) return res.status(500).json({ error: "Failed to update profile" });
 
-      // Only refresh legacy cookie when not using Clerk
-      if (!clerkUserId) {
-        setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
-      }
+      setAuthCookie(res, { userId: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin });
       console.log(`[AUTH] Display name updated for: ${updated.email}`);
-      res.json({ user: { id: updated.id, email: updated.email, displayName: updated.displayName, isSystemAdmin: updated.isSystemAdmin } });
+      res.json({ user: publicUser(updated) });
     } catch (error) {
       console.error("[AUTH] Update profile error:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // ── Organiser's payment details for registration fees ──────────────────────
+  app.get("/api/auth/payment-details", async (req: any, res) => {
+    const session = getSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Not authenticated" });
+    const u = await storage.getUserById(session.userId);
+    if (!u) return res.status(401).json({ error: "Not authenticated" });
+    res.json({
+      accountName: u.payeeAccountName ?? "",
+      sortCode: u.payeeSortCode ? formatSortCode(u.payeeSortCode) : "",
+      accountNumber: u.payeeAccountNumber ?? "",
+      iban: u.payeeIban ? formatIban(u.payeeIban) : "",
+      paymentLink: u.paymentLink ?? "",
+    });
+  });
+
+  app.put("/api/auth/payment-details", async (req: any, res) => {
+    try {
+      const session = getSessionFromRequest(req);
+      if (!session) return res.status(401).json({ error: "Not authenticated" });
+      const u = await storage.getUserById(session.userId);
+      if (!u || u.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
+      const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+      const d = {
+        accountName: str(req.body?.accountName, 70),
+        sortCode: str(req.body?.sortCode, 12),
+        accountNumber: str(req.body?.accountNumber, 12),
+        iban: str(req.body?.iban, 50),
+        paymentLink: str(req.body?.paymentLink, 300),
+      };
+      const problem = payeeDetailsProblem(d);
+      if (problem) return res.status(400).json({ error: problem });
+      const link = d.paymentLink ? describePaymentLink(d.paymentLink) : null;
+      await storage.updatePayeeDetails(u.id, {
+        payeeAccountName: d.accountName,
+        payeeSortCode: d.sortCode ? normaliseSortCode(d.sortCode) : null,
+        payeeAccountNumber: d.accountNumber ? d.accountNumber.replace(/\s/g, "") : null,
+        payeeIban: d.iban ? normaliseIban(d.iban) : null,
+        paymentLink: link ? link.url : null,
+      });
+      console.log(`[AUTH] Payment details updated for: ${u.email}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AUTH] Payment details error:", error);
+      res.status(500).json({ error: "Failed to save payment details" });
     }
   });
 
@@ -130,14 +483,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!session) return res.status(401).json({ error: "Not authenticated" });
 
       const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
+      if (!newPassword) return res.status(400).json({ error: "New password is required" });
       if (newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
 
       const user = await storage.getUserById(session.userId);
       if (!user || user.isBlocked) return res.status(401).json({ error: "User not found or blocked" });
 
-      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
-      if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+      // Accounts that sign in with Google can set a first password without a current one
+      if (hasUsablePassword(user.passwordHash)) {
+        if (!currentPassword) return res.status(400).json({ error: "Current password is required" });
+        const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+      }
 
       const newHash = await bcrypt.hash(newPassword, 12);
       await storage.updateUserPassword(user.id, newHash);
@@ -151,45 +508,303 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/user", async (req: any, res) => {
     try {
-      // Check Clerk session first
-      const { userId: clerkUserId } = getAuth(req);
-      if (clerkUserId) {
-        let user = await storage.getUserByClerkId(clerkUserId);
-        if (!user) {
-          // JIT provision on first /api/auth/user call after social sign-in
-          try {
-            const clerkUser = await clerkClient.users.getUser(clerkUserId);
-            const email = clerkUser.emailAddresses[0]?.emailAddress?.toLowerCase();
-            const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || null;
-            if (email) {
-              user = await storage.getUserByEmail(email) ?? undefined;
-              if (user) {
-                if (!user.clerkUserId) await storage.updateUserClerkId(user.id, clerkUserId);
-              } else {
-                try {
-                  user = await storage.createUserFromClerk(email, clerkUserId, displayName, email === SYSTEM_ADMIN_EMAIL);
-                } catch {
-                  user = await storage.getUserByEmail(email) ?? undefined;
-                }
-              }
-            }
-          } catch (e) {
-            console.error('[CLERK] JIT provision in /api/auth/user:', e);
-          }
-        }
-        if (user && !user.isBlocked) {
-          return res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
-        }
-        return res.json({ user: null });
-      }
-      // Legacy cookie fallback
       const session = getSessionFromRequest(req);
       if (!session) return res.json({ user: null });
       const user = await storage.getUserById(session.userId);
       if (!user || user.isBlocked) { clearAuthCookie(res); return res.json({ user: null }); }
-      res.json({ user: { id: user.id, email: user.email, displayName: user.displayName, isSystemAdmin: user.isSystemAdmin } });
+      res.json({ user: publicUser(user) });
     } catch {
       res.status(500).json({ error: "Failed to get user" });
+    }
+  });
+
+  // ── Public tournament addresses: /teams/<slug> and /leaderboard/<slug> ──────
+  // Turns a tournament's readable address into its view-only access code, so the
+  // page can load read-only data without the code showing in the address bar.
+  app.get("/api/public/config", (_req, res) => {
+    res.json({ publicUrl: publicUrlSetting() });
+  });
+
+  // ── Show a PDF made in the browser under a proper file name ───────────────
+  // The page posts the PDF here (into its preview frame or a new tab) and gets it
+  // straight back, so the browser's PDF viewer saves it as e.g.
+  // "Summer League - Leaderboard - 2026-10-21.pdf" rather than a random name.
+  // Only accepted from this site's own pages, and only real PDFs; nothing is stored.
+  app.post("/api/pdf/:filename", (req, res) => {
+    const origin = String(req.get("origin") || req.get("referer") || "");
+    let sameSite = false;
+    try {
+      sameSite = !!origin && new URL(origin).host === req.get("host");
+    } catch {
+      sameSite = false;
+    }
+    if (!sameSite) return res.status(403).send("Not allowed");
+
+    const data = typeof req.body?.pdf === "string" ? req.body.pdf : "";
+    const pdf = Buffer.from(data, "base64");
+    if (pdf.length < 5 || pdf.length > 8 * 1024 * 1024 || pdf.subarray(0, 5).toString("latin1") !== "%PDF-") {
+      return res.status(400).send("Not a PDF");
+    }
+
+    const wanted = String(req.params.filename || "report.pdf").replace(/[\\/:*?"<>|\r\n]+/g, "-").slice(0, 150);
+    const filename = /\.pdf$/i.test(wanted) ? wanted : `${wanted}.pdf`;
+    const asciiName = filename.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    res.send(pdf);
+  });
+
+  // ── Web app manifest for "Add to home screen / desktop" shortcuts ─────────
+  // /api/public/manifest?name=Summer League-Leaderboard&start=/leaderboard/summer-league
+  // The shortcut is named after the tournament and page, and opens that page.
+  // New shortcuts use /api/public/manifest/<page-key>?… so each one has its own
+  // address: Android Chrome ignores the ?… part when checking whether an app is
+  // already installed, so with one shared address a second shortcut was taken
+  // for the first ("app already exists", then "could not open app").
+  // The bare address stays for shortcuts installed before the change.
+  app.get(["/api/public/manifest", "/api/public/manifest/:key"], (req, res) => {
+    // The one PTM organiser app (/api/public/manifest/ptm-app?app=1). Android Chrome
+    // treats any installed app on this site as covering every page, so new installs
+    // are this single app; Teams/Leaderboard views are plain shortcuts with no manifest.
+    // Opens at "/", which restores the tournament last used on that device.
+    if (req.query.app === "1") {
+      res.type("application/manifest+json");
+      res.set("Cache-Control", "no-cache");
+      return res.send(JSON.stringify({
+        id: "/",
+        name: "Pétanque Tournament Manager",
+        short_name: "PTM",
+        description: "Pétanque Tournament Manager",
+        start_url: "/?from=shortcut",
+        scope: "/",
+        display: "minimal-ui",
+        background_color: "#ffffff",
+        theme_color: "#ffffff",
+        icons: [
+          { src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+        // Press and hold the app icon for these
+        shortcuts: [
+          { name: "Teams", url: "/teams", icons: [{ src: "/icons/teams-192.png?v=5", sizes: "192x192", type: "image/png" }] },
+          { name: "Matches", url: "/matches", icons: [{ src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png" }] },
+          { name: "Results", url: "/results", icons: [{ src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png" }] },
+          { name: "Leaderboard", url: "/leaderboard", icons: [{ src: "/icons/leaderboard-192.png?v=5", sizes: "192x192", type: "image/png" }] },
+        ],
+      }));
+    }
+    // Older per-page shortcuts already on people's devices keep using what follows
+    const rawName = String(req.query.name || "").trim().slice(0, 100);
+    const rawStart = String(req.query.start || "/").trim();
+    // Only same-site paths: must start with a single "/" (not "//host")
+    const start = /^\/(?!\/)[^\s]{0,500}$/.test(rawStart) ? rawStart : "/";
+    const name = rawName || "Pétanque Tournament Manager";
+    // Each shortcut covers only its own page (e.g. /teams/<tournament>), so the
+    // Teams and Leaderboard pages, and different tournaments, install separately.
+    // A shortcut covering the whole site would stop Chrome offering the others.
+    const scope = start.split(/[?#]/)[0] || "/";
+    // Bracket-to-Boule icons: people = Teams, ranked rows = Leaderboard, sliders = Teams Edit (organisers)
+    const iconKinds = ["teams", "leaderboard", "teams-edit"];
+    const iconKind = iconKinds.includes(String(req.query.icon)) ? String(req.query.icon) : null;
+    const icons = iconKind
+      ? [
+          { src: `/icons/${iconKind}-192.png?v=4`, sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: `/icons/${iconKind}-512.png?v=4`, sizes: "512x512", type: "image/png", purpose: "any" },
+        ]
+      : [
+          { src: "/icon-192.png?v=5", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png?v=5", sizes: "512x512", type: "image/png", purpose: "any" },
+        ];
+    res.type("application/manifest+json");
+    res.set("Cache-Control", "no-cache");
+    res.send(
+      JSON.stringify({
+        id: start,
+        name,
+        short_name: name,
+        description: "Pétanque Tournament Manager",
+        // Marked so the app knows the shortcut exists (it then hides the "Add Shortcut" button)
+        start_url: `${start}${start.includes("?") ? "&" : "?"}from=shortcut`,
+        scope,
+        display: "minimal-ui",
+        background_color: "#ffffff",
+        theme_color: "#ffffff",
+        icons,
+      }),
+    );
+  });
+
+  // ── Score Flip (/coin-toss/): tournaments, divisions and team names ──────
+  // Public on purpose (agreed with Ali): only names, divisions and team names,
+  // never captains, phone numbers or emails. Newest tournament first.
+  app.get("/api/public/score-flip", async (_req, res) => {
+    try {
+      const [allTournaments, allTeams] = await Promise.all([storage.getAllTournaments(), storage.getAllTeams()]);
+      const byTournament = new Map<string, Record<string, string[]>>();
+      for (const team of allTeams) {
+        const divisions = byTournament.get(team.tournamentId) ?? {};
+        const division = (team.division || "").trim();
+        (divisions[division] ??= []).push(team.name);
+        byTournament.set(team.tournamentId, divisions);
+      }
+      const tournaments = allTournaments.map((t) => {
+        const divisions = byTournament.get(t.id) ?? {};
+        Object.values(divisions).forEach((names) => names.sort((a, b) => a.localeCompare(b)));
+        return { key: t.slug || t.id, name: t.name, divisions };
+      });
+      res.set("Cache-Control", "no-cache");
+      res.json({ tournaments });
+    } catch (error) {
+      console.error("[PUBLIC] Score Flip list failed:", error);
+      res.status(500).json({ error: "Failed to load tournaments" });
+    }
+  });
+
+  // Score Flip install file that opens on the tournament it was installed from
+  // (/coin-toss/?t=<tournament>). Same app id, so re-installing just updates it.
+  app.get("/api/public/score-flip-manifest", (req, res) => {
+    const key = String(req.query.t || "").trim().slice(0, 120);
+    const safeKey = /^[A-Za-z0-9_-]+$/.test(key) ? key : "";
+    res.type("application/manifest+json");
+    res.set("Cache-Control", "no-cache");
+    res.send(JSON.stringify({
+      id: "/coin-toss/",
+      name: "PTM Score Flip",
+      short_name: "Score Flip",
+      description: "Pétanque Tournament Manager - Score Flip: coin flip, match score keeper and game timer.",
+      start_url: safeKey ? `/coin-toss/?from=app&t=${encodeURIComponent(safeKey)}` : "/coin-toss/?from=app",
+      scope: "/coin-toss/",
+      display: "standalone",
+      orientation: "portrait",
+      background_color: "#b9a888",
+      theme_color: "#b9a888",
+      icons: [
+        { src: "/coin-toss/icon-192.png?v=8", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/coin-toss/icon-512.png?v=8", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/coin-toss/icon-512.png?v=8", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    }));
+  });
+
+  app.get("/api/public/tournament/:slug", async (req, res) => {
+    try {
+      const t = await storage.getTournamentBySlug(String(req.params.slug));
+      if (!t) return res.status(404).json({ error: "Tournament not found" });
+      res.json({
+        tournamentId: t.id, name: t.name, viewToken: t.viewToken, registrationDeadline: t.registrationDeadline ?? null,
+        registrationFee: t.registrationFeeMinor && t.registrationFeeMinor > 0 ? formatFee(t.registrationFeeMinor, t.registrationFeeCurrency) : null,
+      });
+    } catch (error) {
+      console.error("[PUBLIC] Slug lookup failed:", error);
+      res.status(500).json({ error: "Failed to look up tournament" });
+    }
+  });
+
+  // ── Public team registration: /register/<slug> ─────────────────────────────
+  // Captains enter their own team details. If the team name is already taken,
+  // the existing details come back (409) so the captain can choose to update
+  // them (resubmit with action "update") or discard their changes.
+  // Load a team's details for the edit link in the confirmation email (?code=<teamId>.<signature>)
+  app.get("/api/public/register/:slug/team", async (req, res) => {
+    try {
+      const t = await storage.getTournamentBySlug(String(req.params.slug));
+      if (!t) return res.status(404).json({ error: "Tournament not found" });
+      const teamId = readTeamEditCode(String(req.query.code || ""));
+      const team = teamId ? await storage.getTeam(teamId) : undefined;
+      if (!team || team.tournamentId !== t.id) {
+        return res.status(404).json({ error: "This link isn't valid any more. Please register again or contact the organiser." });
+      }
+      res.json({
+        name: team.name,
+        captainName: team.captainName,
+        captainPhone: team.captainPhone,
+        captainEmail: team.captainEmail || "",
+        homePiste: team.homePiste || "",
+        otherPlayers: team.otherPlayers || [],
+      });
+    } catch (error) {
+      console.error("[REGISTER] Edit lookup failed:", error);
+      res.status(500).json({ error: "Failed to load your registration" });
+    }
+  });
+
+  app.post("/api/public/register/:slug", async (req, res) => {
+    try {
+      const t = await storage.getTournamentBySlug(String(req.params.slug));
+      if (!t) return res.status(404).json({ error: "Tournament not found" });
+
+      // Hidden "website" field that people never see: bots fill it in. Pretend it worked.
+      if (req.body?.website) return res.json({ status: "created", emailSent: true });
+
+      const parsed = publicRegistrationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.errors[0]?.message || "Please check your details" });
+      }
+      const data = parsed.data;
+      const action = req.body?.action === "update" ? "update" : req.body?.action === "edit" ? "edit" : "create";
+
+      // Editing via the link in the confirmation email: update that exact team
+      if (action === "edit") {
+        const teamId = readTeamEditCode(String(req.body?.editCode || ""));
+        const team = teamId ? await storage.getTeam(teamId) : undefined;
+        if (!team || team.tournamentId !== t.id) {
+          return res.status(404).json({ error: "This link isn't valid any more. Please register again or contact the organiser." });
+        }
+        const clash = await storage.findTeamByName(t.id, data.name);
+        if (clash && clash.id !== team.id) {
+          return res.status(400).json({ error: `Another team is already registered as "${clash.name}". Please choose a different team name.` });
+        }
+        await storage.updateTeamRegistration(team.id, data);
+        console.log(`[REGISTER] Edited "${data.name}" for "${t.name}" via email link`);
+        const fee = await feePaymentFor(t, data.name);
+        const emailSent = await sendRegistrationEmails(req, t.name, data, true, team.id, team.captainEmail, fee);
+        await sendOrganiserEmail(req, t, data, true, team.id, fee);
+        return res.json({ status: "updated", emailSent, fee });
+      }
+
+      const existing = await storage.findTeamByName(t.id, data.name);
+
+      const existingDetails = existing && {
+        id: existing.id,
+        name: existing.name,
+        captainName: existing.captainName,
+        captainPhone: existing.captainPhone,
+        captainEmail: existing.captainEmail || "",
+        homePiste: existing.homePiste || "",
+        otherPlayers: existing.otherPlayers || [],
+      };
+
+      let updated = false;
+      let teamId: string;
+      if (existing) {
+        // Only overwrite the exact team the captain was shown
+        if (action !== "update" || req.body?.existingTeamId !== existing.id) {
+          return res.status(409).json({ conflict: true, existing: existingDetails });
+        }
+        await storage.updateTeamRegistration(existing.id, data);
+        teamId = existing.id;
+        updated = true;
+      } else {
+        if (action === "update") {
+          // The team was removed or renamed in the meantime: register it as new
+          console.log(`[REGISTER] Team to update no longer exists; creating "${data.name}" instead`);
+        }
+        teamId = (await storage.createTeam({ ...data, tournamentId: t.id, division: "A", teamDisplayId: null })).id;
+      }
+      console.log(`[REGISTER] ${updated ? "Updated" : "Registered"} "${data.name}" for "${t.name}"`);
+
+      const fee = await feePaymentFor(t, data.name);
+      const emailSent = await sendRegistrationEmails(req, t.name, data, updated, teamId, existingDetails?.captainEmail, fee);
+      await sendOrganiserEmail(req, t, data, updated, teamId, fee);
+      res.json({ status: updated ? "updated" : "created", emailSent, fee });
+    } catch (error) {
+      console.error("[REGISTER] Registration failed:", error);
+      res.status(500).json({ error: "Something went wrong saving your registration. Please try again." });
     }
   });
 
@@ -466,7 +1081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const targetUser = await storage.getUserByEmail(email.trim());
       if (!targetUser) {
-        return res.status(404).json({ error: `${email.trim()} does not have a BTM account. Get them to create one before transferring ownership to them.` });
+        return res.status(404).json({ error: `${email.trim()} does not have a PTM account. Get them to create one before transferring ownership to them.` });
       }
 
       if (targetUser.isBlocked) {
@@ -525,7 +1140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "A valid email address is required" });
       }
       const target = await storage.getUserByEmail(email.trim().toLowerCase());
-      if (!target) return res.status(404).json({ error: `${email.trim()} does not have a BTM account. Get them to create one before setting them as a co-editor.` });
+      if (!target) return res.status(404).json({ error: `${email.trim()} does not have a PTM account. Get them to create one before setting them as a co-editor.` });
       if (target.isBlocked) return res.status(400).json({ error: "Cannot add a blocked user as co-editor" });
       if (target.id === tournament.userId) {
         return res.status(400).json({ error: "That user already owns this tournament" });
@@ -749,8 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build the internal short URL
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const shareUrl = `${baseUrl}/s/${shortLink.code}`;
+      const shareUrl = `${baseUrlOf(req)}/s/${shortLink.code}`;
 
       res.json({ 
         code: shortLink.code,
@@ -764,6 +1378,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Team routes
+  // Whether a team has paid is for organisers only: never sent to view-only visitors (e.g. captains)
+  const forViewer = (req: any, team: Team) => {
+    if (req.isAdminAccess) return team;
+    const { feePaid: _hidden, ...rest } = team as Team & { feePaid?: boolean };
+    return rest;
+  };
+
   app.get("/api/teams", async (req: any, res) => {
     try {
       let tournamentId = req.query.tournamentId as string | undefined;
@@ -778,7 +1399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const teams = await storage.getAllTeams(tournamentId);
-      res.json(teams);
+      res.json(teams.map((t) => forViewer(req, t)));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch teams" });
     }
@@ -794,7 +1415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
-      res.json(team);
+      res.json(forViewer(req, team));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch team" });
     }
@@ -845,6 +1466,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ error: "Failed to update team" });
       }
+    }
+  });
+
+  // Organisers tick a team's registration fee as paid (or not)
+  app.patch("/api/teams/:id/paid", async (req: any, res) => {
+    try {
+      if (!req.isAdminAccess) return res.status(403).json({ error: "Access denied" });
+      if (typeof req.body?.paid !== "boolean") return res.status(400).json({ error: "paid must be true or false" });
+      const team = await storage.getTeam(req.params.id);
+      if (!team) return res.status(404).json({ error: "Team not found" });
+      if (req.tokenTournamentId && team.tournamentId !== req.tokenTournamentId) {
+        return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      if (!req.isMasterAdmin && req.sessionUser && !req.tokenTournamentId) {
+        const tournament = await storage.getTournament(team.tournamentId);
+        const isOwner = tournament?.userId === req.sessionUser.userId;
+        const isCollab = !isOwner && (await storage.isCollaborator(team.tournamentId, req.sessionUser.userId));
+        if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.setTeamFeePaid(team.id, req.body.paid);
+      res.json(updated);
+    } catch (error) {
+      console.error("[TEAMS] Update paid failed:", error);
+      res.status(500).json({ error: "Failed to update payment status" });
     }
   });
 
@@ -960,150 +1605,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
-
-  // Helper function to calculate team rankings from results
-  function calculateTeamRankings(results: Result[], teams: Team[]): Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }> {
-    const teamMap = new Map(teams.map(t => [t.id, t]));
-    const rankings = new Map<string, { points: number; scoreDifference: number; gamesPlayed: number }>();
-    
-    results.forEach(result => {
-      const teamId = teams.find(t => t.name === result.teamName)?.id;
-      if (!teamId) return;
-      
-      if (!rankings.has(teamId)) {
-        rankings.set(teamId, { points: 0, scoreDifference: 0, gamesPlayed: 0 });
-      }
-      
-      const ranking = rankings.get(teamId)!;
-      ranking.points += result.points;
-      ranking.scoreDifference += result.scoreDifference;
-      ranking.gamesPlayed += result.gamesPlayed;
-    });
-    
-    return Array.from(rankings.entries())
-      .map(([teamId, stats]) => ({
-        team: teamMap.get(teamId)!,
-        ...stats
-      }))
-      .filter(r => r.team) // Filter out any teams not found
-      .sort((a, b) => {
-        // Sort by points first, then by score difference
-        if (b.points !== a.points) return b.points - a.points;
-        return b.scoreDifference - a.scoreDifference;
-      });
-  }
-
-  // Helper function to select top teams based on division count
-  function selectTopTeams(
-    rankings: Array<{ team: Team; points: number; scoreDifference: number; gamesPlayed: number }>,
-    numberOfDivisions: number,
-    targetCount: 8 | 4 | 2,
-    fromPlayoffStage: boolean = false
-  ): Team[] {
-    // If selecting from playoff stage, always use overall rankings (divisions no longer matter)
-    if (fromPlayoffStage) {
-      return rankings.slice(0, targetCount).map(r => r.team);
-    }
-
-    // Otherwise, use division-based selection (for initial stage)
-    // Group rankings by division
-    const divisionRankings = new Map<string, typeof rankings>();
-    rankings.forEach(rank => {
-      const div = rank.team.division || '';
-      if (!divisionRankings.has(div)) {
-        divisionRankings.set(div, []);
-      }
-      divisionRankings.get(div)!.push(rank);
-    });
-
-    // Sort divisions by size (descending), then alphabetically
-    const sortedDivisions = Array.from(divisionRankings.keys()).sort((a, b) => {
-      const sizeA = divisionRankings.get(a)!.length;
-      const sizeB = divisionRankings.get(b)!.length;
-      if (sizeB !== sizeA) return sizeB - sizeA;
-      return a.localeCompare(b);
-    });
-
-    const selectedTeams: Team[] = [];
-
-    if (targetCount === 8) {
-      // Quarter-finals: Select 8 teams
-      if (numberOfDivisions === 1) {
-        // Top 8 from single division
-        selectedTeams.push(...rankings.slice(0, 8).map(r => r.team));
-      } else if (numberOfDivisions === 2) {
-        // Top 4 from each division
-        sortedDivisions.slice(0, 2).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 4).map(r => r.team));
-        });
-      } else if (numberOfDivisions === 3) {
-        // Top 4 from largest/first division, top 2 from other two
-        const primaryDiv = sortedDivisions[0];
-        selectedTeams.push(...divisionRankings.get(primaryDiv)!.slice(0, 4).map(r => r.team));
-        
-        sortedDivisions.slice(1, 3).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
-        });
-      } else if (numberOfDivisions >= 4) {
-        // Top 2 from each of first 4 divisions
-        sortedDivisions.slice(0, 4).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
-        });
-      }
-    } else if (targetCount === 4) {
-      // Semi-finals: Select 4 teams
-      if (numberOfDivisions === 1) {
-        // Top 4 from single division
-        selectedTeams.push(...rankings.slice(0, 4).map(r => r.team));
-      } else {
-        // Top 2 from each of the first 2 divisions
-        sortedDivisions.slice(0, 2).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 2).map(r => r.team));
-        });
-      }
-    } else if (targetCount === 2) {
-      // Finals: Select 2 teams
-      if (numberOfDivisions === 1) {
-        // Top 2 from single division
-        selectedTeams.push(...rankings.slice(0, 2).map(r => r.team));
-      } else {
-        // Top 1 from each of the first 2 divisions
-        sortedDivisions.slice(0, 2).forEach(div => {
-          const divRankings = divisionRankings.get(div)!;
-          selectedTeams.push(...divRankings.slice(0, 1).map(r => r.team));
-        });
-      }
-    }
-
-    return selectedTeams.slice(0, targetCount); // Ensure we don't exceed target
-  }
-
-  // Helper function to create traditional seeded pairings
-  function createTraditionalPairings(teams: Team[]): Array<[Team, Team]> {
-    const pairings: Array<[Team, Team]> = [];
-    const count = teams.length;
-    
-    if (count === 8) {
-      // Quarter-finals: 1v8, 2v7, 3v6, 4v5
-      pairings.push([teams[0], teams[7]]);
-      pairings.push([teams[1], teams[6]]);
-      pairings.push([teams[2], teams[5]]);
-      pairings.push([teams[3], teams[4]]);
-    } else if (count === 4) {
-      // Semi-finals: 1v4, 2v3
-      pairings.push([teams[0], teams[3]]);
-      pairings.push([teams[1], teams[2]]);
-    } else if (count === 2) {
-      // Finals: 1v2
-      pairings.push([teams[0], teams[1]]);
-    }
-    
-    return pairings;
-  }
 
   app.post("/api/matches/generate", async (req, res) => {
     try {
@@ -1228,331 +1729,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-      } else if (initialComplete && tournament.hasQuarterFinals && quarterMatches.length === 0) {
-        // Generate quarter-finals
-        stageToGenerate = "quarter-finals";
-        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
-        const rankings = calculateTeamRankings(initialResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 8);
-
-        if (topTeams.length < 8) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 8 teams for quarter-finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "quarter-finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (quarterComplete && tournament.hasSemiFinals && semiMatches.length === 0) {
-        // Generate semi-finals from quarter-finals
-        stageToGenerate = "semi-finals";
-        const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
-        const rankings = calculateTeamRankings(quarterResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4, true);
-
-        if (topTeams.length < 4) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 4 teams for semi-finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "semi-finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (initialComplete && !tournament.hasQuarterFinals && tournament.hasSemiFinals && semiMatches.length === 0) {
-        // Generate semi-finals directly from initial stage (skip quarter-finals)
-        stageToGenerate = "semi-finals";
-        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
-        const rankings = calculateTeamRankings(initialResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 4);
-
-        if (topTeams.length < 4) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 4 teams for semi-finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "semi-finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (semiComplete && tournament.hasFinals && finalMatches.length === 0) {
-        // Generate finals
-        stageToGenerate = "finals";
-        const semiResults = await storage.getResultsByStage(tournamentId, "semi-finals");
-        const rankings = calculateTeamRankings(semiResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2, true);
-
-        if (topTeams.length < 2) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (initialComplete && !tournament.hasQuarterFinals && !tournament.hasSemiFinals && tournament.hasFinals && finalMatches.length === 0) {
-        // Generate finals directly from initial stage
-        stageToGenerate = "finals";
-        const initialResults = await storage.getResultsByStage(tournamentId, "initial");
-        const rankings = calculateTeamRankings(initialResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2);
-
-        if (topTeams.length < 2) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
-      } else if (quarterComplete && !tournament.hasSemiFinals && tournament.hasFinals && finalMatches.length === 0) {
-        // Generate finals from quarter-finals (skip semi-finals)
-        stageToGenerate = "finals";
-        const quarterResults = await storage.getResultsByStage(tournamentId, "quarter-finals");
-        const rankings = calculateTeamRankings(quarterResults, teams);
-        const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, 2, true);
-
-        if (topTeams.length < 2) {
-          return res.status(400).json({ 
-            error: `Not enough teams qualified. Need 2 teams for finals, but only ${topTeams.length} teams have results.` 
-          });
-        }
-
-        const pairings = createTraditionalPairings(topTeams);
-        for (const [team1, team2] of pairings) {
-          const matchData = {
-            tournamentId,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            stage: "finals" as const,
-            status: "scheduled" as const,
-            matchDate: null,
-            team1Game1Score: null,
-            team2Game1Score: null,
-            team1Game2Score: null,
-            team2Game2Score: null,
-            team1Game3Score: null,
-            team2Game3Score: null,
-            winnerId: null,
-          };
-
-          const match = await storage.createMatch(matchData);
-          createdMatches.push(match);
-        }
       } else {
-        // Check if we should update existing playoff matches due to ranking changes
-        let checkForUpdates = false;
-        let sourceStage = "";
-        let targetStage: "quarter-finals" | "semi-finals" | "finals" = "quarter-finals";
-        let targetMatches: Match[] = [];
-        let targetCount: 8 | 4 | 2 = 8;
+        // ── Knockout stages ────────────────────────────────────────────────
+        // The current stage is the first enabled knockout stage that isn't complete.
+        // Its teams come from the stage before it (the group stage for the first round).
+        const stageMatches: Record<string, Match[]> = {
+          initial: initialMatches,
+          "quarter-finals": quarterMatches,
+          "semi-finals": semiMatches,
+          finals: finalMatches,
+        };
+        const isStageComplete = (stage: string) =>
+          stageMatches[stage].length > 0 && stageMatches[stage].every(m => m.status === "completed");
+        const stageSize: Record<KnockoutStage, number> = { "quarter-finals": 8, "semi-finals": 4, finals: 2 };
+        const stageName: Record<KnockoutStage, string> = { "quarter-finals": "quarter-finals", "semi-finals": "semi-finals", finals: "final" };
 
-        // Determine which stage to check for updates
-        if (quarterMatches.length > 0 && !quarterComplete && initialComplete) {
-          checkForUpdates = true;
-          sourceStage = "initial";
-          targetStage = "quarter-finals";
-          targetMatches = quarterMatches;
-          targetCount = 8;
-        } else if (semiMatches.length > 0 && !semiComplete && quarterComplete) {
-          checkForUpdates = true;
-          sourceStage = "quarter-finals";
-          targetStage = "semi-finals";
-          targetMatches = semiMatches;
-          targetCount = 4;
-        } else if (semiMatches.length > 0 && !semiComplete && initialComplete && !tournament.hasQuarterFinals) {
-          checkForUpdates = true;
-          sourceStage = "initial";
-          targetStage = "semi-finals";
-          targetMatches = semiMatches;
-          targetCount = 4;
-        } else if (finalMatches.length > 0 && semiComplete) {
-          checkForUpdates = true;
-          sourceStage = "semi-finals";
-          targetStage = "finals";
-          targetMatches = finalMatches;
-          targetCount = 2;
-        } else if (finalMatches.length > 0 && quarterComplete && !tournament.hasSemiFinals) {
-          checkForUpdates = true;
-          sourceStage = "quarter-finals";
-          targetStage = "finals";
-          targetMatches = finalMatches;
-          targetCount = 2;
-        } else if (finalMatches.length > 0 && initialComplete && !tournament.hasQuarterFinals && !tournament.hasSemiFinals) {
-          checkForUpdates = true;
-          sourceStage = "initial";
-          targetStage = "finals";
-          targetMatches = finalMatches;
-          targetCount = 2;
+        let sourceStage = "initial";
+        let targetStage: KnockoutStage | null = null;
+        for (const stage of knockoutStages(tournament)) {
+          if (!isStageComplete(stage)) { targetStage = stage; break; }
+          sourceStage = stage;
         }
 
-        if (checkForUpdates && sourceStage && targetMatches.length > 0) {
+        if (!targetStage) {
+          warnings.push("No new matches to generate. All enabled tournament stages already have matches.");
+        } else {
           stageToGenerate = targetStage;
-          
-          // Check if any matches have been played (have results or are not scheduled)
-          const matchesWithResults = targetMatches.filter(m => m.status !== "scheduled");
-          
-          if (matchesWithResults.length > 0) {
-            warnings.push(`Cannot update ${targetStage} matches. ${matchesWithResults.length} match(es) already have results.`);
-          } else {
-            // Get rankings from source stage
-            const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
-            const rankings = calculateTeamRankings(sourceResults, teams);
-            // Use playoff logic if source is a playoff stage (not initial)
-            const isFromPlayoff = sourceStage !== "initial";
-            const topTeams = selectTopTeams(rankings, tournament.numberOfDivisions, targetCount, isFromPlayoff);
+          const size = stageSize[targetStage];
 
-            if (topTeams.length >= targetCount) {
-              // Create expected pairings based on current rankings
-              const expectedPairings = createTraditionalPairings(topTeams);
-              
-              // Check if existing matches match expected pairings
-              let matchesNeedUpdate = false;
-              const existingTeamPairs = targetMatches.map(m => 
-                [m.team1Id, m.team2Id].sort().join('-')
-              );
-
-              for (let i = 0; i < expectedPairings.length; i++) {
-                const [team1, team2] = expectedPairings[i];
-                const expectedPair = [team1.id, team2.id].sort().join('-');
-                
-                if (!existingTeamPairs.includes(expectedPair)) {
-                  matchesNeedUpdate = true;
-                  break;
-                }
-              }
-
-              if (matchesNeedUpdate) {
-                // Delete old scheduled matches and create new ones with updated teams
-                for (const match of targetMatches) {
-                  await storage.deleteMatch(match.id);
-                }
-
-                // Create new matches with current top teams
-                for (const [team1, team2] of expectedPairings) {
-                  const matchData = {
-                    tournamentId,
-                    team1Id: team1.id,
-                    team2Id: team2.id,
-                    stage: targetStage,
-                    status: "scheduled" as const,
-                    matchDate: null,
-                    team1Game1Score: null,
-                    team2Game1Score: null,
-                    team1Game2Score: null,
-                    team2Game2Score: null,
-                    team1Game3Score: null,
-                    team2Game3Score: null,
-                    winnerId: null,
-                  };
-
-                  const match = await storage.createMatch(matchData);
-                  updatedMatches.push(match);
-                }
-
-                warnings.push(`Updated ${targetStage} matches based on current rankings from ${sourceStage}.`);
-              } else {
-                warnings.push(`No changes needed. ${targetStage} matches already reflect current rankings.`);
-              }
+          // Work out the pairings (in bracket order) for the target stage
+          const sourceResults = await storage.getResultsByStage(tournamentId, sourceStage);
+          let pairings: Array<[Team, Team]> = [];
+          let pairingError: string | null = null;
+          if (sourceStage === "initial") {
+            const seeded = selectAndSeedQualifiers(computeStandings(sourceResults, teams), size);
+            if (seeded.length < size) {
+              pairingError = `Not enough teams qualified. Need ${size} teams for the ${stageName[targetStage]}, but only ${seeded.length} teams have results.`;
             } else {
-              warnings.push(`Cannot update ${targetStage}. Need ${targetCount} teams but only ${topTeams.length} teams have results in ${sourceStage}.`);
+              pairings = firstRoundPairings(seeded);
+            }
+          } else {
+            pairings = nextRoundPairings(stageMatches[sourceStage], sourceResults, teams, size);
+            if (pairings.length * 2 < size) {
+              pairingError = `Not enough teams qualified. Need ${size} teams for the ${stageName[targetStage]}.`;
             }
           }
-        } else {
-          warnings.push("No new matches to generate. All enabled tournament stages already have matches.");
+
+          const createKnockoutMatches = async (into: Match[]) => {
+            for (let i = 0; i < pairings.length; i++) {
+              const [team1, team2] = pairings[i];
+              const match = await storage.createMatch({
+                tournamentId,
+                team1Id: team1.id,
+                team2Id: team2.id,
+                stage: targetStage!,
+                status: "scheduled" as const,
+                matchDate: null,
+                team1Game1Score: null,
+                team2Game1Score: null,
+                team1Game2Score: null,
+                team2Game2Score: null,
+                team1Game3Score: null,
+                team2Game3Score: null,
+                winnerId: null,
+                bracketPosition: i,
+              });
+              into.push(match);
+            }
+          };
+
+          const existing = stageMatches[targetStage];
+          if (existing.length === 0) {
+            // First time: create the stage
+            if (pairingError) {
+              return res.status(400).json({ error: pairingError });
+            }
+            await createKnockoutMatches(createdMatches);
+          } else {
+            // Stage already drawn: redraw only if nothing has been played and the draw has changed
+            const played = existing.filter(m => m.status !== "scheduled");
+            if (played.length > 0) {
+              warnings.push(`Cannot update ${stageName[targetStage]} matches. ${played.length} match(es) already have results.`);
+            } else if (pairingError) {
+              warnings.push(`Cannot update ${stageName[targetStage]}. ${pairingError}`);
+            } else {
+              const pairKey = (a: string, b: string) => [a, b].sort().join("-");
+              const existingByPosition = new Map(existing.map(m => [m.bracketPosition, pairKey(m.team1Id, m.team2Id)]));
+              const drawChanged =
+                existing.length !== pairings.length ||
+                pairings.some(([a, b], i) => existingByPosition.get(i) !== pairKey(a.id, b.id));
+              if (drawChanged) {
+                for (const match of existing) {
+                  await storage.deleteMatch(match.id);
+                }
+                await createKnockoutMatches(updatedMatches);
+                warnings.push(`Updated ${stageName[targetStage]} matches based on the latest ${sourceStage === "initial" ? "group stage standings" : `${stageName[sourceStage as KnockoutStage]} results`}.`);
+              } else {
+                warnings.push(`No changes needed. ${stageName[targetStage]} matches already reflect current rankings.`);
+              }
+            }
+          }
         }
       }
 
@@ -1702,13 +1978,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await client.emails.send({
         from: fromEmail,
         to: validatedData.recipientEmail,
-        subject: "Boules Tournament - Matches Report",
+        subject: "Pétanque Tournament - Matches Report",
         html: `
-          <h2>Boules Tournament Matches Report</h2>
+          <h2>Pétanque Tournament Matches Report</h2>
           <p>Please find attached the matches report generated on ${new Date().toLocaleDateString()}.</p>
           <p>This report contains all match information including schedules, scores, and results.</p>
           <br/>
-          <p>Best regards,<br/>Boules Tournament Management</p>
+          <p>Best regards,<br/>Pétanque Tournament Manager</p>
         `,
         attachments: [
           {

@@ -1,18 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { db, pool } from "./db";
+import { storage } from "./storage";
 import { sql } from "drizzle-orm";
 
 const app = express();
-
-// Clerk proxy must come before body parsers (streams raw bytes)
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cookieParser());
 app.use(cors({ credentials: true, origin: true }));
@@ -29,16 +24,6 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
-
-// Clerk middleware — must come after body parsers and before routes
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  }))
-);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -87,10 +72,22 @@ async function initializeDatabase() {
   }
 }
 
+async function ensureRegistrationDeadlineColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_deadline TEXT`);
+    log("Database initialized: tournaments.registration_deadline column ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensurePointsForNoShowColumn() {
   const client = await pool.connect();
   try {
     await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS points_for_no_show INTEGER NOT NULL DEFAULT 0`);
+    // No-Show = league points for the team that didn't turn up (normally 0)
+    await client.query(`ALTER TABLE tournaments ALTER COLUMN points_for_no_show SET DEFAULT 0`);
     log("Database initialized: tournaments.points_for_no_show column ensured");
   } finally {
     client.release();
@@ -113,6 +110,28 @@ async function ensureNumberOfPistesColumn() {
   try {
     await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS number_of_pistes INTEGER`);
     log("Database initialized: tournaments.number_of_pistes column ensured");
+  } finally {
+    client.release();
+  }
+}
+
+async function ensureTournamentSlugs() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS slug TEXT`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS tournaments_slug_unique ON tournaments (slug)`);
+  } finally {
+    client.release();
+  }
+  const filled = await storage.backfillTournamentSlugs();
+  log(`Database initialized: tournaments.slug ensured${filled ? ` (${filled} filled in)` : ""}`);
+}
+
+async function ensureMatchBracketPositionColumn() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS bracket_position INTEGER`);
+    log("Database initialized: matches.bracket_position column ensured");
   } finally {
     client.release();
   }
@@ -147,6 +166,23 @@ async function ensureShortLinkTinyUrl() {
   } catch (error) {
     const msg = error instanceof Error ? error.message : JSON.stringify(error);
     log(`Warning: Could not add tiny_url column: ${msg}`);
+  } finally {
+    client.release();
+  }
+}
+
+async function ensureRegistrationFeeColumns() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee_minor INTEGER`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fee_currency TEXT NOT NULL DEFAULT 'GBP'`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_account_name TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_sort_code TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_account_number TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payee_iban TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS payment_link TEXT`);
+    await client.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS fee_paid BOOLEAN NOT NULL DEFAULT false`);
+    log("Database initialized: registration fee and payee columns ensured");
   } finally {
     client.release();
   }
@@ -222,13 +258,18 @@ async function migrateOrphanedTournaments() {
 }
 
 (async () => {
+  // New columns first: later start-up steps read whole rows from these tables
+  await ensureRegistrationFeeColumns();
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links
   await ensurePointsForNoShowColumn();
+  await ensureRegistrationDeadlineColumn();
   await ensureMatchNoShowColumns();
   await ensureNumberOfPistesColumn();
   await ensureMatchPisteIdColumn();
+  await ensureMatchBracketPositionColumn();
+  await ensureTournamentSlugs();
   await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users

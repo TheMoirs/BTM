@@ -1,0 +1,191 @@
+/* Score Flip: start screen, score keeper and game timer (the coin's own styles are in index.html) */
+
+.top { position: fixed; z-index: 5; pointer-events: none; }
+.top > * { pointer-events: auto; }
+.top .actions { margin-left: auto; }
+#backBtn { font-size: 15px; }
+
+.screen {
+  position: fixed; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: linear-gradient(#efe7d6, #e4d9c2);
+  padding: 64px 16px 24px;
+  padding-top: max(64px, calc(env(safe-area-inset-top) + 56px));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.screen h1 { margin: 0; font-size: 26px; }
+.screen h2 { margin: 18px 0 6px; font-size: 17px; color: #475569; }
+
+/* Start screen */
+.menu { display: flex; align-items: center; justify-content: center; }
+.menu-inner { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.menu-logo { width: 84px; height: 84px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.menu h1 { font-size: 30px; margin-bottom: 8px; }
+.big-choice {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 14px;
+  min-height: 96px; border: 0; border-radius: 18px; background: #fff; color: #0f172a;
+  font-size: 26px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,.14);
+}
+.big-choice:active { transform: scale(.98); }
+.big-choice .ic { font-size: 36px; }
+
+/* Forms */
+.form label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 15px; color: #334155; }
+.form input {
+  font: inherit; font-size: 20px; font-weight: 500; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid #cbd5e1; background: #fff; color: #0f172a; width: 100%;
+}
+.primary-btn, .secondary-btn {
+  display: flex; align-items: center; justify-content: center; text-decoration: none;
+  min-height: 60px; border-radius: 14px; font-size: 21px; font-weight: 700; width: 100%;
+}
+.primary-btn { border: 0; background: #2563eb; color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.35); }
+.secondary-btn { border: 2px solid #94a3b8; background: #fff; color: #0f172a; }
+.primary-btn:active, .secondary-btn:active { transform: scale(.98); }
+
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.history li { background: #fff; border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+.history .h-text { flex: 1; min-width: 0; font-size: 14px; line-height: 1.35; }
+.history .h-text strong { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history .h-text span { color: #64748b; }
+.history button { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 10px; font-size: 14px; font-weight: 600; }
+
+/* Scoring */
+.game-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; }
+.game-head h1 { font-size: 34px; }
+.game-head span { color: #475569; font-size: 15px; }
+.saved-games { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; }
+.saved-games:empty { display: none; }
+.saved-games span { background: #fff; border-radius: 999px; padding: 4px 12px; font-size: 15px; font-weight: 600; color: #334155; }
+.teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.team { background: #fff; border-radius: 18px; padding: 12px 10px; display: flex; flex-direction: column; align-items: stretch; gap: 6px; box-shadow: 0 3px 10px rgba(0,0,0,.08); }
+.team-name { text-align: center; font-size: 20px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arrow {
+  border: 0; border-radius: 14px; background: #e2e8f0; color: #0f172a;
+  font-size: 46px; line-height: 1; min-height: 76px;
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+.arrow[data-step="1"] { background: #dcfce7; color: #166534; }
+.arrow[data-step="-1"] { background: #fee2e2; color: #991b1b; }
+.arrow:active { filter: brightness(.9); transform: scale(.97); }
+.score { text-align: center; font-size: min(28vw, 120px); font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+
+/* Timer */
+.timer { background: #0f172a; color: #fff; border-radius: 18px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.timer-time {
+  border: 0; background: transparent; color: inherit; font-size: min(17vw, 76px); font-weight: 800;
+  font-variant-numeric: tabular-nums; line-height: 1; padding: 4px 12px; border-radius: 12px;
+}
+.timer-time:disabled { opacity: 1; cursor: default; }
+.timer-btns { display: flex; gap: 10px; width: 100%; }
+.tbtn { flex: 1; min-height: 54px; border: 0; border-radius: 12px; font-size: 19px; font-weight: 700; background: #334155; color: #fff; }
+.tbtn.go { background: #16a34a; }
+.tbtn.stop { background: #fff; color: #b91c1c; font-size: 22px; }
+.timer-hint { font-size: 13px; color: #94a3b8; }
+.timer.low .timer-time { color: #fbbf24; }
+.timer.ringing { animation: flash .5s steps(1) infinite; }
+@keyframes flash { 0% { background: #dc2626; } 50% { background: #7f1d1d; } }
+
+.game-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+
+/* Summary */
+.summary {
+  margin: 0; background: #fff; border-radius: 14px; padding: 16px; white-space: pre-wrap;
+  font-family: inherit; font-size: 20px; line-height: 1.5; box-shadow: 0 3px 10px rgba(0,0,0,.08);
+}
+.share-fallback { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.note { margin: 0; text-align: center; color: #166534; font-weight: 600; }
+
+.sheet .minutes { display: flex; align-items: center; gap: 10px; font-weight: 600; margin: 12px 0; font-size: 16px; }
+.sheet .minutes input { font: inherit; font-size: 24px; width: 110px; padding: 8px 10px; border-radius: 10px; border: 1px solid #cbd5e1; }
+
+/* Short phones: tighten up so scores and timer fit without scrolling */
+@media (max-height: 700px) {
+  .arrow { min-height: 60px; font-size: 38px; }
+  .score { font-size: min(22vw, 92px); }
+  .timer-time { font-size: 52px; }
+  .tbtn { min-height: 46px; }
+  .game-head h1 { font-size: 28px; }
+}
+
+/* Tournament / division / team pickers */
+.form select {
+  font: inherit; font-size: 20px; font-weight: 500; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid #cbd5e1; background: #fff; color: #0f172a; width: 100%;
+  -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #475569 50%), linear-gradient(135deg, #475569 50%, transparent 50%);
+  background-position: calc(100% - 22px) 52%, calc(100% - 15px) 52%;
+  background-size: 7px 7px; background-repeat: no-repeat; padding-right: 40px;
+}
+.form select:disabled { opacity: .55; }
+.form label select + input { margin-top: 6px; }
+.note-small { margin: -6px 0 0; font-size: 13px; color: #64748b; }
+.summary-sub { font-size: 15px; color: #64748b; }
+
+/* Title pill (Score Flip / Log Score) centred in the top bar; Back left, Install/Close right */
+#titlePill {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: max(12px, env(safe-area-inset-top));
+}
+
+/* Game screen: the whole form fits the phone screen, no scrolling.
+   The score cards take whatever height is left; arrows and scores shrink to fit. */
+.screen.game { overflow: hidden; display: flex; flex-direction: column; }
+.game .wrap { flex: 1; min-height: 0; width: 100%; gap: 10px; }
+.game .game-head { flex-wrap: nowrap; align-items: baseline; }
+.game .game-head h1 { font-size: 26px; white-space: nowrap; }
+.game .game-head span { font-size: 14px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game .teams { flex: 1; min-height: 0; }
+.game .team { min-height: 0; padding: 10px 8px; gap: 6px; }
+.game .team-name { font-size: 18px; }
+.game .arrow { flex: 1; min-height: 52px; max-height: 120px; font-size: clamp(30px, 6dvh, 46px); }
+.game .score { flex: 0 0 auto; font-size: clamp(52px, min(26vw, 12dvh), 120px); line-height: 1; }
+
+/* Timer: time and Start side by side, hint underneath */
+.game .timer {
+  display: grid; grid-template-columns: auto 1fr; align-items: center;
+  gap: 4px 12px; padding: 8px 12px;
+}
+.game .timer-time { font-size: clamp(38px, min(13vw, 7dvh), 64px); padding: 2px 4px; }
+.game .timer-btns { width: auto; }
+.game .tbtn { min-height: 48px; font-size: 18px; }
+.game .timer-hint { grid-column: 1 / -1; text-align: center; font-size: 12px; }
+
+/* Save Game and End Match side by side */
+.game .game-actions { flex-direction: row; margin-top: 0; }
+.game .game-actions .primary-btn,
+.game .game-actions .secondary-btn { flex: 1; min-height: 52px; font-size: 18px; padding: 0 8px; }
+
+/* Tap a big score to type it */
+.score[role="button"] { cursor: pointer; border-radius: 12px; }
+.score[role="button"]:active { background: #f1f5f9; }
+/* Abandon match button */
+.sheet .btn.primary.danger { background: #dc2626; border-color: #dc2626; }
+
+/* Saved game chips are buttons: tap to edit */
+.saved-games button {
+  border: 0; background: #fff; border-radius: 999px; padding: 4px 12px;
+  font: inherit; font-size: 15px; font-weight: 600; color: #334155; cursor: pointer;
+}
+.saved-games button:active { filter: brightness(.92); }
+
+/* Edit saved games box */
+.game-rows { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 50vh; overflow-y: auto; }
+.g-row { display: grid; grid-template-columns: 64px 1fr 1fr; gap: 8px; align-items: center; }
+.g-row > span { font-weight: 600; color: #334155; }
+.g-head span { font-size: 13px; color: #475569; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-row input {
+  font: inherit; font-size: 20px; font-weight: 600; padding: 8px; border-radius: 10px;
+  border: 1px solid #cbd5e1; width: 100%; text-align: center; box-sizing: border-box;
+}
+.sheet .btn.danger-text { color: #b91c1c; margin-right: auto; }
+
+/* Boxes with number fields sit near the top, clear of the phone's keypad.
+   (The page also shrinks when the keypad opens: interactive-widget=resizes-content.) */
+.modal.top {
+  align-items: flex-start;
+  padding-top: max(16px, env(safe-area-inset-top));
+  overflow-y: auto;
+}
+.modal.top .sheet { max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
+.modal.top .game-rows { max-height: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; }

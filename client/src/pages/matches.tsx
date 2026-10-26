@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,9 +46,11 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2 } from "lucide-react";
+import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -75,6 +77,16 @@ const stageLabels = {
   "semi-finals": "Semi-Finals",
   finals: "Finals",
 };
+
+// Knockout matches show their place in the bracket, e.g. "Quarter-Final 2"
+function stageLabelFor(match: Match): string {
+  const base = stageLabels[match.stage as keyof typeof stageLabels] ?? match.stage;
+  const position = (match as any).bracketPosition as number | null | undefined;
+  if (match.stage === "initial" || position == null) return base;
+  if (match.stage === "finals") return "Final";
+  const single = match.stage === "quarter-finals" ? "Quarter-Final" : "Semi-Final";
+  return `${single} ${position + 1}`;
+}
 
 const statusLabels = {
   scheduled: "Scheduled",
@@ -109,14 +121,24 @@ export default function Matches() {
   const [allEditingValues, setAllEditingValues] = useState<Record<string, Partial<EditingMatch>>>({});
   const [deletingMatch, setDeletingMatch] = useState<Match | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Edit All save progress; the "please wait" overlay only appears if saving takes a moment
+  const [saveProgress, setSaveProgress] = useState<{ done: number; total: number } | null>(null);
+  const [showSavingNotice, setShowSavingNotice] = useState(false);
+  useEffect(() => {
+    if (!isSaving) {
+      setShowSavingNotice(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowSavingNotice(true), 500);
+    return () => clearTimeout(timer);
+  }, [isSaving]);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
   const [showFindEditDialog, setShowFindEditDialog] = useState(false);
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
   const [isFindEditMode, setIsFindEditMode] = useState(false);
@@ -789,23 +811,48 @@ export default function Matches() {
     setAllEditingValues({});
   };
 
-  const saveAllEdits = async () => {
-    const matchesToUpdate = getFilteredAndSortedMatches.filter(match => 
-      allEditingValues[match.id] !== undefined
-    );
+  // A match counts as changed only if one of its editable fields differs from what's saved
+  const norm = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
+  const isMatchEdited = (match: Match, values: Partial<EditingMatch>) =>
+    norm(values.team1Game1Score) !== norm(match.team1Game1Score) ||
+    norm(values.team2Game1Score) !== norm(match.team2Game1Score) ||
+    norm(values.team1Game2Score) !== norm(match.team1Game2Score) ||
+    norm(values.team2Game2Score) !== norm(match.team2Game2Score) ||
+    norm(values.team1Game3Score) !== norm(match.team1Game3Score) ||
+    norm(values.team2Game3Score) !== norm(match.team2Game3Score) ||
+    norm(values.matchDate) !== norm(match.matchDate) ||
+    (values.team1NoShow ?? false) !== ((match as any).team1NoShow ?? false) ||
+    (values.team2NoShow ?? false) !== ((match as any).team2NoShow ?? false) ||
+    norm(values.pisteId) !== norm((match as any).pisteId);
 
-    setIsSaving(true);
-    toast({
-      title: "Updating",
-      description: "Please wait while I update the system",
+  const saveAllEdits = async () => {
+    // Only send matches that were actually changed (not every match on screen)
+    const matchesToUpdate = getFilteredAndSortedMatches.filter(match => {
+      const values = allEditingValues[match.id];
+      return values !== undefined && isMatchEdited(match, values);
     });
 
+    if (matchesToUpdate.length === 0) {
+      toast({ title: "No changes to save", description: "None of the matches were changed." });
+      if (isFindEditMode) {
+        cancelFindEditMode();
+      } else {
+        setIsEditAllMode(false);
+        setAllEditingValues({});
+      }
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveProgress({ done: 0, total: matchesToUpdate.length });
+
     let successCount = 0;
+    let doneCount = 0;
     const errors: string[] = [];
 
-    for (const match of matchesToUpdate) {
+    const saveOne = async (match: Match) => {
       const values = allEditingValues[match.id];
-      if (!values) continue;
+      if (!values) return;
 
       const matchLabel = `${getTeamName(match.team1Id)} vs ${getTeamName(match.team2Id)}`;
 
@@ -836,26 +883,26 @@ export default function Matches() {
             dateInput.focus();
             dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
-          continue;
+          return;
         }
         
         // Validate paired scores for each game
         if ((team1Game1Score !== null && team2Game1Score === null) || 
             (team1Game1Score === null && team2Game1Score !== null)) {
           errors.push(`${matchLabel}: Both Game 1 scores must be provided or both left empty`);
-          continue;
+          return;
         }
 
         if ((team1Game2Score !== null && team2Game2Score === null) || 
             (team1Game2Score === null && team2Game2Score !== null)) {
           errors.push(`${matchLabel}: Both Game 2 scores must be provided or both left empty`);
-          continue;
+          return;
         }
 
         if ((team1Game3Score !== null && team2Game3Score === null) || 
             (team1Game3Score === null && team2Game3Score !== null)) {
           errors.push(`${matchLabel}: Both Game 3 scores must be provided or both left empty`);
-          continue;
+          return;
         }
 
         // Validate all scores are non-negative integers
@@ -878,7 +925,7 @@ export default function Matches() {
         }
 
         if (hasInvalidScore) {
-          continue;
+          return;
         }
 
         // Update the match
@@ -900,15 +947,34 @@ export default function Matches() {
         const errorMessage = error instanceof Error ? error.message : "Failed to save changes";
         errors.push(`${matchLabel}: ${errorMessage}`);
       }
-    }
+    };
+
+    // Save a few at a time rather than strictly one after another
+    const CONCURRENCY = 4;
+    let next = 0;
+    const worker = async () => {
+      while (next < matchesToUpdate.length) {
+        const match = matchesToUpdate[next++];
+        await saveOne(match);
+        doneCount++;
+        setSaveProgress({ done: doneCount, total: matchesToUpdate.length });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, matchesToUpdate.length) }, worker));
 
     // Only invalidate and exit edit mode if there were successful updates or no errors
+    setSaveProgress({ done: matchesToUpdate.length, total: matchesToUpdate.length });
     if (successCount > 0 || errors.length > 0) {
-      await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+      try {
+        await queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/results"] });
+      } catch {
+        // Refreshing is best-effort; the saves themselves have already been reported
+      }
     }
 
     setIsSaving(false);
+    setSaveProgress(null);
 
     if (successCount > 0 && errors.length === 0) {
       // All updates successful - exit edit mode
@@ -1114,7 +1180,7 @@ export default function Matches() {
       const tableData = divisionMatches.map(match => {
         const team1 = getTeamName(match.team1Id);
         const team2 = getTeamName(match.team2Id);
-        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const stage = stageLabelFor(match);
         const status = statusLabels[match.status as keyof typeof statusLabels];
         const matchDate = match.matchDate 
           ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1205,14 +1271,17 @@ export default function Matches() {
     return doc;
   };
 
+  // e.g. "Summer League - Matches - Division A - Completed - 2026-10-19.xlsx"
+  const matchesFilename = (ext: "pdf" | "xlsx") =>
+    exportFilename(currentTournament?.name, "Matches", [
+      stageFilter !== "all" && stageLabels[stageFilter as keyof typeof stageLabels],
+      divisionFilter !== "all" && `Division ${divisionFilter}`,
+      statusFilter !== "all" && statusLabels[statusFilter as keyof typeof statusLabels],
+    ], ext);
+
   const openPdfViewer = async () => {
-    if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(pdfBlobUrl);
-    }
-    
     const doc = generatePDFDocument();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Matches.pdf`;
+    const filename = matchesFilename("pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -1225,37 +1294,15 @@ export default function Matches() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
-      setShowPdfViewer(true);
+      setPdfPreview({ doc, filename });
     }
   };
 
-  const handlePdfSave = () => {
-    const doc = generatePDFDocument();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Matches.pdf`;
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "PDF saved",
-      description: "The PDF has been downloaded to your default downloads folder.",
-    });
-  };
-
   const handleExcelSave = () => {
+    if (groupedByDivision.length === 0) {
+      toast({ title: "No matches to export", description: "There are no matches matching the current filters.", variant: "destructive" });
+      return;
+    }
     const workbook = XLSX.utils.book_new();
     
     groupedByDivision.forEach(([division, divisionMatches]) => {
@@ -1264,7 +1311,7 @@ export default function Matches() {
       const excelData = divisionMatches.map(match => {
         const team1 = getTeamName(match.team1Id);
         const team2 = getTeamName(match.team2Id);
-        const stage = stageLabels[match.stage as keyof typeof stageLabels];
+        const stage = stageLabelFor(match);
         const status = statusLabels[match.status as keyof typeof statusLabels];
         const matchDate = match.matchDate 
           ? new Date(match.matchDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1297,8 +1344,7 @@ export default function Matches() {
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     });
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Matches.xlsx`;
+    const filename = matchesFilename("xlsx");
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -1307,27 +1353,14 @@ export default function Matches() {
     });
   };
 
-  const handlePdfPrint = () => {
-    if (pdfBlobUrl) {
-      const printWindow = window.open(pdfBlobUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    }
-  };
-
-  const closePdfViewer = () => {
-    setShowPdfViewer(false);
-    if (pdfBlobUrl) {
-      // Only revoke blob URLs, not data URLs
-      if (pdfBlobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
-      setPdfBlobUrl(null);
-    }
-  };
+  // Phones: "Clear all matches" lives in the ☰ menu at the top right
+  const pageMenuItems = useMemo<NavMenuItem[]>(
+    () => (isReadOnly
+      ? []
+      : [{ key: "clear-all-matches", label: "Clear all matches", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) }]),
+    [isReadOnly],
+  );
+  usePageMenuItems(pageMenuItems);
 
   if (isLoading) {
     return (
@@ -1342,17 +1375,39 @@ export default function Matches() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground">Matches</h1>
+      {showSavingNotice && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-background/70 backdrop-blur-sm p-4"
+          role="alertdialog"
+          aria-live="assertive"
+          aria-label="Updating matches, please wait"
+          data-testid="overlay-saving-matches"
+        >
+          <div className="flex items-center gap-3 rounded-lg border bg-card px-5 py-4 shadow-lg">
+            <Loader2 className="h-6 w-6 animate-spin text-primary flex-shrink-0" />
+            <div>
+              <p className="font-medium">Updating matches, please wait</p>
+              {saveProgress && saveProgress.total > 1 && (
+                <p className="text-sm text-muted-foreground">
+                  {Math.min(saveProgress.done + 1, saveProgress.total)} of {saveProgress.total}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
+        {/* Compact header: title row, then one scrollable row of actions */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Matches</h1>
             {matches && matches.length > 0 && (
               <Badge variant="secondary" className="font-mono" data-testid="badge-match-count">
                 {getFilteredAndSortedMatches.length}
               </Badge>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5">
             {!isReadOnly && (
               <>
                 {isEditAllMode ? (
@@ -1361,19 +1416,23 @@ export default function Matches() {
                       variant="outline"
                       onClick={isFindEditMode ? cancelFindEditMode : cancelEditAllMode}
                       disabled={isSaving}
+                      size="sm"
+                      title="Cancel"
                       data-testid="button-cancel-edit-all"
                     >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
+                      <X className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Cancel</span>
                     </Button>
                     <Button
                       variant="default"
                       onClick={saveAllEdits}
                       disabled={isSaving}
+                      size="sm"
+                      title="Save all"
                       data-testid="button-save-all"
                     >
-                      <Check className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save All"}
+                      <Check className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save All"}</span>
                     </Button>
                   </>
                 ) : (
@@ -1381,54 +1440,80 @@ export default function Matches() {
                     <Button
                       variant="outline"
                       onClick={() => setShowFindEditDialog(true)}
+                      size="sm"
+                      title="Find and edit"
                       data-testid="button-find-edit"
                     >
-                      <Users className="h-4 w-4 mr-2" />
-                      Find & Edit
+                      <Search className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Find & Edit</span>
                     </Button>
                     <Button
                       variant="outline"
                       onClick={toggleEditAllMode}
+                      size="sm"
+                      title="Edit all"
                       data-testid="button-edit-all"
                     >
-                      <Users className="h-4 w-4 mr-2" />
-                      Edit All
+                      <Pencil className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Edit All</span>
                     </Button>
                     <Button
                       variant="outline"
                       onClick={handleGenerateMatches}
+                      size="sm"
+                      title="Generate matches"
                       data-testid="button-generate-matches"
                     >
-                      <Shuffle className="h-4 w-4 mr-2" />
-                      Generate Matches
+                      <Shuffle className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Generate Matches</span>
                     </Button>
                   </>
                 )}
               </>
             )}
-            <Button
-              variant="outline"
-              onClick={openPdfViewer}
-              data-testid="button-download"
-            >
-              <FileDown className="h-4 w-4 mr-2" />
-              Download
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                      title="Download"
+                      data-testid="button-download"
+                >
+              <FileDown className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Preview / Print
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {!isReadOnly && (
               <>
                 <Button
                   variant="outline"
                   onClick={() => setShowClearConfirm(true)}
-                  data-testid="button-clear-all-matches"
+                  size="sm"
+                  className="hidden sm:inline-flex"
+                      title="Clear all data"
+                      data-testid="button-clear-all-matches"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear All Data
+                  <Trash2 className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Clear All Data</span>
                 </Button>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button data-testid="button-create-match">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Match
+                    <Button size="sm"
+                      title="Create match"
+                      data-testid="button-create-match">
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Create Match</span>
                     </Button>
                   </DialogTrigger>
               <DialogContent aria-describedby="match-form-description">
@@ -1591,7 +1676,7 @@ export default function Matches() {
                 
                 <div>
                   <h3 className="font-semibold mb-2">Tournament Progression</h3>
-                  <p>Complete all matches in a stage to unlock the next playoff stage. The system automatically selects top teams from each division for playoffs.</p>
+                  <p>Complete all matches in a stage to unlock the next knockout stage. Each division gets an equal share of knockout places, and any spare places go to the best next-placed teams across all divisions. Qualifiers are seeded by their group results (division winners first), and teams from the same division are kept apart in the first knockout round where possible. After that the bracket is fixed: the winners of Quarter-Finals 1 and 2 meet in Semi-Final 1, and so on. The tournament settings screen explains exactly how your chosen settings will work.</p>
                 </div>
               </div>
             </HelpDialog>
@@ -1599,15 +1684,14 @@ export default function Matches() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-4">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <div className="flex gap-4 flex-1">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Stage:</label>
+        <div className="mb-3 sm:mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex gap-1.5 flex-1 overflow-x-auto -mr-3 pr-3 sm:mr-0 sm:pr-0">
+                <div className="flex items-center flex-shrink-0">
                   <Select value={stageFilter} onValueChange={setStageFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-stage-filter">
+                    <SelectTrigger className="h-8 w-auto min-w-[120px] gap-2 text-sm" aria-label="Stage filter" data-testid="select-stage-filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1619,10 +1703,9 @@ export default function Matches() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Division:</label>
+                <div className="flex items-center flex-shrink-0">
                   <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-division-filter">
+                    <SelectTrigger className="h-8 w-auto min-w-[120px] gap-2 text-sm" aria-label="Division filter" data-testid="select-division-filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1635,10 +1718,9 @@ export default function Matches() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Status:</label>
+                <div className="flex items-center flex-shrink-0">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                    <SelectTrigger className="h-8 w-auto min-w-[120px] gap-2 text-sm" aria-label="Status filter" data-testid="select-status-filter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1651,8 +1733,8 @@ export default function Matches() {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {!matches || matches.length === 0 ? (
           <Card className="border-dashed">
@@ -1803,7 +1885,7 @@ export default function Matches() {
                       <TableRow key={match.id} data-testid={`row-match-${match.id}`}>
                         <TableCell>
                           <Badge variant="outline" data-testid={`badge-stage-${match.id}`}>
-                            {stageLabels[match.stage as keyof typeof stageLabels]}
+                            {stageLabelFor(match)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -2209,74 +2291,12 @@ export default function Matches() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
-          <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
-            <DialogHeader>
-              <DialogTitle>Matches Report Preview</DialogTitle>
-              <p id="pdf-viewer-description" className="sr-only">
-                Preview the PDF report before saving or printing
-              </p>
-            </DialogHeader>
-            <div className="flex-1 overflow-hidden flex flex-col gap-4">
-              <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-                {pdfBlobUrl && (
-                  <iframe
-                    src={pdfBlobUrl}
-                    className="w-full h-full"
-                    title="PDF Preview"
-                    data-testid="pdf-preview-iframe"
-                  />
-                )}
-              </div>
-              <div className="flex gap-2 justify-end flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      data-testid="button-save-dropdown"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-save-pdf">
-                      <FileDown className="h-4 w-4 mr-2" />
-                      PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-save-excel">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Excel
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
-                  data-testid="button-open-new-tab-pdf"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in New Tab
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handlePdfPrint}
-                  data-testid="button-print-pdf"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={closePdfViewer}
-                  data-testid="button-close-pdf"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <PdfPreviewDialog
+          title="Matches Report Preview"
+          preview={pdfPreview}
+          onClose={() => setPdfPreview(null)}
+          onExcel={handleExcelSave}
+        />
       </div>
     </div>
   );

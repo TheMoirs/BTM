@@ -6,8 +6,19 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, FileText } from "lucide-react";
+import { ArrowLeft, Users, FileText, Printer, Menu, MonitorSmartphone, HelpCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+import { buildLeaderboardPdf, downloadAndPrintPdf } from "@/lib/pdf-reports";
+import { exportFilename } from "@/lib/utils";
 import { HelpDialog } from "@/components/help-dialog";
+import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 import {
   Table,
   TableBody,
@@ -34,10 +45,14 @@ const statusLabels = {
 
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
-  const { viewToken } = useViewMode();
+  const { viewToken, isReadOnly } = useViewMode();
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
+  // Public page on phones: Shortcut and Help open from the ☰ menu
+  const [showShortcut, setShowShortcut] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const { toast } = useToast();
 
   const { data: results, isLoading: resultsLoading } = useQuery<Result[]>({
     queryKey: ["/api/results", currentTournament?.id],
@@ -148,6 +163,34 @@ export default function Leaderboard() {
     });
   }, [matches, selectedTeamId]);
 
+  // Print: save the standings (Leaderboard or Forecast, as on screen) as a PDF and print it
+  // Score Flip opens on (and installs for) this tournament
+  const openScoreFlip = () => {
+    if (!currentTournament) return;
+    const key = (currentTournament as any).slug || currentTournament.id;
+    window.open(`/coin-toss/?t=${encodeURIComponent(key)}`, "btm-coin-toss", "popup,width=480,height=800");
+  };
+
+  const handlePrint = () => {
+    if (!currentTournament || displayData.length === 0) {
+      toast({ title: "Nothing to print yet", description: "There are no standings to print." });
+      return;
+    }
+    const doc = buildLeaderboardPdf({
+      tournamentName: currentTournament.name,
+      description: (currentTournament as any).description,
+      data: displayData,
+      isForecast,
+    });
+    const filename = exportFilename(currentTournament.name, isForecast ? "Forecast" : "Leaderboard", [], "pdf");
+    const outcome = downloadAndPrintPdf(doc, filename);
+    if (outcome === "printing") {
+      toast({ title: "PDF downloaded", description: "Saved to your Downloads folder. The print window is opening." });
+    } else if (outcome === "failed") {
+      toast({ title: "Couldn't create the PDF", description: "Please try again.", variant: "destructive" });
+    }
+  };
+
   // Show loading state while tournaments are being loaded, tournament is being resolved, or data is being fetched
   if (tournamentsLoading || resultsLoading || teamsLoading || matchesLoading) {
     return (
@@ -170,136 +213,243 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-3 space-y-4">
+      {/* Compact header: one title row, one tab row (plus a team row when filtering) */}
       <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <img src="/btm-logo.png" alt="BTM" className="h-14 w-14 rounded-lg object-cover flex-shrink-0" />
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-title">
-            {isForecast ? "Forecast Leaderboard" : "Leaderboard"}
-          </h1>
+        <div className="flex items-center gap-2">
+          <img src="/ptm-logo.png?v=4" alt="PTM" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight break-words" data-testid="text-tournament-name">
+              {currentTournament.name}
+            </h1>
+            <p className="flex flex-wrap items-baseline gap-x-2 text-sm text-muted-foreground" data-testid="text-title">
+              <span className="text-xl sm:text-2xl font-bold leading-tight tracking-tight text-foreground">
+                {isForecast && !showMatchResults ? "Forecast Leaderboard" : "Leaderboard"}
+              </span>
+              <span>
+                ·{" "}
+                {new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </p>
+          </div>
+          {/* Public page on phones: Score Flip and a ☰ menu (Print, Rules, Shortcut, Help)
+              replace the button row below, so the tabs sit right under the title */}
+          {isReadOnly && (
+            <div className="flex items-center gap-1 self-start flex-shrink-0 sm:hidden">
+              <Button variant="outline" size="icon" className="h-12 w-12" onClick={openScoreFlip} aria-label="Score Flip" data-testid="button-coin-toss-mobile">
+                <img src="/coin-toss/favicon.png?v=3" alt="" className="h-9 w-9 rounded-sm" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={handlePrint} data-testid="menu-item-print-leaderboard">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print
+                  </DropdownMenuItem>
+                  {(currentTournament as any).rulesPdfName && (
+                    <DropdownMenuItem
+                      onClick={() => window.open(`/api/tournaments/${currentTournament.id}/rules`, "_blank", "noopener,noreferrer")}
+                      data-testid="menu-item-rules"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Rules
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setShowShortcut(true)} data-testid="menu-item-shortcut-leaderboard">
+                    <MonitorSmartphone className="h-4 w-4 mr-2" />
+                    Shortcut
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowHelp(true)} data-testid="menu-item-help-leaderboard">
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    Help
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-1">
-          <p className="text-lg font-semibold">{currentTournament.name}</p>
-          <p className="text-sm text-muted-foreground">
-            Points: Win={currentTournament.pointsForWin ?? 2}, Draw={currentTournament.pointsForDraw ?? 1}, Loss={currentTournament.pointsForLoss ?? 0}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {new Date().toLocaleString()}
-          </p>
-        </div>
-      </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          variant={!showMatchResults && !isForecast ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
-          data-testid="button-show-leaderboard"
-        >
-          Leaderboard
-        </Button>
-        <Button
-          variant={!showMatchResults && isForecast ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
-          data-testid="button-show-forecast"
-        >
-          Forecast
-        </Button>
-        <Button
-          variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
-          onClick={() => { setShowMatchResults(true); setSelectedTeamId(null); }}
-          data-testid="button-show-matches"
-        >
-          All Match Results
-        </Button>
-        <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
-          <Button
-            variant="outline"
-            data-testid="button-view-teams"
-          >
-            <Users className="h-4 w-4 mr-1" />
-            View Teams
-          </Button>
-        </Link>
-        {(currentTournament as any).rulesPdfName && (
-          <a
-            href={`/api/tournaments/${currentTournament.id}/rules`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" data-testid="button-view-rules">
-              <FileText className="h-4 w-4 mr-1" />
-              View Rules
+        {/* Action buttons with labels, on their own row (scrolls sideways on narrow phones) */}
+        <div className={`${isReadOnly ? "hidden sm:flex" : "flex"} flex-wrap items-center gap-1`}>
+            {/* Signed-in organisers only; visitors have a separate public Teams link */}
+            {!isReadOnly && (
+              <Link href={viewToken ? `/teams?token=${encodeURIComponent(viewToken)}&view=readonly` : "/teams"}>
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" data-testid="button-view-teams">
+                  <Users className="h-4 w-4 mr-1.5" />
+                  Teams
+                </Button>
+              </Link>
+            )}
+            <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" onClick={handlePrint} data-testid="button-print-leaderboard">
+              <Printer className="h-4 w-4 mr-1.5" />
+              Print
             </Button>
-          </a>
-        )}
-        {selectedTeamId && (
-          <Button
-            variant="secondary"
-            onClick={handleBackToLeaderboard}
-            data-testid="button-back-to-leaderboard"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Leaderboard
-          </Button>
-        )}
-        <HelpDialog title="Leaderboard - Help">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">What is this page?</h3>
-              <p>The Leaderboard page displays team standings and match results for the tournament. It's a shareable, read-only view of tournament progress.</p>
-            </div>
+            {(currentTournament as any).rulesPdfName && (
+              <a
+                href={`/api/tournaments/${currentTournament.id}/rules`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" data-testid="button-view-rules">
+                  <FileText className="h-4 w-4 mr-1.5" />
+                  Rules
+                </Button>
+              </a>
+            )}
+            <Button
+              variant="outline"
+              className="flex-shrink-0 h-11 px-3 sm:px-4 text-base font-semibold"
+              onClick={openScoreFlip}
+              data-testid="button-coin-toss"
+            >
+              <img src="/coin-toss/favicon.png?v=3" alt="" className="h-8 w-8 mr-2 rounded-sm" />
+              Score Flip
+            </Button>
+            <AddToHomeScreenButton
+              tournamentName={currentTournament.name}
+              slug={(currentTournament as any).slug}
+              page="leaderboard"
+              variant="sm"
+              label="Install"
+              buttonClassName="px-1.5 sm:px-2"
+              open={showShortcut}
+              onOpenChange={setShowShortcut}
+            />
+            <HelpDialog title="Leaderboard - Help" label="Help" open={showHelp} onOpenChange={setShowHelp}>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">What is this page?</h3>
+                  <p>The Leaderboard page displays team standings and match results for the tournament. It's a shareable, read-only view of tournament progress.</p>
+                </div>
             
-            <div>
-              <h3 className="font-semibold mb-2">Team Leaderboard</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>View team rankings grouped by Stage and Division</li>
-                <li>See statistics: Points, Games Played/Won/Drawn/Lost, Score For/Against</li>
-                <li><strong>Click on a team name</strong> to view only that team's match results</li>
-              </ul>
-            </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Team Leaderboard</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>View team rankings grouped by Stage and Division</li>
+                    <li>See statistics: Points, Games Played/Won/Drawn/Lost, Score For/Against</li>
+                    <li><strong>Click on a team name</strong> to view only that team's match results</li>
+                  </ul>
+                </div>
             
-            <div>
-              <h3 className="font-semibold mb-2">All Match Results</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Click "All Match Results" to see all matches with scores</li>
-                <li>Matches are grouped by division</li>
-                <li>View match stage, status, date, and game scores</li>
-              </ul>
-            </div>
+                <div>
+                  <h3 className="font-semibold mb-2">All Match Results</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click "All Results" to see all matches with scores</li>
+                    <li>Matches are grouped by division</li>
+                    <li>View match stage, status, date, and game scores</li>
+                  </ul>
+                </div>
             
-            <div>
-              <h3 className="font-semibold mb-2">Team Match Filter</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Click any team name in the leaderboard to filter matches</li>
-                <li>Shows only matches where that team participated</li>
-                <li>Click "Back to Leaderboard" to return to the full view</li>
-              </ul>
-            </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Team Match Filter</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click any team name in the leaderboard to filter matches</li>
+                    <li>Shows only matches where that team participated</li>
+                    <li>Click "Back" to return to the full view</li>
+                  </ul>
+                </div>
             
-            <div>
-              <h3 className="font-semibold mb-2">Forecast View</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Click "Forecast" to see predicted final standings</li>
-                <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
-                <li>Useful when teams have played different numbers of games</li>
-              </ul>
-            </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Forecast View</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Click "Forecast" to see predicted final standings</li>
+                    <li>Rankings are based on <strong>average points per game</strong> and <strong>average score difference per game</strong></li>
+                    <li>Useful when teams have played different numbers of games</li>
+                  </ul>
+                </div>
 
-            <div>
-              <h3 className="font-semibold mb-2">Understanding Rankings</h3>
-              <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
+                <div>
+                  <h3 className="font-semibold mb-2">Points</h3>
+                  <p>
+                    Points are awarded for every game played: Win = {currentTournament.pointsForWin ?? 3},
+                    Draw = {currentTournament.pointsForDraw ?? 2}, Loss = {currentTournament.pointsForLoss ?? 1}.
+                    {" "}No-Show = the team present gains {currentTournament.pointsForWin ?? 3} league points per game, with a game winning score of 13-7.
+                    Team not showing: {(currentTournament as any).pointsForNoShow ?? 0} league points per game (losing score of 7-13).
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Understanding Rankings</h3>
+                  <p>Teams are ranked by: 1) Total Points, 2) Score Difference. Competition ranking (1,1,3) is used for ties. In Forecast mode, rankings use averages per game instead.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Score Flip</h3>
+                  <p>Press <strong>Score Flip</strong> to open it in a new window, then choose:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Coin Flip</strong>: <strong>swipe up</strong> (or press the space bar) to flip; <strong>slide sideways</strong> to turn the coin over and see both sides.</li>
+                    <li><strong>Log Score</strong>: enter the date and team names, then use the big arrows to keep the score for up to 3 games. Each game has a timer (30 minutes unless you change it) that sounds an alarm when time is up. <strong>End Match</strong> saves the result on your phone and lets you share it.</li>
+                  </ul>
+                  <p className="mt-1">Press <strong>Install</strong> in the Score Flip window to add it to your home screen or desktop; it then works even without an internet connection.</p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Home Screen / Desktop Shortcut</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this leaderboard to your home screen or desktop, with the PTM logo</li>
+                    <li><strong>To remove it on a computer:</strong> open the shortcut, click the <strong>⋮</strong> menu at the top right of its window and choose <strong>Uninstall</strong>. Or type <strong>chrome://apps</strong> (or <strong>edge://apps</strong>) in the address bar, right-click it and choose <strong>Remove</strong></li>
+                    <li><strong>To remove it on a phone:</strong> press and hold the icon on your home screen and choose <strong>Remove</strong> (or <strong>Delete Bookmark</strong> on an iPhone)</li>
+                  </ul>
+                </div>
+              </div>
+            </HelpDialog>
+        </div>
+
+        <div className="inline-flex w-full sm:w-auto rounded-md bg-muted p-1 gap-1" role="tablist">
+          {[
+            { key: "leaderboard", label: "Leaderboard", active: !showMatchResults && !isForecast, testId: "button-show-leaderboard",
+              onClick: () => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); } },
+            { key: "forecast", label: "Forecast", active: !showMatchResults && isForecast, testId: "button-show-forecast",
+              onClick: () => { setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); } },
+            { key: "results", label: "All Results", active: showMatchResults && !selectedTeamId, testId: "button-show-matches",
+              onClick: () => { setShowMatchResults(true); setSelectedTeamId(null); } },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={tab.active}
+              onClick={tab.onClick}
+              data-testid={tab.testId}
+              className={`flex-1 sm:flex-none whitespace-nowrap rounded px-3 py-1 text-sm font-medium transition-colors ${
+                tab.active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {selectedTeamId && (
+          <div className="flex items-center gap-2 min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 flex-shrink-0"
+              onClick={handleBackToLeaderboard}
+              data-testid="button-back-to-leaderboard"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+            <span className="hidden sm:inline text-sm text-muted-foreground flex-shrink-0">Matches for</span>
+            <span className="text-sm font-semibold truncate">{getTeamName(selectedTeamId)}</span>
+            <div className="ml-auto flex-shrink-0">
+              <TeamPerformanceDialog
+                teamId={selectedTeamId}
+                teams={teams}
+                matches={matches}
+                results={results}
+                tournamentName={currentTournament.name}
+              />
             </div>
           </div>
-        </HelpDialog>
+        )}
       </div>
-
-      {selectedTeamId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm px-3 py-1">
-            Showing matches for: {getTeamName(selectedTeamId)}
-          </Badge>
-        </div>
-      )}
 
       {!showMatchResults ? (
         <>
@@ -308,11 +458,14 @@ export default function Leaderboard() {
               <p className="text-muted-foreground">No leaderboard data available yet.</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
+          <p className="text-sm text-muted-foreground -mb-3" data-testid="text-leaderboard-tip">
+            Click your team name to see match results &amp; performance stats.
+          </p>
           {displayData.map(([stage, divisions]) => (
             <div key={stage} className="space-y-4">
               <div className="flex items-center gap-2">
-                <Badge variant="default" className="text-lg px-3 py-1.5" data-testid={`badge-stage-${stage}`}>
+                <Badge variant="default" className="text-sm px-2.5 py-1" data-testid={`badge-stage-${stage}`}>
                   {stageLabels[stage as keyof typeof stageLabels]}
                 </Badge>
               </div>
@@ -420,7 +573,7 @@ export default function Leaderboard() {
               <p className="text-muted-foreground">No matches available yet.</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {groupedMatchesByDivision.map(([division, divisionMatches]) => (
                 <div key={division}>
                   <div className="mb-3">

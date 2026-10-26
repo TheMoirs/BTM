@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -18,10 +20,14 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -42,10 +48,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
-import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy } from "lucide-react";
+import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy, ClipboardList, Eye, MonitorSmartphone, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
+import { downloadAndPrintPdf } from "@/lib/pdf-reports";
+import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -168,18 +178,25 @@ function getMailtoUrl(email: string, tournamentName: string): string {
 
 export default function Teams() {
   const { currentTournament } = useTournament();
-  const { isReadOnly } = useViewMode();
+  const { isReadOnly, viewToken } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
   const [deletionImpact, setDeletionImpact] = useState<{ matchCount: number; resultCount: number } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showImportChoice, setShowImportChoice] = useState(false);
+  // View page on phones: Shortcut and Help open from the ☰ menu
+  const [showShortcut, setShowShortcut] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [divisionFilter, setDivisionFilter] = useState<string>("all");
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
+  // Print: ask which division to print (one, or all) before building the PDF
+  const [printChooser, setPrintChooser] = useState<"preview" | "print" | null>(null);
+  const [printDivision, setPrintDivision] = useState<string>("all");
+  const [previewDivision, setPreviewDivision] = useState<string>("all");
   const [isSharingLink, setIsSharingLink] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTournamentRef = useRef<string | null>(null);
@@ -346,6 +363,46 @@ export default function Teams() {
         duration: Infinity,
       });
     }
+  };
+
+  // Sample import file: 8 made-up teams in the columns the import reads (first sheet),
+  // plus a Notes sheet. Phone numbers are from Ofcom's drama range (07700 900xxx)
+  // and emails use example.com, so nothing reaches a real person.
+  const handleDownloadSample = () => {
+    const sampleTeams = [
+      ["The Jack Russells", "A", "Riverside Green", "Sam Hale, Priya Nair", "Tom Ashby", "07700 900101", "tom.ashby@example.com"],
+      ["Boules Brothers", "A", "Abbey Gardens", "Leo Marsh, Kit Marsh", "Ben Marsh", "07700 900102", "ben.marsh@example.com"],
+      ["Carreau Club", "A", "Station Road", "Ana Silva, Joe Pike", "Rachel Moss", "07700 900103", "rachel.moss@example.com"],
+      ["Pointers United", "A", "Riverside Green", "Will Grant, Eve Cole", "Hannah Price", "07700 900104", "hannah.price@example.com"],
+      ["Tête à Tête", "B", "Village Hall", "Nina Rowe, Dev Shah", "Claire Doyle", "07700 900105", "claire.doyle@example.com"],
+      ["The Shooters", "B", "Abbey Gardens", "Max Reid, Lily Hart", "Owen Clarke", "07700 900106", "owen.clarke@example.com"],
+      ["Cochonnet Crew", "B", "Station Road", "Ruth Bell, Alfie Long", "Gary Webb", "07700 900107", "gary.webb@example.com"],
+      ["Rolling Boules", "B", "Village Hall", "Jas Kaur, Pete Wood", "Mia Turner", "07700 900108", "mia.turner@example.com"],
+    ];
+    const teamsSheet = XLSX.utils.aoa_to_sheet([
+      ["Team Name", "Division", "Home Piste", "Other Players", "Captain Name", "Captain Phone", "Captain Email"],
+      ...sampleTeams,
+    ]);
+    teamsSheet["!cols"] = [{ wch: 20 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 16 }, { wch: 15 }, { wch: 26 }];
+    const notesSheet = XLSX.utils.aoa_to_sheet([
+      ["How to use this file"],
+      ["1. Save it under your own name, then replace the made-up teams on the Teams sheet with yours."],
+      ["2. Keep the column headings in row 1 as they are. Only the first sheet (Teams) is imported."],
+      ["3. Team Name, Captain Name and Captain Phone are required."],
+      ["4. Division is a letter (A, B, ...). Other Players: separate names with commas."],
+      ["5. In PTM, tap Import, choose \"No, choose my file\" and pick your file."],
+      ["A team whose name is already in the tournament is updated rather than added twice."],
+    ]);
+    notesSheet["!cols"] = [{ wch: 95 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, teamsSheet, "Teams");
+    XLSX.utils.book_append_sheet(workbook, notesSheet, "Notes");
+    XLSX.writeFile(workbook, "PTM sample teams.xlsx");
+    setShowImportChoice(false);
+    toast({
+      title: "Sample file downloaded",
+      description: "Open \"PTM sample teams.xlsx\" from your downloads, save it under your own name, edit it, then import it.",
+    });
   };
 
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1079,6 +1136,10 @@ export default function Teams() {
     return groupedByDivision.map(([division]) => division);
   }, [groupedByDivision]);
 
+  // Teams grouped by division for a given choice ("all" or one division)
+  const groupsForDivision = (division: string) =>
+    division === "all" ? groupedByDivision : groupedByDivision.filter(([d]) => d === division);
+
   const SortIcon = ({ column }: { column: SortColumn }) => {
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 ml-1 text-muted-foreground" />;
@@ -1091,10 +1152,29 @@ export default function Teams() {
   };
 
   // Hide the ID column when no team has an ID, unless someone is editing (so IDs can be added)
+  // Paid column (organisers only): shown when the tournament has a fee, or any team is already ticked
+  const showPaidColumn =
+    !isReadOnly && (((currentTournament as any)?.registrationFeeMinor ?? 0) > 0 || (teams ?? []).some((t) => (t as any).feePaid));
+  const [savingPaid, setSavingPaid] = useState<string | null>(null);
+  const setTeamPaid = async (teamId: string, paid: boolean) => {
+    const key = ["/api/teams", currentTournament?.id];
+    const previous = queryClient.getQueryData<Team[]>(key);
+    queryClient.setQueryData<Team[]>(key, (old) => old?.map((t) => (t.id === teamId ? ({ ...t, feePaid: paid } as Team) : t)));
+    setSavingPaid(teamId);
+    try {
+      await apiRequest("PATCH", `/api/teams/${teamId}/paid`, { paid });
+    } catch {
+      queryClient.setQueryData(key, previous);
+      toast({ title: "Couldn't save", description: "The payment status wasn't changed. Please try again.", variant: "destructive" });
+    } finally {
+      setSavingPaid(null);
+    }
+  };
+
   const showIdColumn =
     isEditAllMode || editingRowId !== null || (teams ?? []).some((team) => !!team.teamDisplayId);
 
-  const generatePDFDocument = () => {
+  const generatePDFDocument = (groups: [string, Team[]][]) => {
     const doc = new jsPDF({ orientation: 'landscape' });
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
@@ -1102,7 +1182,7 @@ export default function Teams() {
     // Measure column content so the table fits its contents.
     // Email, Phone and ID are sized to their longest value so they never wrap;
     // the remaining columns ('auto') share the rest of the page width and wrap if needed.
-    const allTeams = filteredGroupedByDivision.flatMap(([, divisionTeams]) => divisionTeams);
+    const allTeams = groups.flatMap(([, divisionTeams]) => divisionTeams);
     const cellPaddingX = 2 * 2; // cellPadding on both sides
     const measureColumn = (header: string, values: string[]) => {
       doc.setFontSize(9);
@@ -1141,7 +1221,7 @@ export default function Teams() {
     
     let startY = teamsHeaderY + 6;
     
-    filteredGroupedByDivision.forEach(([division, divisionTeams], index) => {
+    groups.forEach(([division, divisionTeams], index) => {
       const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
       
       // Conservative estimate for space needed (accounting for text wrapping)
@@ -1216,11 +1296,39 @@ export default function Teams() {
     return doc;
   };
 
-  const openPdfViewer = async () => {
-    if (filteredGroupedByDivision.length === 0) {
+  // e.g. "Summer League - Teams - Division A - 2026-10-19.pdf"
+  const teamsFilename = (ext: "pdf" | "xlsx", division: string = divisionFilter) =>
+    exportFilename(
+      currentTournament?.name,
+      "Teams",
+      [division !== "all" && (division === "No Division" ? "No Division" : `Division ${division}`)],
+      ext,
+    );
+
+  // Both print routes go through here: ask for a division first when there's more than one
+  const requestPrint = (mode: "preview" | "print") => {
+    if (availableDivisions.length > 1) {
+      setPrintDivision(availableDivisions.includes(divisionFilter) ? divisionFilter : "all");
+      setPrintChooser(mode);
+      return;
+    }
+    if (mode === "preview") openPdfViewer("all");
+    else handleDownloadAndPrint("all");
+  };
+
+  const confirmPrintChoice = () => {
+    const mode = printChooser;
+    setPrintChooser(null);
+    if (mode === "preview") openPdfViewer(printDivision);
+    else if (mode === "print") handleDownloadAndPrint(printDivision);
+  };
+
+  const openPdfViewer = async (division: string) => {
+    const groups = groupsForDivision(division);
+    if (groups.length === 0) {
       toast({
         title: "No teams to export",
-        description: divisionFilter === "all" 
+        description: division === "all" 
           ? "There are no teams to include in the PDF." 
           : "There are no teams in the selected division.",
         variant: "destructive",
@@ -1229,9 +1337,9 @@ export default function Teams() {
       return;
     }
     
-    const doc = generatePDFDocument();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Teams.pdf`;
+    const doc = generatePDFDocument(groups);
+    const filename = teamsFilename("pdf", division);
+    setPreviewDivision(division);
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -1244,21 +1352,26 @@ export default function Teams() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
-      setShowPdfViewer(true);
+      setPdfPreview({ doc, filename });
     }
   };
 
-  const handleExcelSave = () => {
-    if (!filteredGroupedByDivision) return;
+  const handleExcelSave = (division: string = divisionFilter) => {
+    const groups = groupsForDivision(division);
+    if (groups.length === 0) {
+      toast({
+        title: "No teams to export",
+        description: division === "all" ? "There are no teams to download yet." : "There are no teams in the selected division.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const exportData: any[] = [];
-    filteredGroupedByDivision.forEach(([division, divisionTeams]) => {
+    groups.forEach(([groupDivision, divisionTeams]) => {
       divisionTeams.forEach(team => {
         exportData.push({
-          Division: division,
+          Division: groupDivision,
           "Team ID": team.teamDisplayId || "",
           "Team Name": team.name,
           "Captain Name": team.captainName || "",
@@ -1266,6 +1379,7 @@ export default function Teams() {
           "Captain Email": team.captainEmail || "",
           "Home Piste": team.homePiste || "",
           "Other Players": team.otherPlayers ? team.otherPlayers.join(", ") : "",
+          ...(showPaidColumn ? { Paid: (team as any).feePaid ? "Yes" : "No" } : {}),
         });
       });
     });
@@ -1274,8 +1388,7 @@ export default function Teams() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Teams");
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Teams.xlsx`;
+    const filename = teamsFilename("xlsx", division);
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -1284,37 +1397,21 @@ export default function Teams() {
     });
   };
 
-  const handlePdfSave = () => {
-    const doc = generatePDFDocument();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Teams.pdf`;
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "PDF saved",
-      description: "The PDF has been downloaded to your default downloads folder.",
-    });
-  };
-
-  const handlePdfPrint = () => {
-    if (pdfBlobUrl) {
-      const printWindow = window.open(pdfBlobUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
+  // Print button for view-only visitors: save the teams list as a PDF and print it
+  const handleDownloadAndPrint = (division: string) => {
+    const groups = groupsForDivision(division);
+    if (groups.length === 0) {
+      toast({
+        title: "Nothing to print",
+        description: division === "all" ? "There are no teams yet." : "There are no teams in the selected division.",
+      });
+      return;
+    }
+    const outcome = downloadAndPrintPdf(generatePDFDocument(groups), teamsFilename("pdf", division));
+    if (outcome === "printing") {
+      toast({ title: "PDF downloaded", description: "Saved to your Downloads folder. The print window is opening." });
+    } else if (outcome === "failed") {
+      toast({ title: "Couldn't create the PDF", description: "Please try again.", variant: "destructive" });
     }
   };
 
@@ -1324,20 +1421,26 @@ export default function Teams() {
     setIsSharingLink(true);
     
     try {
-      // Create a short link using our internal system - links to Teams page
-      const response = await apiRequest('POST', '/api/short-links', {
-        tournamentId: currentTournament.id,
-        targetPage: 'teams'
-      });
-      
-      const data = await response.json();
-      const shortUrl = data.shortUrl;
+      // Readable public address made from the tournament name, e.g. /teams/summer-league-2026
+      // (falls back to an old-style short link if the tournament has no address yet)
+      const slug = (currentTournament as any).slug as string | null | undefined;
+      let shortUrl: string;
+      if (slug) {
+        shortUrl = `${await getPublicBaseUrl()}/teams/${slug}`;
+      } else {
+        const response = await apiRequest('POST', '/api/short-links', {
+          tournamentId: currentTournament.id,
+          targetPage: 'teams'
+        });
+        const data = await response.json();
+        shortUrl = data.shortUrl;
+      }
       
       await navigator.clipboard.writeText(shortUrl);
       
       toast({
         title: "Link copied",
-        description: `Short link copied: ${shortUrl}`,
+        description: `Link copied: ${shortUrl}`,
         duration: 5000,
       });
     } catch (error) {
@@ -1351,6 +1454,28 @@ export default function Teams() {
       });
     } finally {
       setIsSharingLink(false);
+    }
+  };
+
+  // Public sign-up page for team captains, e.g. https://btm.themoirs.uk/register/summer-league-2026
+  const handleCopyRegistrationLink = async () => {
+    if (!currentTournament) return;
+    const slug = (currentTournament as any).slug as string | null | undefined;
+    if (!slug) {
+      toast({
+        title: "No registration link yet",
+        description: "This tournament doesn't have a web address yet. Reload the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const url = `${await getPublicBaseUrl()}/register/${slug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Registration link copied", description: `Send this to team captains: ${url}`, duration: 8000 });
+    } catch {
+      // Clipboard can be blocked (e.g. some mobile browsers) — show the link so it can be copied by hand
+      toast({ title: "Team registration link", description: url, duration: Infinity });
     }
   };
 
@@ -1432,15 +1557,32 @@ export default function Teams() {
     }
   };
 
-  const closePdfViewer = () => {
-    setShowPdfViewer(false);
-    if (pdfBlobUrl) {
-      if (pdfBlobUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
-      setPdfBlobUrl(null);
+  // Phones: Download, Registration link, Share teams and Clear all teams live in the
+  // ☰ menu at the top right (the buttons below are hidden there to make room).
+  // A ref keeps the latest handlers so the item list only changes when its labels do.
+  const menuActions = useRef({ handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink });
+  menuActions.current = { handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink };
+  const pageMenuItems = useMemo<NavMenuItem[]>(() => {
+    if (isReadOnly) {
+      // View page: Print, Shortcut and Help (their buttons are hidden on phones)
+      return [
+        { key: "print-teams", label: "Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("print") },
+        { key: "shortcut-teams", label: "Shortcut", icon: MonitorSmartphone, onSelect: () => setShowShortcut(true) },
+        { key: "help-teams", label: "Help", icon: HelpCircle, onSelect: () => setShowHelp(true) },
+      ];
     }
-  };
+    const items: NavMenuItem[] = [
+      { key: "download-excel", label: "Download Excel", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave() },
+      { key: "preview-print", label: "Preview / Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("preview") },
+      { key: "registration-link", label: "Registration link", icon: ClipboardList, onSelect: () => menuActions.current.handleCopyRegistrationLink() },
+      { key: "share-teams", label: isSharingLink ? "Creating link…" : "Share teams", icon: Share2, disabled: isSharingLink, onSelect: () => menuActions.current.handleCopyShareLink() },
+    ];
+    if (!isEditAllMode) {
+      items.push({ key: "clear-all", label: "Clear all teams", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
+    }
+    return items;
+  }, [isReadOnly, isEditAllMode, isSharingLink]);
+  usePageMenuItems(pageMenuItems);
 
   if (isLoading) {
     return (
@@ -1455,25 +1597,50 @@ export default function Teams() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8`}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Teams</h1>
+      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6`}>
+        {/* Compact header: title, count and division filter on one line; actions in one scrollable row */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3 sm:mb-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Teams</h1>
               {teams && teams.length > 0 && (
                 <Badge variant="secondary" className="font-mono" data-testid="badge-team-count">
                   {teams.length}
                 </Badge>
               )}
+              {/* View page on phones: the View Only mark sits here rather than in the menu bar */}
+              {isReadOnly && (
+                <Eye className="sm:hidden h-4 w-4 text-muted-foreground flex-shrink-0" aria-label="View only" data-testid="icon-view-only" />
+              )}
+              {teams && teams.length > 0 && (
+                <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                  <SelectTrigger className="ml-auto lg:ml-3 h-8 w-[150px] text-sm" aria-label="Division filter" data-testid="select-division-filter">
+                    <SelectValue placeholder="All Divisions" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" data-testid="option-all-divisions">All Divisions</SelectItem>
+                    {availableDivisions.map(division => (
+                      <SelectItem
+                        key={division}
+                        value={division}
+                        data-testid={`option-division-${division.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {division !== 'No Division' ? `Division ${division}` : 'No Division'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              {isReadOnly ? "View registered teams and captain contact details" : "Manage registered teams and captain contact details"}
-            </p>
-            <p className="text-xs sm:text-sm text-muted-foreground">
+              <span className="hidden sm:inline">
+                {isReadOnly ? "View registered teams and captain contact details. " : "Manage registered teams and captain contact details. "}
+              </span>
               Click the captain's phone number or email to send them a message.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          {/* View page on phones: this row's buttons are in the ☰ menu, so the row is hidden to close the gap */}
+          <div className={`${isReadOnly ? "hidden sm:flex" : "flex"} flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5`}>
             {!isReadOnly && (
               <>
                 <input
@@ -1487,7 +1654,7 @@ export default function Teams() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setShowImportChoice(true)}
                   data-testid="button-import-excel"
                 >
                   <Upload className="h-4 w-4 sm:mr-2" />
@@ -1498,15 +1665,29 @@ export default function Teams() {
             {/* Hidden for view-only (not logged in) visitors */}
             {!isReadOnly && (
               <>
-              <Button
-                variant="outline"
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
                 size="sm"
-                onClick={openPdfViewer}
-                data-testid="button-download"
-              >
+                    className="hidden sm:inline-flex"
+                    data-testid="button-download"
+                  >
                 <FileDown className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Download</span>
-              </Button>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExcelSave()} data-testid="menu-item-download-excel">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => requestPrint("preview")} data-testid="menu-item-preview-print">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Preview / Print
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 size="sm"
@@ -1562,6 +1743,7 @@ export default function Teams() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowClearConfirm(true)}
+                    className="hidden sm:inline-flex"
                     data-testid="button-clear-all-teams"
                   >
                     <Trash2 className="h-4 w-4 sm:mr-2" />
@@ -1786,8 +1968,20 @@ export default function Teams() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleCopyRegistrationLink}
+                className="hidden sm:inline-flex"
+                title="Copy a link team captains can use to register themselves"
+                data-testid="button-registration-link"
+              >
+                <ClipboardList className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Registration Link</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleCopyShareLink}
                 disabled={isSharingLink}
+                className="hidden sm:inline-flex"
                 data-testid="button-share-view"
               >
                 <Share2 className="h-4 w-4 sm:mr-2" />
@@ -1795,17 +1989,39 @@ export default function Teams() {
               </Button>
               </>
             )}
-            <Link href="/leaderboard">
-              <Button
-                variant="outline"
-                size="sm"
-                data-testid="button-view-leaderboard"
-              >
-                <Trophy className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Leaderboard</span>
+            {/* Teams <-> Leaderboard switching is for signed-in organisers only;
+                visitors use the separate public links for each page */}
+            {!isReadOnly && (
+              <Link href={viewToken ? `/leaderboard?token=${encodeURIComponent(viewToken)}&view=readonly` : "/leaderboard"}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-view-leaderboard"
+                >
+                  <Trophy className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Leaderboard</span>
+                </Button>
+              </Link>
+            )}
+            {isReadOnly && (
+              <Button variant="outline" size="sm" className="flex-shrink-0" onClick={() => requestPrint("print")} data-testid="button-print-teams">
+                <Printer className="h-4 w-4 mr-1.5" />
+                Print
               </Button>
-            </Link>
-            <HelpDialog title="Teams - Help">
+            )}
+            {currentTournament && (
+              <AddToHomeScreenButton
+                tournamentName={currentTournament.name}
+                slug={(currentTournament as any).slug}
+                page="teams"
+                edit={!isReadOnly}
+                tournamentId={currentTournament.id}
+                variant="sm"
+                open={showShortcut}
+                onOpenChange={setShowShortcut}
+              />
+            )}
+            <HelpDialog title="Teams - Help" open={showHelp} onOpenChange={setShowHelp}>
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">What is this page?</h3>
@@ -1847,6 +2063,7 @@ export default function Teams() {
                 <div>
                   <h3 className="font-semibold mb-2">Sharing & Navigation</h3>
                   <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Registration Link:</strong> Copy a link (e.g. /register/your-tournament) that team captains can use to enter their own team's details. They get a confirmation email; Division and Team ID are left for you to set</li>
                     <li><strong>Share View:</strong> Get a short link to share this teams page with others</li>
                     <li><strong>Leaderboard:</strong> Navigate to view team rankings and match results</li>
                   </ul>
@@ -1870,35 +2087,19 @@ export default function Teams() {
                     <li>Use the Division filter to view teams from a specific division</li>
                   </ul>
                 </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Home Screen / Desktop Shortcut</h3>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Press the <strong>shortcut</strong> button (screen and phone icon) to add this teams page to your home screen or desktop, with the PTM logo</li>
+                    <li><strong>To remove it on a computer:</strong> open the shortcut, click the <strong>⋮</strong> menu at the top right of its window and choose <strong>Uninstall</strong>. Or type <strong>chrome://apps</strong> (or <strong>edge://apps</strong>) in the address bar, right-click it and choose <strong>Remove</strong></li>
+                    <li><strong>To remove it on a phone:</strong> press and hold the icon on your home screen and choose <strong>Remove</strong> (or <strong>Delete Bookmark</strong> on an iPhone)</li>
+                  </ul>
+                </div>
               </div>
             </HelpDialog>
           </div>
         </div>
-
-        {teams && teams.length > 0 && (
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">Division:</span>
-              <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-division-filter">
-                  <SelectValue placeholder="All Divisions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" data-testid="option-all-divisions">All Divisions</SelectItem>
-                  {availableDivisions.map(division => (
-                    <SelectItem 
-                      key={division} 
-                      value={division}
-                      data-testid={`option-division-${division.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      {division !== 'No Division' ? `Division ${division}` : 'No Division'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
 
         {!teams || teams.length === 0 ? (
           <Card className="border-dashed">
@@ -2059,6 +2260,9 @@ export default function Teams() {
                         <SortIcon column="otherPlayers" />
                       </button>
                     </TableHead>
+                    {showPaidColumn && (
+                      <TableHead className="w-[64px] text-center" data-testid="header-paid">Paid</TableHead>
+                    )}
                     {!isReadOnly && (
                       <TableHead className={isEditAllMode ? "w-[44px]" : "sm:w-[120px] text-right"}>
                         {isEditAllMode ? "" : "Actions"}
@@ -2229,6 +2433,17 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
+                        {showPaidColumn && (
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={!!(team as any).feePaid}
+                              onCheckedChange={(v) => setTeamPaid(team.id, v === true)}
+                              disabled={savingPaid === team.id}
+                              aria-label={`${team.name} has paid`}
+                              data-testid={`checkbox-paid-${team.id}`}
+                            />
+                          </TableCell>
+                        )}
                         {!isReadOnly && !isEditAllMode && (
                           <TableCell className="text-right">
                             {isEditing ? (
@@ -2361,6 +2576,7 @@ export default function Teams() {
                           data-testid={`input-edit-other-players-${id}`}
                         />
                       </TableCell>
+                      {showPaidColumn && <TableCell />}
                       <TableCell className="text-right">
                         <Button
                           size="icon"
@@ -2375,7 +2591,7 @@ export default function Teams() {
                   ))}
                   {isEditAllMode && (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-4">
+                      <TableCell colSpan={11} className="text-center py-4">
                         <Button
                           variant="outline"
                           size="sm"
@@ -2449,6 +2665,35 @@ export default function Teams() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Import: offer a sample file first, or go straight to choosing a file */}
+        <Dialog open={showImportChoice} onOpenChange={setShowImportChoice}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Import teams from Excel</DialogTitle>
+              <DialogDescription>
+                Do you want a sample file to start from? It has 8 made-up teams in the right columns.
+                Save it under your own name, replace the teams with yours, then come back here and choose your file.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={handleDownloadSample} data-testid="button-import-sample">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Yes, get a sample
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowImportChoice(false);
+                  fileInputRef.current?.click();
+                }}
+                data-testid="button-import-choose-file"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                No, choose my file
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -2470,74 +2715,50 @@ export default function Teams() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
-          <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
+        <Dialog open={printChooser !== null} onOpenChange={(open) => { if (!open) setPrintChooser(null); }}>
+          <DialogContent className="sm:max-w-[380px]" data-testid="dialog-print-division">
             <DialogHeader>
-              <DialogTitle>Teams Report Preview</DialogTitle>
-              <p id="pdf-viewer-description" className="sr-only">
-                Preview the PDF report before saving or printing
-              </p>
+              <DialogTitle>Print teams</DialogTitle>
+              <DialogDescription>Choose a division to print, or print all divisions.</DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-hidden flex flex-col gap-4">
-              <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-                {pdfBlobUrl && (
-                  <iframe
-                    src={pdfBlobUrl}
-                    className="w-full h-full"
-                    title="PDF Preview"
-                    data-testid="pdf-preview-iframe"
-                  />
-                )}
-              </div>
-              <div className="flex gap-2 justify-end flex-wrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      data-testid="button-save-dropdown"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={handlePdfSave} data-testid="menu-item-save-pdf">
-                      <FileDown className="h-4 w-4 mr-2" />
-                      PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-save-excel">
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Excel
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
-                  data-testid="button-open-new-tab-pdf"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in New Tab
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handlePdfPrint}
-                  data-testid="button-print-pdf"
-                >
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={closePdfViewer}
-                  data-testid="button-close-pdf"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
+            <RadioGroup value={printDivision} onValueChange={setPrintDivision} className="gap-1 max-h-[50vh] overflow-y-auto py-1">
+              {[["all", groupedByDivision.reduce((n, [, t]) => n + t.length, 0)] as const,
+                ...groupedByDivision.map(([d, t]) => [d, t.length] as const)].map(([value, count]) => {
+                const id = `print-division-${value.toLowerCase().replace(/\s+/g, '-')}`;
+                const label = value === "all" ? "All divisions" : value === "No Division" ? "No division assigned" : `Division ${value}`;
+                return (
+                  <Label
+                    key={value}
+                    htmlFor={id}
+                    className="flex items-center gap-3 rounded-md border px-3 py-2.5 cursor-pointer font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
+                  >
+                    <RadioGroupItem value={value} id={id} data-testid={`radio-${id}`} />
+                    <span className={value === "all" ? "font-medium" : ""}>{label}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {count} {count === 1 ? "team" : "teams"}
+                    </span>
+                  </Label>
+                );
+              })}
+            </RadioGroup>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setPrintChooser(null)} data-testid="button-cancel-print-division">
+                Cancel
+              </Button>
+              <Button onClick={confirmPrintChoice} data-testid="button-confirm-print-division">
+                <Printer className="h-4 w-4 mr-2" />
+                {printChooser === "preview" ? "Preview" : "Print"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <PdfPreviewDialog
+          title="Teams Report Preview"
+          preview={pdfPreview}
+          onClose={() => setPdfPreview(null)}
+          onExcel={() => handleExcelSave(previewDivision)}
+        />
       </div>
     </div>
   );

@@ -1,7 +1,21 @@
-import { type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
+import { NO_SHOW_WINNING_SCORE, NO_SHOW_LOSING_SCORE, type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
-import { eq, or, and, desc } from "drizzle-orm";
+import { eq, or, and, desc, ne, isNull, sql } from "drizzle-orm";
 import { generateViewToken } from "./tokenUtils";
+
+/** "Summer League 2026!" -> "summer-league-2026" */
+export function slugify(name: string): string {
+  const s = name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/g, "");
+  return s || "tournament";
+}
 
 export interface IStorage {
   // Tournament methods
@@ -15,6 +29,8 @@ export interface IStorage {
   regenerateViewToken(id: string): Promise<Tournament | undefined>;
   regenerateAdminToken(id: string): Promise<Tournament | undefined>;
   getTournamentByToken(token: string): Promise<{ tournament: Tournament; isAdmin: boolean } | undefined>;
+  getTournamentBySlug(slug: string): Promise<Tournament | undefined>;
+  backfillTournamentSlugs(): Promise<number>;
   
   getAllTeams(tournamentId?: string): Promise<Team[]>;
   getTeam(id: string): Promise<Team | undefined>;
@@ -66,6 +82,8 @@ export interface IStorage {
   setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
   updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined>;
   updateUserProfile(id: string, displayName: string | null): Promise<User | undefined>;
+  setTeamFeePaid(id: string, paid: boolean): Promise<Team | undefined>;
+  updatePayeeDetails(id: string, d: { payeeAccountName: string | null; payeeSortCode: string | null; payeeAccountNumber: string | null; payeeIban: string | null; paymentLink: string | null }): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
 
@@ -105,9 +123,37 @@ export class DatabaseStorage implements IStorage {
         adminToken: generateViewToken(),
         viewToken: generateViewToken(),
         userId: userId || null,
+        slug: await this.uniqueSlug(insertTournament.name),
       })
       .returning();
     return tournament;
+  }
+
+  /** A slug made from the name that no other tournament is using (adds -2, -3... if needed). */
+  private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
+    const base = slugify(name);
+    for (let n = 1; ; n++) {
+      const candidate = n === 1 ? base : `${base}-${n}`;
+      const clash = await db
+        .select({ id: tournaments.id })
+        .from(tournaments)
+        .where(excludeId ? and(eq(tournaments.slug, candidate), ne(tournaments.id, excludeId)) : eq(tournaments.slug, candidate));
+      if (clash.length === 0) return candidate;
+    }
+  }
+
+  async getTournamentBySlug(slug: string): Promise<Tournament | undefined> {
+    const [t] = await db.select().from(tournaments).where(eq(tournaments.slug, slug.toLowerCase()));
+    return t || undefined;
+  }
+
+  /** Give a slug to any tournament that doesn't have one yet (oldest first, so they get the plain name). */
+  async backfillTournamentSlugs(): Promise<number> {
+    const missing = await db.select().from(tournaments).where(isNull(tournaments.slug)).orderBy(tournaments.createdAt);
+    for (const t of missing) {
+      await db.update(tournaments).set({ slug: await this.uniqueSlug(t.name, t.id) }).where(eq(tournaments.id, t.id));
+    }
+    return missing.length;
   }
 
   async updateTournament(id: string, insertTournament: InsertTournament): Promise<Tournament | undefined> {
@@ -116,9 +162,15 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
+    // Renaming the tournament changes its public address to match the new name
+    const slug =
+      existingTournament.name !== insertTournament.name || !existingTournament.slug
+        ? await this.uniqueSlug(insertTournament.name, id)
+        : existingTournament.slug;
+
     const [updatedTournament] = await db
       .update(tournaments)
-      .set(insertTournament)
+      .set({ ...insertTournament, slug })
       .where(eq(tournaments.id, id))
       .returning();
     return updatedTournament || undefined;
@@ -208,6 +260,27 @@ export class DatabaseStorage implements IStorage {
 
   async getTeam(id: string): Promise<Team | undefined> {
     const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
+  }
+
+  /** Replace a team's name and captain/contact details, leaving its division and Team ID alone. */
+  async updateTeamRegistration(
+    id: string,
+    details: { name: string; captainName: string; captainPhone: string; captainEmail: string; homePiste: string; otherPlayers: string[] },
+  ): Promise<Team | undefined> {
+    const [team] = await db.update(teams).set(details).where(eq(teams.id, id)).returning();
+    return team || undefined;
+  }
+
+  /** A team in this tournament with the same name, ignoring case and surrounding spaces. */
+  async findTeamByName(tournamentId: string, name: string): Promise<Team | undefined> {
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(and(
+        eq(teams.tournamentId, tournamentId),
+        sql`lower(trim(${teams.name})) = ${name.trim().toLowerCase()}`,
+      ));
     return team || undefined;
   }
 
@@ -406,6 +479,7 @@ export class DatabaseStorage implements IStorage {
           winnerId: insertMatch.winnerId ?? null,
           matchDate: insertMatch.matchDate ?? null,
           division: matchDivision,
+          bracketPosition: insertMatch.bracketPosition ?? null,
         })
         .returning();
       
@@ -460,9 +534,16 @@ export class DatabaseStorage implements IStorage {
           const t1Name = team1.teamDisplayId ? `${team1.name} (${team1.teamDisplayId})` : team1.name;
           const t2Name = team2.teamDisplayId ? `${team2.name} (${team2.teamDisplayId})` : team2.name;
           const matchInfo = `${t1Name} vs ${t2Name}`;
+          // Present team gets the Win points per game; the absent team gets the No-Show points per game
+          const pointsForWin = tournament.pointsForWin ?? 3;
           const pointsForNoShow = tournament.pointsForNoShow ?? 0;
 
-          // The team that showed up wins all games; the no-show team loses all games.
+          // The team that showed up wins every game 13-7; the absent team loses every game 7-13.
+          const presentFor = NO_SHOW_WINNING_SCORE * gamesPerMatch;
+          const absentFor = NO_SHOW_LOSING_SCORE * gamesPerMatch;
+          const scores = (absent: boolean) => absent
+            ? { scoreFor: absentFor, scoreAgainst: presentFor, scoreDifference: absentFor - presentFor }
+            : { scoreFor: presentFor, scoreAgainst: absentFor, scoreDifference: presentFor - absentFor };
           await this.createResult({
             tournamentId: match.tournamentId, matchId: id, matchInfo,
             matchDate: finalMatchDate, stage: match.stage, division: match.division || null,
@@ -471,8 +552,8 @@ export class DatabaseStorage implements IStorage {
             gamesWon: team1NoShow ? 0 : gamesPerMatch,
             gamesLost: team1NoShow ? gamesPerMatch : 0,
             gamesDrawn: 0,
-            points: team1NoShow ? 0 : pointsForNoShow * gamesPerMatch,
-            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+            points: (team1NoShow ? pointsForNoShow : pointsForWin) * gamesPerMatch,
+            ...scores(team1NoShow),
           });
           await this.createResult({
             tournamentId: match.tournamentId, matchId: id, matchInfo,
@@ -482,8 +563,8 @@ export class DatabaseStorage implements IStorage {
             gamesWon: team2NoShow ? 0 : gamesPerMatch,
             gamesLost: team2NoShow ? gamesPerMatch : 0,
             gamesDrawn: 0,
-            points: team2NoShow ? 0 : pointsForNoShow * gamesPerMatch,
-            scoreFor: 0, scoreAgainst: 0, scoreDifference: 0,
+            points: (team2NoShow ? pointsForNoShow : pointsForWin) * gamesPerMatch,
+            ...scores(team2NoShow),
           });
         }
       }
@@ -1020,6 +1101,16 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserProfile(id: string, displayName: string | null): Promise<User | undefined> {
     const [user] = await db.update(users).set({ displayName }).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async setTeamFeePaid(id: string, paid: boolean): Promise<Team | undefined> {
+    const [team] = await db.update(teams).set({ feePaid: paid }).where(eq(teams.id, id)).returning();
+    return team || undefined;
+  }
+
+  async updatePayeeDetails(id: string, d: { payeeAccountName: string | null; payeeSortCode: string | null; payeeAccountNumber: string | null; payeeIban: string | null; paymentLink: string | null }): Promise<User | undefined> {
+    const [user] = await db.update(users).set(d).where(eq(users.id, id)).returning();
     return user || undefined;
   }
 

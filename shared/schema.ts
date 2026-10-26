@@ -14,6 +14,12 @@ export const users = pgTable("users", {
   isBlocked: boolean("is_blocked").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   clerkUserId: text("clerk_user_id"),
+  // Where teams pay registration fees for this organiser's tournaments
+  payeeAccountName: text("payee_account_name"),
+  payeeSortCode: text("payee_sort_code"),
+  payeeAccountNumber: text("payee_account_number"),
+  payeeIban: text("payee_iban"),
+  paymentLink: text("payment_link"), // e.g. monzo.me/name or paypal.me/name
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -26,6 +32,10 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// A no-show counts as every game won 13-7 by the team that turned up
+export const NO_SHOW_WINNING_SCORE = 13;
+export const NO_SHOW_LOSING_SCORE = 7;
 
 // ── Tournaments ───────────────────────────────────────────────────────────
 export const tournaments = pgTable("tournaments", {
@@ -46,11 +56,18 @@ export const tournaments = pgTable("tournaments", {
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
   rulesPdfName: text("rules_pdf_name"),   // original filename
+  // Readable public address, made from the name: /teams/<slug> and /leaderboard/<slug>
+  slug: text("slug"),
+  // Optional "register by" date (YYYY-MM-DD), shown on the team registration page
+  registrationDeadline: text("registration_deadline"),
+  // Optional team registration fee, in pence/cents, and its currency
+  registrationFeeMinor: integer("registration_fee_minor"),
+  registrationFeeCurrency: text("registration_fee_currency").notNull().default("GBP"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true, slug: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),
@@ -63,6 +80,11 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
   pointsForNoShow: z.number().int().min(0, "Points must be 0 or greater").default(0),
   numberOfPistes: z.number().int().min(1).nullable().optional(),
+  registrationDeadline: z.string().transform(v => (v.trim() === "" ? null : v.trim())).pipe(
+    z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Please choose a valid date"), z.null()]),
+  ).nullable().optional(),
+  registrationFeeMinor: z.number().int().min(0, "The fee can't be negative").max(100000000, "That fee is too large").nullable().optional(),
+  registrationFeeCurrency: z.enum(["GBP", "EUR", "USD"]).default("GBP"),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
@@ -79,11 +101,13 @@ export const teams = pgTable("teams", {
   division: text("division").default("A"),
   homePiste: text("home_piste"),
   otherPlayers: text("other_players").array(),
+  // Registration fee received (ticked by the organiser)
+  feePaid: boolean("fee_paid").notNull().default(false),
 }, (table) => ({
   uniqueTeamPerTournament: unique().on(table.tournamentId, table.name),
 }));
 
-export const insertTeamSchema = createInsertSchema(teams).omit({ id: true }).extend({
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, feePaid: true }).extend({
   tournamentId: z.string().min(1, "Tournament is required"),
   teamDisplayId: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   name: z.string().min(1, "Team name is required"),
@@ -124,6 +148,9 @@ export const matches = pgTable("matches", {
   pisteId: text("piste_id"),
   team1NoShow: boolean("team1_no_show").notNull().default(false),
   team2NoShow: boolean("team2_no_show").notNull().default(false),
+  // Knockout matches only: position in the bracket (0 = first tie). Winners of
+  // consecutive positions meet in the next round.
+  bracketPosition: integer("bracket_position"),
 });
 
 // Note: A unique index exists on the database:

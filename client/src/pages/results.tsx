@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
+import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { isMobileDevice, openPdfMobile } from "@/lib/utils";
+import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,8 +33,12 @@ import {
 import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision, applyForecastSort, type TeamSummary } from "@/lib/leaderboard";
 import { Trash2, ArrowUpDown, ArrowUp, ArrowDown, Trophy, BarChart3, Filter, FileDown, Download, Printer, X, Share2, ExternalLink, FileSpreadsheet, ArrowLeft } from "lucide-react";
+import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
+import { TeamPerformanceDialog } from "@/components/team-performance-dialog";
+import { PdfPreviewDialog, type PdfPreview } from "@/components/pdf-preview-dialog";
+import { buildLeaderboardPdf } from "@/lib/pdf-reports";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -79,10 +84,8 @@ export default function Results() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("points");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [stageFilter, setStageFilter] = useState<string>("all");
-  const [showPdfViewer, setShowPdfViewer] = useState(false);
-  const [showSummaryPdfViewer, setShowSummaryPdfViewer] = useState(false);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [summaryPdfBlobUrl, setSummaryPdfBlobUrl] = useState<string | null>(null);
+  // PDF preview (detailed results, or the leaderboard / forecast standings)
+  const [pdfPreview, setPdfPreview] = useState<(PdfPreview & { isSummary: boolean }) | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [isSharingLink, setIsSharingLink] = useState(false);
   
@@ -91,6 +94,8 @@ export default function Results() {
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
+  // Leaderboard and Forecast tabs download / print the standings; other views the detailed results
+  const isSummaryView = showInlineLeaderboard && !showMatchResults;
   
   const { toast } = useToast();
 
@@ -451,20 +456,26 @@ export default function Results() {
     setIsSharingLink(true);
     
     try {
-      // Create a short link using our internal system
-      const response = await apiRequest('POST', '/api/short-links', {
-        tournamentId: currentTournament.id,
-        targetPage: 'leaderboard'
-      });
-      
-      const data = await response.json();
-      const shortUrl = data.shortUrl;
+      // Readable public address made from the tournament name, e.g. /leaderboard/summer-league-2026
+      // (falls back to an old-style short link if the tournament has no address yet)
+      const slug = (currentTournament as any).slug as string | null | undefined;
+      let shortUrl: string;
+      if (slug) {
+        shortUrl = `${await getPublicBaseUrl()}/leaderboard/${slug}`;
+      } else {
+        const response = await apiRequest('POST', '/api/short-links', {
+          tournamentId: currentTournament.id,
+          targetPage: 'leaderboard'
+        });
+        const data = await response.json();
+        shortUrl = data.shortUrl;
+      }
       
       await navigator.clipboard.writeText(shortUrl);
       
       toast({
         title: "Link copied",
-        description: `Short link copied: ${shortUrl}`,
+        description: `Link copied: ${shortUrl}`,
         duration: 5000,
       });
     } catch (error) {
@@ -611,131 +622,26 @@ export default function Results() {
     return doc;
   };
 
-  const generateSummaryPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' });
-    const pageHeight = doc.internal.pageSize.height;
-    const bottomMargin = 20;
-    
-    // Add tournament name as main title
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(currentTournament?.name || 'Tournament', 14, 12);
-    doc.setFont('helvetica', 'normal');
-    
-    // Add description if present
-    let summaryHeaderY = 18;
-    if (currentTournament?.description) {
-      doc.setFontSize(10);
-      doc.text(currentTournament.description, 14, summaryHeaderY);
-      summaryHeaderY += 5;
-    }
-    
-    // Add report type and generation date
-    doc.setFontSize(9);
-    const pdfTitle = isForecast ? 'Team Forecast (All Stages)' : 'Team Leaderboard (All Stages)';
-    doc.text(`${pdfTitle} - Generated: ${new Date().toLocaleString()}`, 14, summaryHeaderY);
-    
-    let startY = summaryHeaderY + 5;
-    
-    const pdfData = isForecast ? applyForecastSort(teamSummariesByStageAndDivision) : teamSummariesByStageAndDivision;
-    
-    pdfData.forEach(([stage, divisions], stageIndex) => {
-      // Add stage header
-      if (stageIndex > 0) {
-        startY += 10; // Add spacing between stages
-      }
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Stage: ${stageLabels[stage as keyof typeof stageLabels]}`, 14, startY);
-      doc.setFont('helvetica', 'normal');
-      startY += 6;
-      
-      divisions.forEach(([division, divisionSummaries], divIndex) => {
-        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
-        
-        // Conservative estimate for space needed (accounting for text wrapping)
-        // Header (5) + table header (~12) + rows (summaries.length * ~9 for potential wrapping) + spacing
-        const estimatedHeight = 5 + 12 + (divisionSummaries.length * 9) + 15;
-        
-        // Check if division will fit on current page (with conservative margin)
-        if (startY + estimatedHeight > pageHeight - bottomMargin && divIndex > 0) {
-          doc.addPage();
-          startY = 20; // Start near top of new page
-        } else if (divIndex > 0) {
-          startY += 8; // Add spacing between divisions within a stage on same page
-        }
-        
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(divisionLabel, 14, startY);
-        doc.setFont('helvetica', 'normal');
-        startY += 5;
-        
-        const tableData = divisionSummaries.map((summary) => [
-          summary.position !== null ? summary.position.toString() : '',
-          summary.teamName,
-          summary.gamesPlayed.toString(),
-          summary.gamesWon.toString(),
-          summary.gamesDrawn.toString(),
-          summary.gamesLost.toString(),
-          summary.points.toString(),
-          summary.scoreFor.toString(),
-          summary.scoreAgainst.toString(),
-          summary.scoreDifference.toString(),
-        ]);
-        
-        let isFirstPageForDivision = true;
-        autoTable(doc, {
-          head: [['Pos', 'Team', 'Played', 'Won', 'Drawn', 'Lost', 'Points', 'For', 'Against', 'Diff']],
-          body: tableData,
-          startY: startY,
-          margin: { top: 25, bottom: 10, left: 14, right: 14 },
-          styles: {
-            fontSize: 10,
-            cellPadding: 3,
-          },
-          headStyles: {
-            fillColor: [41, 128, 185],
-            textColor: 255,
-            fontStyle: 'bold',
-          },
-          columnStyles: {
-            0: { cellWidth: 18, halign: 'center' },
-            1: { cellWidth: 60 },
-            2: { cellWidth: 22, halign: 'center' },
-            3: { cellWidth: 22, halign: 'center' },
-            4: { cellWidth: 22, halign: 'center' },
-            5: { cellWidth: 22, halign: 'center' },
-            6: { cellWidth: 22, halign: 'center' },
-            7: { cellWidth: 22, halign: 'center' },
-            8: { cellWidth: 22, halign: 'center' },
-            9: { cellWidth: 22, halign: 'center' },
-          },
-          didDrawPage: function (data) {
-            if (!isFirstPageForDivision) {
-              // Draw division header in the margin area on continuation pages
-              doc.setFontSize(11);
-              doc.setFont('helvetica', 'bold');
-              doc.text(divisionLabel, 14, 22);
-              doc.setFont('helvetica', 'normal');
-            }
-            isFirstPageForDivision = false;
-          }
-        });
-        
-        // @ts-ignore - autoTable adds finalY to doc
-        startY = doc.lastAutoTable.finalY + 5;
-      });
+  const generateSummaryPDF = () =>
+    buildLeaderboardPdf({
+      tournamentName: currentTournament?.name,
+      description: currentTournament?.description,
+      data: isForecast ? applyForecastSort(teamSummariesByStageAndDivision) : teamSummariesByStageAndDivision,
+      isForecast,
     });
-    
-    return doc;
-  };
+
+  // e.g. "Summer League - Results - Stage 1 - 2026-10-19.pdf"
+  const resultsFilename = (isSummary: boolean, ext: "pdf" | "xlsx") =>
+    exportFilename(
+      currentTournament?.name,
+      isSummary ? (isForecast ? "Forecast" : "Leaderboard") : "Results",
+      [stageFilter !== "all" && stageLabels[stageFilter as keyof typeof stageLabels]],
+      ext,
+    );
 
   const openPdfViewer = async () => {
     const doc = generateResultsPDF();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Results.pdf`;
+    const filename = resultsFilename(false, "pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -748,17 +654,13 @@ export default function Results() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfBlobUrl(url);
-      setShowPdfViewer(true);
+      setPdfPreview({ doc, filename, isSummary: false });
     }
   };
 
   const openSummaryPdfViewer = async () => {
     const doc = generateSummaryPDF();
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const filename = `${tournamentName} - Summary.pdf`;
+    const filename = resultsFilename(true, "pdf");
     
     if (isMobileDevice()) {
       const success = openPdfMobile(doc, filename);
@@ -771,35 +673,8 @@ export default function Results() {
         });
       }
     } else {
-      const pdfBlob = doc.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      setSummaryPdfBlobUrl(url);
-      setShowSummaryPdfViewer(true);
+      setPdfPreview({ doc, filename, isSummary: true });
     }
-  };
-
-  const handlePdfSave = (isSummary: boolean) => {
-    const doc = isSummary ? generateSummaryPDF() : generateResultsPDF();
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const pageName = isSummary ? (isForecast ? 'Forecast' : 'Leaderboard') : 'Results';
-    const filename = `${tournamentName} - ${pageName}.pdf`;
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "PDF saved",
-      description: "The PDF has been downloaded to your default downloads folder.",
-    });
   };
 
   const handleExcelSave = (isSummary: boolean) => {
@@ -859,9 +734,7 @@ export default function Results() {
       });
     }
     
-    const tournamentName = currentTournament?.name || 'Tournament';
-    const pageName = isSummary ? (isForecast ? 'Forecast' : 'Leaderboard') : 'Results';
-    const filename = `${tournamentName} - ${pageName}.xlsx`;
+    const filename = resultsFilename(isSummary, "xlsx");
     XLSX.writeFile(workbook, filename);
     
     toast({
@@ -870,73 +743,89 @@ export default function Results() {
     });
   };
 
-  const handlePdfPrint = (isSummary: boolean) => {
-    const blobUrl = isSummary ? summaryPdfBlobUrl : pdfBlobUrl;
-    if (blobUrl) {
-      const printWindow = window.open(blobUrl, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
-    }
-  };
-
-  const closePdfViewer = () => {
-    setShowPdfViewer(false);
-    if (pdfBlobUrl && pdfBlobUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(pdfBlobUrl);
-    }
-    setPdfBlobUrl(null);
-  };
-
-  const closeSummaryPdfViewer = () => {
-    setShowSummaryPdfViewer(false);
-    if (summaryPdfBlobUrl && summaryPdfBlobUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(summaryPdfBlobUrl);
-    }
-    setSummaryPdfBlobUrl(null);
-  };
+  // Phones: "Clear all results" lives in the ☰ menu at the top right
+  const hasResults = !!results && results.length > 0;
+  const pageMenuItems = useMemo<NavMenuItem[]>(
+    () => (!isReadOnly && hasResults
+      ? [{ key: "clear-all-results", label: "Clear all results", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) }]
+      : []),
+    [isReadOnly, hasResults],
+  );
+  usePageMenuItems(pageMenuItems);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Results</h1>
-          <p className="text-muted-foreground">
-            View match results and team points
-          </p>
+    <div className="container mx-auto py-3 sm:py-6 space-y-3">
+      {/* Compact header: title + stage filter, then one scrollable row of actions */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Results</h1>
+          <p className="hidden md:block text-sm text-muted-foreground">View match results and team points</p>
+          {results && results.length > 0 && (
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="ml-auto md:ml-3 h-8 w-[150px] text-sm" aria-label="Stage filter" data-testid="select-stage-filter">
+                <SelectValue placeholder="Filter by stage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {availableStages.map(stage => (
+                  <SelectItem key={stage} value={stage}>
+                    {stageLabels[stage as keyof typeof stageLabels]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
           {/* Share Leaderboard is always available, even before any results exist,
               so the link can be sent out early (viewers can still open Teams from it). */}
           <Button
             variant="outline"
+            size="sm"
+            title="Share leaderboard"
             onClick={handleCopyShareLink}
             disabled={isSharingLink || !currentTournament}
             data-testid="button-share-leaderboard"
           >
-            <Share2 className="mr-2 h-4 w-4" />
-            {isSharingLink ? "Creating link..." : "Share Leaderboard"}
+            <Share2 className="sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Leaderboard"}</span>
           </Button>
           {results && results.length > 0 && (
             <>
-              <Button
-                variant="outline"
-                onClick={openPdfViewer}
-                data-testid="button-download"
-              >
-                <FileDown className="mr-2 h-4 w-4" />
-                Download
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title="Download"
+                    data-testid="button-download"
+                  >
+                <FileDown className="sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Download</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExcelSave(isSummaryView)} data-testid="menu-item-download-excel">
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={isSummaryView ? openSummaryPdfViewer : openPdfViewer} data-testid="menu-item-preview-print">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Preview / Print
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {!isReadOnly && (
                 <Button
                   variant="destructive"
+                  size="sm"
+                  title="Clear all results"
+                  className="hidden sm:inline-flex"
                   onClick={() => setShowClearConfirm(true)}
                   data-testid="button-clear-all-results"
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear All Results
+                  <Trash2 className="sm:mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Clear All Results</span>
                 </Button>
               )}
             </>
@@ -992,72 +881,58 @@ export default function Results() {
       </div>
 
       {results && results.length > 0 && (
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={stageFilter} onValueChange={setStageFilter}>
-            <SelectTrigger className="w-[200px]" data-testid="select-stage-filter">
-              <SelectValue placeholder="Filter by stage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              {availableStages.map(stage => (
-                <SelectItem key={stage} value={stage}>
-                  {stageLabels[stage as keyof typeof stageLabels]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {results && results.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant={showInlineLeaderboard && !showMatchResults && !isForecast ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); }}
-            data-testid="button-show-inline-leaderboard"
-          >
-            Leaderboard
-          </Button>
-          <Button
-            variant={showInlineLeaderboard && !showMatchResults && isForecast ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); }}
-            data-testid="button-show-inline-forecast"
-          >
-            Forecast
-          </Button>
-          <Button
-            variant={!showInlineLeaderboard ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); }}
-            data-testid="button-show-detailed-results"
-          >
-            Detailed Results
-          </Button>
-          <Button
-            variant={showMatchResults && !selectedTeamId ? "default" : "outline"}
-            onClick={() => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); }}
-            data-testid="button-show-all-matches"
-          >
-            All Match Results
-          </Button>
-          {selectedTeamId && (
-            <Button
-              variant="secondary"
-              onClick={handleBackToLeaderboard}
-              data-testid="button-back-to-leaderboard"
+        <div className="flex w-full sm:w-auto sm:inline-flex rounded-md bg-muted p-1 gap-1 overflow-x-auto" role="tablist">
+          {[
+            { key: "leaderboard", label: "Leaderboard", short: "Leaderboard", active: showInlineLeaderboard && !showMatchResults && !isForecast, testId: "button-show-inline-leaderboard",
+              onClick: () => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(false); } },
+            { key: "forecast", label: "Forecast", short: "Forecast", active: showInlineLeaderboard && !showMatchResults && isForecast, testId: "button-show-inline-forecast",
+              onClick: () => { setShowInlineLeaderboard(true); setShowMatchResults(false); setSelectedTeamId(null); setIsForecast(true); } },
+            { key: "detailed", label: "Detailed Results", short: "Details", active: !showInlineLeaderboard, testId: "button-show-detailed-results",
+              onClick: () => { setShowInlineLeaderboard(false); setShowMatchResults(false); setSelectedTeamId(null); } },
+            { key: "matches", label: "All Match Results", short: "All Results", active: showMatchResults && !selectedTeamId, testId: "button-show-all-matches",
+              onClick: () => { setShowInlineLeaderboard(true); setShowMatchResults(true); setSelectedTeamId(null); } },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={tab.active}
+              onClick={tab.onClick}
+              data-testid={tab.testId}
+              className={`flex-1 sm:flex-none whitespace-nowrap rounded px-2 sm:px-3 py-1 text-sm font-medium transition-colors ${
+                tab.active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to Leaderboard
-            </Button>
-          )}
+              <span className="sm:hidden">{tab.short}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
       {selectedTeamId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-sm px-3 py-1">
-            Showing matches for: {getTeamName(selectedTeamId)}
-          </Badge>
+        <div className="flex items-center gap-2 min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 flex-shrink-0"
+            onClick={handleBackToLeaderboard}
+            data-testid="button-back-to-leaderboard"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <span className="hidden sm:inline text-sm text-muted-foreground flex-shrink-0">Matches for</span>
+          <span className="text-sm font-semibold truncate">{getTeamName(selectedTeamId)}</span>
+          <div className="ml-auto flex-shrink-0">
+            <TeamPerformanceDialog
+              teamId={selectedTeamId}
+              teams={teams}
+              matches={matches}
+              results={results}
+              tournamentName={currentTournament?.name ?? ""}
+            />
+          </div>
         </div>
       )}
 
@@ -1592,143 +1467,12 @@ export default function Results() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={showPdfViewer} onOpenChange={(open) => !open && closePdfViewer()}>
-        <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="pdf-viewer-description">
-          <DialogHeader>
-            <DialogTitle>Results Report Preview</DialogTitle>
-            <p id="pdf-viewer-description" className="sr-only">
-              Preview the PDF report before saving or printing
-            </p>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-              {pdfBlobUrl && (
-                <iframe
-                  src={pdfBlobUrl}
-                  className="w-full h-full"
-                  title="PDF Preview"
-                  data-testid="pdf-preview-iframe"
-                />
-              )}
-            </div>
-            <div className="flex gap-2 justify-end flex-wrap">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    data-testid="button-save-dropdown"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handlePdfSave(false)} data-testid="menu-item-save-pdf">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExcelSave(false)} data-testid="menu-item-save-excel">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="outline"
-                onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
-                data-testid="button-open-new-tab-pdf"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in New Tab
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handlePdfPrint(false)}
-                data-testid="button-print-pdf"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button
-                variant="outline"
-                onClick={closePdfViewer}
-                data-testid="button-close-pdf"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showSummaryPdfViewer} onOpenChange={(open) => !open && closeSummaryPdfViewer()}>
-        <DialogContent className="max-w-4xl h-[90vh]" aria-describedby="summary-pdf-viewer-description">
-          <DialogHeader>
-            <DialogTitle>Leaderboard Report Preview</DialogTitle>
-            <p id="summary-pdf-viewer-description" className="sr-only">
-              Preview the PDF leaderboard report before saving or printing
-            </p>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            <div className="flex-1 border rounded-lg overflow-hidden bg-muted">
-              {summaryPdfBlobUrl && (
-                <iframe
-                  src={summaryPdfBlobUrl}
-                  className="w-full h-full"
-                  title="PDF Preview"
-                  data-testid="summary-pdf-preview-iframe"
-                />
-              )}
-            </div>
-            <div className="flex gap-2 justify-end flex-wrap">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    data-testid="button-save-summary-dropdown"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handlePdfSave(true)} data-testid="menu-item-save-summary-pdf">
-                    <FileDown className="h-4 w-4 mr-2" />
-                    PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExcelSave(true)} data-testid="menu-item-save-summary-excel">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="outline"
-                onClick={() => summaryPdfBlobUrl && window.open(summaryPdfBlobUrl, '_blank')}
-                data-testid="button-open-new-tab-summary-pdf"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in New Tab
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handlePdfPrint(true)}
-                data-testid="button-print-summary-pdf"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button
-                variant="outline"
-                onClick={closeSummaryPdfViewer}
-                data-testid="button-close-summary-pdf"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PdfPreviewDialog
+        title={pdfPreview?.isSummary ? (isForecast ? "Forecast Report Preview" : "Leaderboard Report Preview") : "Results Report Preview"}
+        preview={pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        onExcel={() => handleExcelSave(!!pdfPreview?.isSummary)}
+      />
     </div>
   );
 }

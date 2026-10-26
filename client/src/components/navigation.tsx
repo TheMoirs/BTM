@@ -1,7 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone, Coins } from "lucide-react";
+import { useNavMenuItems } from "@/lib/nav-menu";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
+import { ScoreFlipShortcutDialog } from "@/components/score-flip-shortcut-dialog";
+import { PaymentDetailsSection } from "@/components/payment-details-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useViewMode } from "@/contexts/ViewModeContext";
@@ -32,8 +36,16 @@ export function Navigation() {
   const [location] = useLocation();
   const { isReadOnly, isMasterAdmin, viewToken } = useViewMode();
   const { currentTournament } = useTournament();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, refreshUser } = useAuth();
   const { toast } = useToast();
+  const pageMenuItems = useNavMenuItems();
+  // Phone ☰ menu: User management and Profile aren't offered on Matches and Results
+  const showAccountItems = !["/matches", "/results"].includes(location.split("?")[0]);
+
+  // Install / shortcut boxes opened from the account menus (always offered). Only the open one is
+  // mounted, because each box adjusts the page's manifest and title while it is open.
+  const [installBox, setInstallBox] = useState<null | "app" | "teams" | "leaderboard" | "scoreflip">(null);
+  const closeInstallBox = (open: boolean) => { if (!open) setInstallBox(null); };
 
   // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -41,6 +53,8 @@ export function Navigation() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  // Google-only accounts have no current password to confirm
+  const needsCurrentPassword = user?.hasPassword !== false;
 
   // Display name state
   const [displayName, setDisplayName] = useState("");
@@ -91,7 +105,8 @@ export function Navigation() {
         const data = await res.json();
         toast({ title: "Change failed", description: data.error || "Could not change password.", variant: "destructive", duration: Infinity });
       } else {
-        toast({ title: "Password changed", description: "Your password has been updated successfully.", duration: Infinity });
+        toast({ title: needsCurrentPassword ? "Password changed" : "Password set", description: "Your password has been saved.", duration: Infinity });
+        await refreshUser();
         setShowChangePassword(false);
         setCurrentPassword("");
         setNewPassword("");
@@ -105,7 +120,7 @@ export function Navigation() {
   };
 
   // In teams view-only mode (accessed via share link), hide Matches and Results
-  const isTeamsViewOnly = isReadOnly && (location === "/" || location === "/teams" || location.startsWith("/teams?"));
+  const isTeamsViewOnly = isReadOnly && (location === "/" || location === "/teams" || location.startsWith("/teams?") || location.startsWith("/teams/"));
 
   const navItems = isTeamsViewOnly
     ? [{ path: "/", label: "Teams", icon: Users }]
@@ -122,23 +137,42 @@ export function Navigation() {
   };
 
   return (
-    <nav className="border-b bg-background sticky top-0 z-50">
+    // View-only pages: the bar scrolls away with the page rather than staying pinned,
+    // so phones that print the screen as-is don't stamp it across the team list
+    <nav className={cn("border-b bg-background z-50", !isReadOnly && "sticky top-0")}>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="py-3 space-y-3">
-          {/* Top Row: Title + Auth buttons */}
+        <div className="py-2 space-y-2">
+          {/* Top Row: logo, tournament picker and account buttons on one line */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <img src="/btm-logo.png" alt="BTM" className="h-10 w-10 rounded-md object-cover flex-shrink-0" />
-              <h1 className="text-lg sm:text-xl font-semibold text-foreground">
-                Boules Tournament Manager
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <img src="/ptm-logo.png?v=4" alt="PTM" className="h-11 w-11 rounded-md object-cover flex-shrink-0" />
+              <h1 className="hidden lg:block text-lg font-semibold text-foreground whitespace-nowrap">
+                Pétanque Tournament Manager
               </h1>
+              <div className="min-w-0 flex-1 lg:flex-none">
+                <TournamentSelector />
+              </div>
+              {currentTournament && (
+                isMasterAdmin ? (
+                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-master-admin">
+                    <Shield className="h-3 w-3" />
+                    <span className="hidden sm:inline">System Admin</span>
+                  </Badge>
+                ) : isReadOnly ? null : viewToken ? (
+                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-admin">
+                    <Shield className="h-3 w-3" />
+                    <span className="hidden sm:inline">Admin Access</span>
+                  </Badge>
+                ) : null
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {/* View-only badge sits at the top right so it doesn't need its own line */}
+              {/* View-only badge sits at the top right so it doesn't need its own line
+                  (on phones the Teams page shows an eye after the team count instead) */}
               {currentTournament && isReadOnly && !isMasterAdmin && (
-                <Badge variant="secondary" className="gap-1.5 shrink-0" data-testid="badge-view-only">
+                <Badge variant="secondary" className="hidden sm:inline-flex gap-1.5 shrink-0" data-testid="badge-view-only">
                   <Eye className="h-3 w-3" />
-                  View Only
+                  <span className="hidden sm:inline">View Only</span>
                 </Badge>
               )}
               {/* Logged-in user section */}
@@ -158,18 +192,6 @@ export function Navigation() {
                       </Button>
                     </Link>
                   )}
-                  {user.isSystemAdmin && (
-                    <Link href="/admin/users">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        data-testid="button-admin-users-mobile"
-                        className="sm:hidden"
-                      >
-                        <UserCog className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  )}
 
                   {/* User dropdown (desktop) */}
                   <DropdownMenu>
@@ -184,13 +206,30 @@ export function Navigation() {
                         <span className="max-w-[120px] truncate">{user.displayName || user.email.split("@")[0]}</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuContent align="end" className="w-60">
                       <DropdownMenuItem
                         onClick={() => setShowChangePassword(true)}
                         data-testid="menu-item-change-password"
                       >
                         <UserPen className="h-4 w-4 mr-2" />
                         Profile Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app">
+                        <MonitorSmartphone className="h-4 w-4 mr-2" />
+                        Install PTM app
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("teams")} data-testid="menu-item-shortcut-teams">
+                        <Users className="h-4 w-4 mr-2" />
+                        Shortcut: Teams view
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("leaderboard")} data-testid="menu-item-shortcut-leaderboard">
+                        <Trophy className="h-4 w-4 mr-2" />
+                        Shortcut: Leaderboard view
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setInstallBox("scoreflip")} data-testid="menu-item-shortcut-scoreflip">
+                        <Coins className="h-4 w-4 mr-2" />
+                        Shortcut: Score Flip
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -204,58 +243,147 @@ export function Navigation() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Mobile: separate icon buttons */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowChangePassword(true)}
-                    data-testid="button-change-password-mobile"
-                    className="sm:hidden"
-                  >
-                    <UserPen className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleLogout}
-                    data-testid="button-user-logout-mobile"
-                    className="sm:hidden"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
+                  {/* Phones: one ☰ menu with the page's own actions (e.g. Teams: Download,
+                      Registration link, Share teams, Clear all teams), then the account items */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Menu"
+                        data-testid="button-mobile-menu"
+                        className="sm:hidden"
+                      >
+                        <Menu className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {pageMenuItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <DropdownMenuItem
+                            key={item.key}
+                            onClick={item.onSelect}
+                            disabled={item.disabled}
+                            className={item.destructive ? "text-destructive focus:text-destructive" : undefined}
+                            data-testid={`menu-item-${item.key}`}
+                          >
+                            <Icon className="h-4 w-4 mr-2" />
+                            {item.label}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      {pageMenuItems.length > 0 && <DropdownMenuSeparator />}
+                      {/* Matches and Results keep the menu short: just their clear-all and Log out */}
+                      {showAccountItems && user.isSystemAdmin && (
+                        <DropdownMenuItem asChild data-testid="menu-item-admin-users-mobile">
+                          <Link href="/admin/users">
+                            <UserCog className="h-4 w-4 mr-2" />
+                            User management
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      {showAccountItems && (
+                        <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
+                          <UserPen className="h-4 w-4 mr-2" />
+                          Profile
+                        </DropdownMenuItem>
+                      )}
+                      {showAccountItems && (
+                        <>
+                          <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app-mobile">
+                            <MonitorSmartphone className="h-4 w-4 mr-2" />
+                            Install PTM app
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("teams")} data-testid="menu-item-shortcut-teams-mobile">
+                            <Users className="h-4 w-4 mr-2" />
+                            Shortcut: Teams view
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("leaderboard")} data-testid="menu-item-shortcut-leaderboard-mobile">
+                            <Trophy className="h-4 w-4 mr-2" />
+                            Shortcut: Leaderboard view
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setInstallBox("scoreflip")} data-testid="menu-item-shortcut-scoreflip-mobile">
+                            <Coins className="h-4 w-4 mr-2" />
+                            Shortcut: Score Flip
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="text-destructive focus:text-destructive"
+                        data-testid="menu-item-logout-mobile"
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Log out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Install / shortcut boxes opened from the menu items above (their own buttons stay hidden) */}
+                  {installBox === "app" && (
+                    <AddToHomeScreenButton
+                      tournamentName={currentTournament?.name ?? "PTM"}
+                      page="teams"
+                      edit
+                      tournamentId={currentTournament?.id}
+                      variant="sm"
+                      buttonClassName="!hidden"
+                      alwaysShow
+                      open
+                      onOpenChange={closeInstallBox}
+                    />
+                  )}
+                  {(installBox === "teams" || installBox === "leaderboard") && currentTournament && (
+                    <AddToHomeScreenButton
+                      tournamentName={currentTournament.name}
+                      slug={(currentTournament as any).slug}
+                      page={installBox}
+                      tournamentId={currentTournament.id}
+                      variant="sm"
+                      buttonClassName="!hidden"
+                      open
+                      onOpenChange={closeInstallBox}
+                    />
+                  )}
+                  <ScoreFlipShortcutDialog
+                    open={installBox === "scoreflip"}
+                    onOpenChange={closeInstallBox}
+                    tournamentKey={(currentTournament as any)?.slug || currentTournament?.id}
+                  />
                 </>
+              ) : pageMenuItems.length > 0 ? (
+                /* View-only visitors (no Sign in; organisers sign in at the site address):
+                   phones get a ☰ menu with the page's items, e.g. Teams: Print, Shortcut, Help */
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu" className="sm:hidden">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {pageMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.key} onClick={item.onSelect} disabled={item.disabled} data-testid={`menu-item-${item.key}`}>
+                          <Icon className="h-4 w-4 mr-2" />
+                          {item.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
             </div>
           </div>
 
-          {/* Second Row: Tournament Selector and Badge */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <TournamentSelector />
-            {currentTournament && (
-              <>
-                {isMasterAdmin ? (
-                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-master-admin">
-                    <Shield className="h-3 w-3" />
-                    <span className="hidden sm:inline">System Admin</span>
-                    <span className="sm:hidden">Admin</span>
-                  </Badge>
-                ) : isReadOnly ? null : viewToken ? (
-                  <Badge variant="default" className="gap-1.5 bg-primary shrink-0" data-testid="badge-admin">
-                    <Shield className="h-3 w-3" />
-                    <span className="hidden sm:inline">Admin Access</span>
-                    <span className="sm:hidden">Admin</span>
-                  </Badge>
-                ) : null}
-              </>
-            )}
-          </div>
-
-          {/* Third Row: Navigation Items (hidden when Teams is the only item, e.g. shared Teams view) */}
+          {/* Second Row: Navigation Items (hidden when Teams is the only item, e.g. shared Teams view) */}
           {navItems.length > 1 && (
           <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const currentPath = location.split("?")[0];
+              const rawPath = location.split("?")[0];
+              const currentPath = rawPath === "/edit/teams" ? "/" : rawPath;
               const isActive = currentPath === item.path;
               const pathWithQuery = getPathWithQuery(item.path);
               return (
@@ -266,7 +394,7 @@ export function Navigation() {
                 >
                   <button
                     className={cn(
-                      "flex items-center gap-2 px-4 h-9 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
+                      "flex items-center gap-2 px-3 sm:px-4 h-8 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
                       isActive
                         ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground hover-elevate"
@@ -288,11 +416,11 @@ export function Navigation() {
         if (!open) { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }
         setShowChangePassword(open);
       }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Profile Settings</DialogTitle>
             <DialogDescription>
-              Update your display name or change your password.
+              Update your display name, registration fee payment details or password.
             </DialogDescription>
           </DialogHeader>
 
@@ -319,9 +447,18 @@ export function Navigation() {
             </div>
           </form>
 
+          {/* Registration fee payment details */}
+          <PaymentDetailsSection />
+
           {/* Change password section */}
           <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
-            <p className="text-sm font-medium">Change password</p>
+            <p className="text-sm font-medium">{needsCurrentPassword ? "Change password" : "Set a password"}</p>
+            {!needsCurrentPassword && (
+              <p className="text-xs text-muted-foreground">
+                You sign in with Google. Set a password if you'd also like to sign in with your email address.
+              </p>
+            )}
+            {needsCurrentPassword && (
             <div className="space-y-2">
               <Label htmlFor="current-password">Current password</Label>
               <Input
@@ -334,6 +471,7 @@ export function Navigation() {
                 data-testid="input-current-password"
               />
             </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="new-password">New password</Label>
               <Input
@@ -369,10 +507,10 @@ export function Navigation() {
               </Button>
               <Button
                 type="submit"
-                disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                disabled={isChangingPassword || (needsCurrentPassword && !currentPassword) || !newPassword || !confirmPassword}
                 data-testid="button-submit-change-password"
               >
-                {isChangingPassword ? "Saving…" : "Change password"}
+                {isChangingPassword ? "Saving…" : needsCurrentPassword ? "Change password" : "Set password"}
               </Button>
             </DialogFooter>
           </form>
