@@ -222,7 +222,7 @@ describe('PATCH /api/tournaments/:id/transfer – ownership transfer access cont
       .send({ email: 'nobody@example.com' })
 
     expect(res.status).toBe(404)
-    expect(res.body.error).toMatch(/no user found/i)
+    expect(res.body.error).toMatch(/does not have a PTM account/i)
   })
 
   it('blocked target user returns 400', async () => {
