@@ -84,13 +84,13 @@
     .top { position: absolute; left: 0; right: 0; top: 0; padding: 12px; padding-top: max(12px, env(safe-area-inset-top));
       display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 12px;
-      background: rgba(255,255,255,0.82); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      background: rgba(255,255,255,0.92);
       box-shadow: 0 1px 2px rgba(0,0,0,.08); font-size: 14px; font-weight: 600; color: #1e293b; border: 0; }
     .pill img { width: 24px; height: 24px; border-radius: 4px; }
     .actions { display: flex; gap: 6px; }
     .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom));
       display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
-    .hint { border-radius: 999px; padding: 8px 16px; background: rgba(255,255,255,0.86); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    .hint { border-radius: 999px; padding: 8px 16px; background: rgba(255,255,255,0.93);
       box-shadow: 0 2px 6px rgba(0,0,0,.12); font-size: 14px; color: #334155; text-align: center; }
     .hint small { display: block; font-size: 12px; color: #64748b; }
     .again { pointer-events: auto; border: 0; border-radius: 999px; padding: 12px 24px; background: #fff; color: #0f172a;
@@ -323,7 +323,7 @@
     </div>
   </div>
 
-  <script src="/coin-toss/coin-art.js"></script>
+  <script src="/coin-toss/coin-art.js?v=2"></script>
   <script src="/coin-toss/score.js?v=6" defer></script>
   <script>
   (function () {
@@ -349,7 +349,15 @@
     function faceUp(deg) { return ((Math.round(deg / 180) % 2) + 2) % 2 === 0 ? "heads" : "tails"; }
     function restY() { return Math.round(window.innerHeight * 0.22); }
 
-    function paint() { Art.paintGravel(gravel); }
+    // Paint the gravel once it has a size, and again only if the screen really changes
+    // (turned sideways, or much taller/shorter), not every time the address bar slides in or out
+    var painted = { w: 0, h: 0 };
+    function paint() {
+      var w = gravel.clientWidth, h = gravel.clientHeight;
+      if (!w || !h) return; // still hidden: painted when the Coin Flip screen opens
+      if (painted.w === w && Math.abs(h - painted.h) <= painted.h * 0.2) return;
+      if (Art.paintGravel(gravel)) painted = { w: w, h: h };
+    }
     paint();
     window.addEventListener("resize", function () { paint(); if (phase === "hand") fly.style.transform = "translateY(" + restY() + "px)"; });
 

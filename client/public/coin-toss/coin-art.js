@@ -113,16 +113,17 @@
     </svg>`;
   }
 
-  // A gravel piste, painted to fill the canvas
+  // A gravel piste, painted to fill the canvas. Drawn at standard resolution (not the phone's
+  // high-density pixels) and stretched to fit: it looks the same as gravel but uses about a
+  // quarter of the graphics memory, which phones can run short of.
   function paintGravel(canvas) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
+    if (!w || !h) return false;
+    canvas.width = Math.round(w);
+    canvas.height = Math.round(h);
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
+    if (!ctx) return false;
     ctx.fillStyle = "#b9a888";
     ctx.fillRect(0, 0, w, h);
     const colours = ["#a8957a", "#d8c9b0", "#8c7b63", "#e6dccb", "#c2b195", "#6f6352", "#9d8c72", "#ece4d6"];
@@ -131,9 +132,9 @@
       const x = Math.random() * w;
       const y = Math.random() * h;
       const r = 0.8 + Math.pow(Math.random(), 2.2) * 4.5;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.random() * Math.PI);
+      const a = Math.random() * Math.PI;
+      const c = Math.cos(a), sn = Math.sin(a);
+      ctx.setTransform(c, sn, -sn, c, x, y);
       ctx.beginPath();
       ctx.ellipse(0, 0, r, r * (0.6 + Math.random() * 0.4), 0, 0, Math.PI * 2);
       ctx.fillStyle = colours[(Math.random() * colours.length) | 0];
@@ -148,13 +149,14 @@
         ctx.fillStyle = "rgba(60,45,30,0.18)";
         ctx.fill();
       }
-      ctx.restore();
     }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.75);
     g.addColorStop(0, "rgba(0,0,0,0)");
     g.addColorStop(1, "rgba(40,28,15,0.35)");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
+    return true;
   }
 
   window.PennyArt = { heads, tails, hand, paintGravel };
