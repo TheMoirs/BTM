@@ -107,12 +107,13 @@
     .sheet .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
     .btn { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 600; color: #0f172a; }
     .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
-    .install-choice { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 320px;
-      margin: 18px auto 0; padding: 14px 16px; border-radius: 14px; border: 2px dashed #64748b; background: rgba(255,255,255,.6);
-      font-size: 17px; font-weight: 700; color: #0f172a; cursor: pointer; }
-    .install-choice[hidden] { display: none; }
-    .install-choice .ic { font-size: 22px; }
-    .install-choice:active { transform: scale(.98); }
+    .icon-pill { width: 40px; height: 40px; padding: 0; justify-content: center; font-size: 20px; line-height: 1; }
+    .menu-wrap { position: relative; }
+    .menu-pop { position: absolute; right: 0; top: calc(100% + 6px); min-width: 190px; background: #fff; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25); padding: 6px; z-index: 6; }
+    .menu-pop button { display: block; width: 100%; text-align: left; border: 0; background: none; border-radius: 8px;
+      padding: 12px 14px; font-size: 15px; font-weight: 600; color: #0f172a; cursor: pointer; }
+    .menu-pop button:active { background: #f1f5f9; }
     .copy-panel { background: #f1f5f9; border-radius: 10px; padding: 10px 12px; margin: 10px 0; font-size: 14px; }
     .copy-panel p { margin: 0 0 8px; }
     .copy-panel input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; margin-bottom: 8px; }
@@ -124,8 +125,13 @@
     <button class="pill" id="backBtn" type="button" hidden>‹ Back</button>
     <div class="pill" id="titlePill"><img src="/coin-toss/logo.png?v=3" alt="" /> <span id="titleText">Score Flip</span></div>
     <div class="actions">
-      <button class="pill" id="installBtn" type="button" hidden>⤓ Create shortcut</button>
       <button class="pill" id="closeBtn" type="button" hidden>Close</button>
+      <div class="menu-wrap">
+        <button class="pill icon-pill" id="menuBtn" type="button" aria-label="Menu" aria-haspopup="true" aria-expanded="false">☰</button>
+        <div class="menu-pop" id="menuPop" hidden>
+          <button type="button" id="menuShortcut">⤓ Create shortcut</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -165,7 +171,6 @@
       <h1>Score Flip</h1>
       <button class="big-choice" id="goCoin" type="button"><span class="ic">🪙</span><span>Coin Flip</span></button>
       <button class="big-choice" id="goScore" type="button"><span class="ic">📋</span><span id="goScoreLabel">Log Score</span></button>
-      <button class="install-choice" id="menuInstall" type="button" hidden><span class="ic">⤓</span><span>Create shortcut</span></button>
     </div>
   </section>
 
@@ -473,7 +478,7 @@
     // ── Create shortcut (home screen / desktop) ────────────────────────────
     // Browsers don't let a page make a shortcut by itself, so the button shows the steps for this device.
     // It is always offered: the start-menu button on phones, the top-bar one on computers.
-    var installBtn = $("installBtn"), menuInstall = $("menuInstall"), help = $("installHelp");
+    var help = $("installHelp");
     // An app window (e.g. opened from the installed PTM app) has no browser menu to make a shortcut from
     var inAppWindow = (window.matchMedia && (window.matchMedia("(display-mode: standalone)").matches || window.matchMedia("(display-mode: minimal-ui)").matches)) || navigator.standalone === true;
 
@@ -489,9 +494,6 @@
       if (/Macintosh/.test(ua) && /Safari\//.test(ua)) return "mac-safari";
       return "other";
     }
-    function isPhone() { var p = platform(); return p === "ios" || p === "android"; }
-    installBtn.hidden = isPhone();
-    menuInstall.hidden = !isPhone();
 
     var steps = {
       ios: "<ol><li>Tap the <strong>Share</strong> button (square with an arrow pointing up), at the bottom of Safari or next to the address bar in Chrome.</li><li>Scroll down and tap <strong>Add to Home Screen</strong> (tap <strong>View More</strong> first if you don't see it).</li><li>Tap <strong>Add</strong>.</li></ol><p style=\"font-size:13px;color:#64748b\">Do this in Safari or Chrome itself. It won't work from inside another app's built-in browser, such as a link opened from WhatsApp or Facebook.</p>",
@@ -512,8 +514,15 @@
       if (inAppWindow) { $("linkBox").value = shortcutLink(); $("copyLink").textContent = "Copy link"; }
       help.hidden = false;
     }
-    installBtn.addEventListener("click", openShortcutHelp);
-    menuInstall.addEventListener("click", openShortcutHelp);
+    // ☰ menu (top right): Create shortcut is always in here
+    var menuBtn = $("menuBtn"), menuPop = $("menuPop");
+    function setMenu(open) { menuPop.hidden = !open; menuBtn.setAttribute("aria-expanded", open ? "true" : "false"); }
+    menuBtn.addEventListener("click", function () { setMenu(menuPop.hidden); });
+    $("menuShortcut").addEventListener("click", function () { setMenu(false); openShortcutHelp(); });
+    document.addEventListener("pointerdown", function (e) {
+      if (!menuPop.hidden && !e.target.closest(".menu-wrap")) setMenu(false);
+    }, true);
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
     $("copyLink").addEventListener("click", function () {
       var box = $("linkBox"), btn = this;
       box.focus(); box.select();
