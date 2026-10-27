@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone, Coins } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone, Coins, Sparkles } from "lucide-react";
 import { useNavMenuItems } from "@/lib/nav-menu";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
@@ -214,6 +214,12 @@ export function Navigation() {
                         <UserPen className="h-4 w-4 mr-2" />
                         Profile Settings
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild data-testid="menu-item-plan">
+                        <Link href="/plan">
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Plan &amp; billing
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app">
                         <MonitorSmartphone className="h-4 w-4 mr-2" />
@@ -287,6 +293,14 @@ export function Navigation() {
                         <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
                           <UserPen className="h-4 w-4 mr-2" />
                           Profile
+                        </DropdownMenuItem>
+                      )}
+                      {showAccountItems && (
+                        <DropdownMenuItem asChild data-testid="menu-item-plan-mobile">
+                          <Link href="/plan">
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Plan &amp; billing
+                          </Link>
                         </DropdownMenuItem>
                       )}
                       {showAccountItems && (

@@ -17,6 +17,8 @@ import ResetPasswordPage from "@/pages/reset-password";
 import PublicTournamentPage from "@/pages/public-tournament";
 import RegisterTeamPage from "@/pages/register-team";
 import AdminUsers from "@/pages/admin-users";
+import PlanPage from "@/pages/plan";
+import { PlanLimitDialog } from "@/components/plan-limit-dialog";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
@@ -149,8 +151,10 @@ function AppContent() {
             <Route path="/results" component={Results} />
             <Route path="/leaderboard" component={Leaderboard} />
             <Route path="/admin/users" component={AdminUsers} />
+            <Route path="/plan" component={PlanPage} />
             <Route component={NotFound} />
           </Switch>
+          <PlanLimitDialog />
         </div>
       </TournamentProvider>
     </ViewModeProvider>

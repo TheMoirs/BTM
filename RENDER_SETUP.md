@@ -52,6 +52,20 @@ Add these environment variables in the Render dashboard:
 
 Add any other environment variables your app needs (Resend API key, GitHub tokens, etc.)
 
+### Stripe Variables (Unlimited admin plan)
+| Variable | Value |
+|---|---|
+| `STRIPE_SECRET_KEY` | Secret key from Stripe → Developers → API keys (`sk_test_…` while testing, `sk_live_…` when live) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) of the webhook endpoint below |
+
+Webhook endpoint (Stripe Dashboard → Developers → Webhooks → Add destination):
+- URL: `https://<your site>/api/stripe/webhook`
+- Events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`
+
+Prices are found by lookup key (`btm_unlimited_monthly`, `btm_unlimited_yearly`), so no price IDs need setting. When going live, recreate the product, both prices (with the same lookup keys and € / $ currency options) and the Customer Portal settings in live mode.
+
+Without `STRIPE_SECRET_KEY` the app still works: everyone stays on the free plan and the Upgrade button is hidden.
+
 ## Step 4: Deploy
 
 1. Render will automatically deploy when you push to your repository
