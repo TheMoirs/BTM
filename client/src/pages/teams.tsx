@@ -195,7 +195,7 @@ export default function Teams() {
   const [showHelp, setShowHelp] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [divisionFilter, setDivisionFilter] = useState<string>("all");
+  const [divisionFilter, setDivisionFilterState] = useState<string>("all");
   const [pdfPreview, setPdfPreview] = useState<PdfPreview | null>(null);
   // Print: ask which division to print (one, or all) before building the PDF
   const [printChooser, setPrintChooser] = useState<"preview" | "print" | null>(null);
@@ -216,6 +216,32 @@ export default function Teams() {
   useEffect(() => {
     currentTournamentRef.current = currentTournament?.id || null;
   }, [currentTournament]);
+
+  // Remember the chosen division per tournament (this browser only) and
+  // reopen the Teams view on it next time.
+  const divisionStorageKey = currentTournament?.id
+    ? `btm-teams-division-${currentTournament.id}`
+    : null;
+  const setDivisionFilter = (value: string) => {
+    setDivisionFilterState(value);
+    if (!divisionStorageKey) return;
+    try {
+      localStorage.setItem(divisionStorageKey, value);
+    } catch {
+      // Storage unavailable (private mode etc.) - just don't remember it
+    }
+  };
+  useEffect(() => {
+    let saved: string | null = null;
+    if (divisionStorageKey) {
+      try {
+        saved = localStorage.getItem(divisionStorageKey);
+      } catch {
+        saved = null;
+      }
+    }
+    setDivisionFilterState(saved || "all");
+  }, [divisionStorageKey]);
 
   const { data: teams, isLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams", currentTournament?.id],
@@ -1144,6 +1170,14 @@ export default function Teams() {
   const availableDivisions = useMemo(() => {
     return groupedByDivision.map(([division]) => division);
   }, [groupedByDivision]);
+
+  // If the remembered division no longer has any teams, fall back to All
+  useEffect(() => {
+    if (isLoading || !teams || teams.length === 0) return;
+    if (divisionFilter !== "all" && !availableDivisions.includes(divisionFilter)) {
+      setDivisionFilterState("all");
+    }
+  }, [isLoading, teams, availableDivisions, divisionFilter]);
 
   // Teams grouped by division for a given choice ("all" or one division)
   const groupsForDivision = (division: string) =>
