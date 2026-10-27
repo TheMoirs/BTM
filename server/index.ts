@@ -188,6 +188,23 @@ async function ensureRegistrationFeeColumns() {
   }
 }
 
+async function ensureBillingColumns() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_interval TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_currency TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_renews_at TIMESTAMP`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_cancel_at_period_end BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_customer_unique ON users (stripe_customer_id)`);
+    log("Database initialized: users billing columns ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureClerkUserIdColumn() {
   const client = await pool.connect();
   try {
@@ -286,6 +303,7 @@ async function migrateOrphanedTournaments() {
 (async () => {
   // New columns first: later start-up steps read whole rows from these tables
   await ensureRegistrationFeeColumns();
+  await ensureBillingColumns();
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links

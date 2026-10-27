@@ -20,6 +20,15 @@ export const users = pgTable("users", {
   payeeAccountNumber: text("payee_account_number"),
   payeeIban: text("payee_iban"),
   paymentLink: text("payment_link"), // e.g. monzo.me/name or paypal.me/name
+  // ── Unlimited admin plan (kept in step with Stripe by the webhook) ──
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  // Stripe's subscription status: active, trialing, past_due, canceled, unpaid, incomplete…
+  subscriptionStatus: text("subscription_status"),
+  planInterval: text("plan_interval"), // "month" or "year"
+  planCurrency: text("plan_currency"), // "gbp", "eur" or "usd"
+  planRenewsAt: timestamp("plan_renews_at"),
+  planCancelAtPeriodEnd: boolean("plan_cancel_at_period_end").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

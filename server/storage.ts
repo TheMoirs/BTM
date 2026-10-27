@@ -73,6 +73,9 @@ export interface IStorage {
 
   // User methods
   getUserById(id: string): Promise<User | undefined>;
+  getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
+  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd">>): Promise<User | undefined>;
+  countTeams(tournamentId: string): Promise<number>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
   createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
@@ -1033,6 +1036,21 @@ export class DatabaseStorage implements IStorage {
   async getUserById(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
+  }
+
+  async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
+    return user || undefined;
+  }
+
+  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd">>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
+  async countTeams(tournamentId: string): Promise<number> {
+    const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(teams).where(eq(teams.tournamentId, tournamentId));
+    return row?.n ?? 0;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {

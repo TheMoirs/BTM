@@ -1,4 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { PLAN_LIMIT_CODE } from "@shared/plans";
+
+/** Fired on window when the server says a free-plan limit was reached */
+export const PLAN_LIMIT_EVENT = "btm:plan-limit";
 
 const VIEW_TOKEN_STORAGE_KEY = 'boules_view_token';
 
@@ -50,6 +54,18 @@ async function throwIfResNotOk(res: Response) {
       handleUnauthorized();
     }
     const text = (await res.text()) || res.statusText;
+    // A free-plan limit: show the upgrade prompt, and give callers a plain message
+    if (res.status === 402) {
+      try {
+        const body = JSON.parse(text);
+        if (body?.code === PLAN_LIMIT_CODE && typeof body.error === "string") {
+          window.dispatchEvent(new CustomEvent(PLAN_LIMIT_EVENT, { detail: body.error }));
+          throw new Error(body.error);
+        }
+      } catch (e) {
+        if (e instanceof Error && !(e instanceof SyntaxError)) throw e;
+      }
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

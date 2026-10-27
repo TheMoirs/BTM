@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
+import { registerBillingRoutes, tournamentLimitProblem, teamLimitProblem } from "./billing";
 import { publicRegistrationSchema, REGISTRATION_CONTACT, type PublicRegistration } from "@shared/registration";
 
 function escapeHtml(v: string): string {
@@ -207,6 +208,9 @@ function baseUrlOf(req: { protocol: string; get(name: string): string | undefine
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Unlimited admin plan: status, Checkout, Customer Portal and the Stripe webhook
+  registerBillingRoutes(app);
+
   // Short URL redirect endpoint (before token middleware - no auth required)
   app.get("/s/:code", async (req, res) => {
     try {
@@ -795,6 +799,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // The team was removed or renamed in the meantime: register it as new
           console.log(`[REGISTER] Team to update no longer exists; creating "${data.name}" instead`);
         }
+        const full = await teamLimitProblem(t, 1, true);
+        if (full) return res.status(402).json(full);
         teamId = (await storage.createTeam({ ...data, tournamentId: t.id, division: "A", teamDisplayId: null })).id;
       }
       console.log(`[REGISTER] ${updated ? "Updated" : "Registered"} "${data.name}" for "${t.name}"`);
@@ -962,6 +968,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertTournamentSchema.parse(req.body);
       const userId = req.sessionUser?.userId || null;
+      const overLimit = await tournamentLimitProblem(userId);
+      if (overLimit) return res.status(402).json(overLimit);
       const tournament = await storage.createTournament(validatedData, userId);
       res.status(201).json(tournament);
     } catch (error) {
@@ -1087,6 +1095,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (targetUser.isBlocked) {
         return res.status(400).json({ error: "Cannot transfer to a blocked user account" });
+      }
+
+      if (targetUser.id !== tournament.userId) {
+        const overLimit = await tournamentLimitProblem(targetUser.id, "them");
+        if (overLimit) return res.status(402).json(overLimit);
       }
 
       const updated = await storage.transferTournamentOwnership(tournamentId, targetUser.id);
@@ -1428,6 +1441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enforce tournament-specific access when using tokens
       if (req.tokenTournamentId && validatedData.tournamentId !== req.tokenTournamentId) {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
+      }
+      const tournament = await storage.getTournament(validatedData.tournamentId);
+      if (tournament) {
+        const overLimit = await teamLimitProblem(tournament);
+        if (overLimit) return res.status(402).json(overLimit);
       }
       const team = await storage.createTeam(validatedData);
       res.status(201).json(team);
