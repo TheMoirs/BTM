@@ -94,6 +94,24 @@ export async function teamLimitProblem(tournament: Pick<Tournament, "id" | "user
   };
 }
 
+/**
+ * Can this tournament be transferred to `targetUserId`? A free-plan receiver can't
+ * take it if they already have a tournament, or if it has more teams than the
+ * free plan allows.
+ */
+export async function transferLimitProblem(targetUserId: string, tournamentId: string): Promise<LimitProblem | null> {
+  const target = await storage.getUserById(targetUserId);
+  if (!target || hasUnlimited(target)) return null;
+  const teamCount = await storage.countTeams(tournamentId);
+  if (teamCount > FREE_LIMITS.teamsPerTournament) {
+    return {
+      code: PLAN_LIMIT_CODE,
+      error: `${target.email} is on the free plan, which allows up to ${FREE_LIMITS.teamsPerTournament} teams per tournament. This tournament has ${teamCount} teams, so they need to upgrade to Unlimited before it can be transferred to them.`,
+    };
+  }
+  return tournamentLimitProblem(targetUserId, "them");
+}
+
 // ── Keeping the database in step with Stripe ────────────────────────────────
 
 function periodEndOf(sub: Stripe.Subscription): Date | null {
@@ -229,6 +247,20 @@ export function registerBillingRoutes(app: Express): void {
     } catch (error) {
       console.error("[BILLING] Sync failed:", error);
       res.status(500).json({ error: "Couldn't check your plan with Stripe." });
+    }
+  });
+
+  // Is this tournament full on its owner's plan? Lets the Add Team button say so
+  // before the form is filled in (saving still checks too).
+  app.get("/api/tournaments/:id/team-capacity", async (req, res) => {
+    try {
+      const t = await storage.getTournament(String(req.params.id));
+      if (!t) return res.status(404).json({ error: "Tournament not found" });
+      const problem = await teamLimitProblem(t);
+      res.json({ full: !!problem, message: problem?.error ?? null });
+    } catch (error) {
+      console.error("[BILLING] Team capacity check failed:", error);
+      res.status(500).json({ error: "Couldn't check the team limit." });
     }
   });
 

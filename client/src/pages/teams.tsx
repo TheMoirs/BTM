@@ -4,7 +4,7 @@ import { snapshotIdFrom } from "@/lib/backup";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, PLAN_LIMIT_EVENT } from "@/lib/queryClient";
 import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
@@ -185,6 +185,23 @@ export default function Teams() {
   const { user } = useAuth();
   const { isReadOnly, viewToken } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // Free plan: if the tournament already has its 10 teams, say so instead of opening the form
+  const openAddTeam = async () => {
+    const id = currentTournamentRef.current;
+    if (id) {
+      try {
+        const res = await fetch(`/api/tournaments/${encodeURIComponent(id)}/team-capacity`, { credentials: "include" });
+        const cap = res.ok ? await res.json() : null;
+        if (cap?.full) {
+          window.dispatchEvent(new CustomEvent(PLAN_LIMIT_EVENT, { detail: cap.message }));
+          return;
+        }
+      } catch {
+        /* couldn't check: the server still enforces the limit when saving */
+      }
+    }
+    setIsCreateOpen(true);
+  };
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<InsertTeam>>({});
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
@@ -1604,9 +1621,12 @@ export default function Teams() {
   // Phones: Download, Registration link, Share teams and Clear all teams live in the
   // ☰ menu at the top right (the buttons below are hidden there to make room).
   // A ref keeps the latest handlers so the item list only changes when its labels do.
+  const hasTournament = !!currentTournament;
   const menuActions = useRef({ handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink });
   menuActions.current = { handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink };
   const pageMenuItems = useMemo<NavMenuItem[]>(() => {
+    // No tournament yet: nothing to act on
+    if (!hasTournament && !isReadOnly) return [];
     if (isReadOnly) {
       // View page: Print, Shortcut and Help (their buttons are hidden on phones)
       return [
@@ -1625,7 +1645,7 @@ export default function Teams() {
       items.push({ key: "clear-all", label: "Clear all teams", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
     }
     return items;
-  }, [isReadOnly, isEditAllMode, isSharingLink]);
+  }, [isReadOnly, isEditAllMode, isSharingLink, hasTournament]);
   usePageMenuItems(pageMenuItems);
 
   if (isLoading) {
@@ -1684,7 +1704,7 @@ export default function Teams() {
             </p>
           </div>
           {/* View page on phones: this row's buttons are in the ☰ menu, so the row is hidden to close the gap */}
-          <div className={`${isReadOnly ? "hidden sm:flex" : "flex"} flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5`}>
+          <div className={`${isReadOnly ? "hidden sm:flex" : hasTournament ? "flex" : "hidden"} flex-nowrap lg:flex-wrap gap-1.5 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-0.5`}>
             {!isReadOnly && (
               <>
                 <input
@@ -1796,7 +1816,7 @@ export default function Teams() {
                 )}
                 {!isEditAllMode && (
                   <>
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                    <Dialog open={isCreateOpen} onOpenChange={(open) => (open ? openAddTeam() : setIsCreateOpen(false))}>
                       <DialogTrigger asChild>
                         <Button size="sm" data-testid="button-add-team">
                           <Plus className="h-4 w-4 sm:mr-2" />
@@ -1825,6 +1845,106 @@ export default function Teams() {
                                 {...field}
                                 placeholder="Les Pétanqueurs"
                                 data-testid="input-team-name"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="homePiste"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Home Piste (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value || ""}
+                                placeholder="Terrain Municipal"
+                                data-testid="input-home-piste"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="captainName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Captain Name</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="Jean Dupont"
+                                data-testid="input-captain-name"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="captainPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Captain Phone</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="+33 6 12 34 56 78"
+                                data-testid="input-captain-phone"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="captainEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Captain Email (Optional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                value={field.value || ""}
+                                type="email"
+                                placeholder="captain@example.com"
+                                data-testid="input-captain-email"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="otherPlayers"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Other Players (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                value={field.value ? field.value.join("\n") : ""}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split("\n").filter(line => line.trim());
+                                  field.onChange(lines);
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                placeholder="Enter player names (one per line)&#10;Marie Dubois&#10;Pierre Martin"
+                                rows={4}
+                                data-testid="input-other-players"
                               />
                             </FormControl>
                             <FormMessage />
@@ -1871,111 +1991,6 @@ export default function Teams() {
                           </FormItem>
                         )}
                       />
-
-                      <FormField
-                        control={form.control}
-                        name="homePiste"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Home Piste (Optional)</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                value={field.value || ""}
-                                placeholder="Terrain Municipal"
-                                data-testid="input-home-piste"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="otherPlayers"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Other Players (Optional)</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                value={field.value ? field.value.join("\n") : ""}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split("\n").filter(line => line.trim());
-                                  field.onChange(lines);
-                                }}
-                                onBlur={field.onBlur}
-                                name={field.name}
-                                placeholder="Enter player names (one per line)&#10;Marie Dubois&#10;Pierre Martin"
-                                rows={4}
-                                data-testid="input-other-players"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="space-y-4 pt-2">
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Captain Contact Details
-                        </h3>
-                        <FormField
-                          control={form.control}
-                          name="captainName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Captain Name</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="Jean Dupont"
-                                  data-testid="input-captain-name"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="captainPhone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Phone Number</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="+33 6 12 34 56 78"
-                                  data-testid="input-captain-phone"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="captainEmail"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email Address (Optional)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  value={field.value || ""}
-                                  type="email"
-                                  placeholder="captain@example.com"
-                                  data-testid="input-captain-email"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
                     </div>
                     </div>
 
@@ -2182,7 +2197,7 @@ export default function Teams() {
                 }
               </p>
               {!isReadOnly && (
-                <Button onClick={() => setIsCreateOpen(true)} data-testid="button-register-first-team">
+                <Button onClick={() => openAddTeam()} data-testid="button-register-first-team">
                   <Plus className="h-4 w-4 mr-2" />
                   Register Your First Team
                 </Button>

@@ -11,7 +11,7 @@ import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
-import { registerBillingRoutes, tournamentLimitProblem, teamLimitProblem } from "./billing";
+import { registerBillingRoutes, tournamentLimitProblem, teamLimitProblem, transferLimitProblem } from "./billing";
 import { publicRegistrationSchema, REGISTRATION_CONTACT, type PublicRegistration } from "@shared/registration";
 
 function escapeHtml(v: string): string {
@@ -1096,7 +1096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (targetUser.id !== tournament.userId) {
-        const overLimit = await tournamentLimitProblem(targetUser.id, "them");
+        const overLimit = await transferLimitProblem(targetUser.id, tournament.id);
         if (overLimit) return res.status(402).json(overLimit);
       }
 
