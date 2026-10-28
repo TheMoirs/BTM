@@ -2290,6 +2290,9 @@ export default function Teams() {
                         <SortIcon column="name" />
                       </button>
                     </TableHead>
+                    {showPaidColumn && (
+                      <TableHead className="w-[64px] text-center" data-testid="header-paid">Paid</TableHead>
+                    )}
                     <TableHead className="sm:w-[180px]">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -2340,9 +2343,6 @@ export default function Teams() {
                         <SortIcon column="otherPlayers" />
                       </button>
                     </TableHead>
-                    {showPaidColumn && (
-                      <TableHead className="w-[64px] text-center" data-testid="header-paid">Paid</TableHead>
-                    )}
                     {!isReadOnly && (
                       <TableHead className={isEditAllMode ? "w-[44px]" : "sm:w-[120px] text-right"}>
                         {isEditAllMode ? "" : "Actions"}
@@ -2414,6 +2414,20 @@ export default function Teams() {
                             <span data-testid={`text-team-name-${team.id}`}>{team.name}</span>
                           )}
                         </TableCell>
+                        {showPaidColumn && (
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={!!(team as any).feePaid}
+                              onCheckedChange={(v) => setTeamPaid(team.id, v === true)}
+                              disabled={savingPaid === team.id}
+                              aria-label={`${team.name} has paid`}
+                              data-testid={`checkbox-paid-${team.id}`}
+                            />
+                            {(team as any).feePaid && (team as any).feePaidMethod === "card" && (
+                              <div className="text-[10px] leading-tight text-muted-foreground mt-0.5" data-testid={`text-paid-card-${team.id}`}>Card</div>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           {shouldShowInputs ? (
                             <Input
@@ -2513,17 +2527,6 @@ export default function Teams() {
                             )
                           )}
                         </TableCell>
-                        {showPaidColumn && (
-                          <TableCell className="text-center">
-                            <Checkbox
-                              checked={!!(team as any).feePaid}
-                              onCheckedChange={(v) => setTeamPaid(team.id, v === true)}
-                              disabled={savingPaid === team.id}
-                              aria-label={`${team.name} has paid`}
-                              data-testid={`checkbox-paid-${team.id}`}
-                            />
-                          </TableCell>
-                        )}
                         {!isReadOnly && !isEditAllMode && (
                           <TableCell className="text-right">
                             {isEditing ? (
@@ -2606,6 +2609,7 @@ export default function Teams() {
                           data-testid={`input-edit-name-${id}`}
                         />
                       </TableCell>
+                      {showPaidColumn && <TableCell />}
                       <TableCell>
                         <Input
                           value={teamData.homePiste || ""}
@@ -2656,7 +2660,6 @@ export default function Teams() {
                           data-testid={`input-edit-other-players-${id}`}
                         />
                       </TableCell>
-                      {showPaidColumn && <TableCell />}
                       <TableCell className="text-right">
                         <Button
                           size="icon"

@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
+import { registerConnectRoutes, cardPayUrl } from "./connect";
 import { registerBillingRoutes, tournamentLimitProblem, teamLimitProblem, transferLimitProblem } from "./billing";
 import { publicRegistrationSchema, REGISTRATION_CONTACT, type PublicRegistration } from "@shared/registration";
 
@@ -25,10 +26,11 @@ type FeePayment = {
   minor: number;
   currency: string;
   reference: string;       // e.g. "BATH BOMBERS"
+  cardPayUrl: string | null; // "Pay by card" (Stripe), when the organiser has connected Stripe
   bank: { accountName: string | null; sortCode: string | null; accountNumber: string | null; iban: string | null } | null;
 };
 
-async function feePaymentFor(t: { registrationFeeMinor: number | null; registrationFeeCurrency: string; userId: string | null }, teamName: string | null): Promise<FeePayment | null> {
+async function feePaymentFor(t: { registrationFeeMinor: number | null; registrationFeeCurrency: string; userId: string | null }, teamName: string | null, teamId: string | null = null, site: string | null = null): Promise<FeePayment | null> {
   if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0) return null;
   const owner = t.userId ? await storage.getUserById(t.userId) : undefined;
   const reference = paymentReference(teamName || "TEAM FEE");
@@ -38,6 +40,7 @@ async function feePaymentFor(t: { registrationFeeMinor: number | null; registrat
     minor: t.registrationFeeMinor,
     currency: t.registrationFeeCurrency,
     reference,
+    cardPayUrl: teamId && site ? cardPayUrl(owner, teamId, site) : null,
     bank: hasBank && owner
       ? {
           accountName: owner.payeeAccountName,
@@ -63,8 +66,9 @@ export function feeEmailHtml(p: FeePayment): string {
     : "";
   return `<div style="margin:16px 0;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
 <p style="margin:0 0 8px"><strong>Registration fee: ${escapeHtml(p.amount)}</strong></p>
-${bankRows ? `<p style="margin:0 0 4px">Please pay by bank transfer:</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
-${!bankRows ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
+${p.cardPayUrl ? `<p style="margin:0 0 10px"><a href="${p.cardPayUrl}" style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">PAY ${escapeHtml(p.amount)} BY CARD</a></p>` : ""}
+${bankRows ? `<p style="margin:0 0 4px">${p.cardPayUrl ? "Or pay by bank transfer:" : "Please pay by bank transfer:"}</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
+${!bankRows && !p.cardPayUrl ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
 </div>`;
 }
 
@@ -209,6 +213,8 @@ function baseUrlOf(req: { protocol: string; get(name: string): string | undefine
 export async function registerRoutes(app: Express): Promise<Server> {
   // Unlimited admin plan: status, Checkout, Customer Portal and the Stripe webhook
   registerBillingRoutes(app);
+  // Captains paying team fees by card, straight to the organiser's own Stripe account
+  registerConnectRoutes(app);
 
   // Short URL redirect endpoint (before token middleware - no auth required)
   app.get("/s/:code", async (req, res) => {
@@ -701,6 +707,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         tournamentId: t.id, name: t.name, viewToken: t.viewToken, registrationDeadline: t.registrationDeadline ?? null,
         registrationFee: t.registrationFeeMinor && t.registrationFeeMinor > 0 ? formatFee(t.registrationFeeMinor, t.registrationFeeCurrency) : null,
+        cardPayments: await (async () => {
+          if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0 || !t.userId) return false;
+          const owner = await storage.getUserById(t.userId);
+          return !!cardPayUrl(owner, "x", "");
+        })(),
       });
     } catch (error) {
       console.error("[PUBLIC] Slug lookup failed:", error);
@@ -764,10 +775,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         await storage.updateTeamRegistration(team.id, data);
         console.log(`[REGISTER] Edited "${data.name}" for "${t.name}" via email link`);
-        const fee = await feePaymentFor(t, data.name);
+        const fee = await feePaymentFor(t, data.name, team.id, baseUrlOf(req));
         const emailSent = await sendRegistrationEmails(req, t.name, data, true, team.id, team.captainEmail, fee);
         await sendOrganiserEmail(req, t, data, true, team.id, fee);
-        return res.json({ status: "updated", emailSent, fee });
+        return res.json({ status: "updated", emailSent, fee, payCode: createTeamEditCode(team.id) });
       }
 
       const existing = await storage.findTeamByName(t.id, data.name);
@@ -803,10 +814,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`[REGISTER] ${updated ? "Updated" : "Registered"} "${data.name}" for "${t.name}"`);
 
-      const fee = await feePaymentFor(t, data.name);
+      const fee = await feePaymentFor(t, data.name, teamId, baseUrlOf(req));
       const emailSent = await sendRegistrationEmails(req, t.name, data, updated, teamId, existingDetails?.captainEmail, fee);
       await sendOrganiserEmail(req, t, data, updated, teamId, fee);
-      res.json({ status: updated ? "updated" : "created", emailSent, fee });
+      res.json({ status: updated ? "updated" : "created", emailSent, fee, payCode: createTeamEditCode(teamId) });
     } catch (error) {
       console.error("[REGISTER] Registration failed:", error);
       res.status(500).json({ error: "Something went wrong saving your registration. Please try again." });
@@ -1502,7 +1513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isCollab = !isOwner && (await storage.isCollaborator(team.tournamentId, req.sessionUser.userId));
         if (!isOwner && !isCollab) return res.status(403).json({ error: "Access denied" });
       }
-      const updated = await storage.setTeamFeePaid(team.id, req.body.paid);
+      const updated = await storage.setTeamFeePaid(team.id, req.body.paid, "manual");
       res.json(updated);
     } catch (error) {
       console.error("[TEAMS] Update paid failed:", error);

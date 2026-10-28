@@ -209,6 +209,10 @@ async function ensureBillingColumns() {
       await client.query(`ALTER TABLE users ADD COLUMN plan_chosen_at TIMESTAMP DEFAULT now()`);
       await client.query(`ALTER TABLE users ALTER COLUMN plan_chosen_at DROP DEFAULT`);
     }
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_account_id TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_ready BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_connect_unique ON users (stripe_connect_account_id)`);
+    await client.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS fee_paid_method TEXT`);
     log("Database initialized: users billing columns ensured");
   } finally {
     client.release();
