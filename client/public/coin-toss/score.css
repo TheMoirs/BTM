@@ -189,3 +189,30 @@
 }
 .modal.top .sheet { max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
 .modal.top .game-rows { max-height: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Small phones (e.g. iPhone SE in Safari): everything on the game screen must fit, including
+   both ▼ arrows. Tighter sizes on short screens, and if it still doesn't fit the page scrolls
+   rather than letting the timer cover the score cards. */
+.screen.game { overflow-y: auto; }
+.game .wrap { flex: 1 0 auto; }
+.game .teams { flex: 1 0 auto; }
+.game .arrow { min-height: 44px; }
+@media (max-height: 640px) {
+  .screen.game { padding-top: max(56px, calc(env(safe-area-inset-top) + 50px)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .game .wrap { gap: 6px; }
+  .game .game-head h1 { font-size: 22px; }
+  .game .game-head span { font-size: 13px; }
+  .game .team { padding: 6px; gap: 4px; border-radius: 14px; }
+  .game .team-name { font-size: 16px; }
+  .game .arrow { min-height: 38px; font-size: 28px; border-radius: 10px; }
+  .game .score { font-size: clamp(40px, min(20vw, 11dvh), 80px); }
+  .game .timer { padding: 6px 10px; }
+  .game .timer-time { font-size: clamp(30px, min(10vw, 6dvh), 44px); }
+  .game .tbtn { min-height: 40px; font-size: 16px; }
+  .game .timer-hint { display: none; }
+  .game .game-actions .primary-btn,
+  .game .game-actions .secondary-btn { min-height: 44px; font-size: 16px; }
+}
+
+/* Close (pop-up windows) is a small round ✕ so it doesn't run into the title */
+#closeBtn { font-size: 18px; }
