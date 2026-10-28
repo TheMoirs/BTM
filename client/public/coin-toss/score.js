@@ -379,7 +379,14 @@
   $("endMatch").addEventListener("click", function () {
     if (!match) return;
     var inProgress = match.cur[0] !== 0 || match.cur[1] !== 0;
-    if (!inProgress && !match.games.length) { toast("No scores to save yet"); return; }
+    if (!inProgress && !match.games.length) { // 0–0 and nothing saved: nothing to keep, so just end it
+      resetTimer();
+      match = null;
+      store(KEY_CURRENT, null);
+      goMenu();
+      toast("Match discarded: no scores were entered");
+      return;
+    }
     // The game in progress, or the last saved one if the current game hasn't started
     var last = inProgress ? match.cur : match.games[match.games.length - 1];
     var finished = last.some(function (s) { return s === 9 || s === 13; });
