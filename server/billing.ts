@@ -26,6 +26,19 @@ import {
 
 let stripeClient: Stripe | null | undefined;
 
+export type AdminPayment = {
+  id: string;
+  created: string;
+  amount: number;
+  amountRefunded: number;
+  currency: string;
+  status: string; // succeeded, failed, pending, refunded, partly_refunded
+  description: string | null;
+  failureMessage: string | null;
+  receiptUrl: string | null;
+  card: string | null;
+};
+
 export function getStripe(): Stripe | null {
   if (stripeClient !== undefined) return stripeClient;
   const key = (process.env.STRIPE_SECRET_KEY || "").trim();
@@ -91,6 +104,7 @@ function periodEndOf(sub: Stripe.Subscription): Date | null {
 async function saveSubscription(user: User, sub: Stripe.Subscription): Promise<User | undefined> {
   const price = sub.items.data[0]?.price;
   return storage.updateUserBilling(user.id, {
+    ...(statusGivesUnlimited(sub.status) && !user.planChosenAt ? { planChosenAt: new Date() } : {}),
     stripeSubscriptionId: sub.id,
     subscriptionStatus: sub.status,
     planInterval: price?.recurring?.interval ?? null,
@@ -207,6 +221,67 @@ export function registerBillingRoutes(app: Express): void {
     }
   });
 
+  // "Start with Free" on the choose-your-plan step at sign-up
+  app.post("/api/billing/choose-free", async (req, res) => {
+    try {
+      const user = await signedInUser(req, res);
+      if (!user) return;
+      if (!user.planChosenAt) await storage.updateUserBilling(user.id, { planChosenAt: new Date() });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("[BILLING] Choose free failed:", error);
+      res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
+
+  // System admin: one user's plan and payment history (read live from Stripe)
+  app.get("/api/admin/users/:id/billing", async (req, res) => {
+    try {
+      const me = await signedInUser(req, res);
+      if (!me) return;
+      if (!isAdminUser(me)) return res.status(403).json({ error: "System admin access required" });
+      const user = await storage.getUserById(String(req.params.id));
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const stripe = getStripe();
+      let payments: AdminPayment[] = [];
+      let stripeError: string | null = null;
+      if (stripe && user.stripeCustomerId) {
+        try {
+          const charges = await stripe.charges.list({ customer: user.stripeCustomerId, limit: 100 });
+          payments = charges.data.map((c) => ({
+            id: c.id,
+            created: new Date(c.created * 1000).toISOString(),
+            amount: c.amount,
+            amountRefunded: c.amount_refunded,
+            currency: c.currency,
+            status: c.refunded ? "refunded" : c.amount_refunded > 0 ? "partly_refunded" : c.status,
+            description: c.description,
+            failureMessage: c.failure_message,
+            receiptUrl: c.receipt_url,
+            card: c.payment_method_details?.card ? `${c.payment_method_details.card.brand} •••• ${c.payment_method_details.card.last4}` : null,
+          }));
+        } catch (error) {
+          console.error("[BILLING] Couldn't load payments:", error);
+          stripeError = "Couldn't load payments from Stripe.";
+        }
+      }
+      const testMode = (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_test_");
+      res.json({
+        status: await statusFor(user),
+        customerId: user.stripeCustomerId,
+        stripeCustomerUrl: user.stripeCustomerId
+          ? `https://dashboard.stripe.com/${testMode ? "test/" : ""}customers/${user.stripeCustomerId}`
+          : null,
+        payments,
+        stripeError,
+      });
+    } catch (error) {
+      console.error("[BILLING] Admin billing failed:", error);
+      res.status(500).json({ error: "Couldn't load this user's billing." });
+    }
+  });
+
   // Start an upgrade: returns the address of Stripe's Checkout page
   app.post("/api/billing/checkout", async (req, res) => {
     try {
@@ -219,6 +294,8 @@ export function registerBillingRoutes(app: Express): void {
       }
 
       const interval: PlanInterval = req.body?.interval === "year" ? "year" : "month";
+      // From the "choose your plan" step at sign-up: going back returns there
+      const fromSignup = req.body?.signup === true;
       const currency: PlanCurrency = ["gbp", "eur", "usd"].includes(req.body?.currency) ? req.body.currency : "gbp";
 
       const prices = await stripe.prices.list({ lookup_keys: [PRICE_LOOKUP_KEYS[interval]], active: true, limit: 1 });
@@ -236,11 +313,10 @@ export function registerBillingRoutes(app: Express): void {
         client_reference_id: user.id,
         line_items: [{ price: price.id, quantity: 1 }],
         currency,
-        allow_promotion_codes: true,
         subscription_data: { metadata: { btm_user_id: user.id } },
         metadata: { btm_user_id: user.id },
         success_url: `${base}/plan?checkout=success`,
-        cancel_url: `${base}/plan?checkout=cancelled`,
+        cancel_url: `${base}/${fromSignup ? "choose-plan" : "plan"}?checkout=cancelled`,
       });
       res.json({ url: session.url });
     } catch (error) {

@@ -74,7 +74,7 @@ export interface IStorage {
   // User methods
   getUserById(id: string): Promise<User | undefined>;
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
-  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd">>): Promise<User | undefined>;
+  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt">>): Promise<User | undefined>;
   countTeams(tournamentId: string): Promise<number>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
@@ -1061,7 +1061,7 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd">>): Promise<User | undefined> {
+  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt">>): Promise<User | undefined> {
     const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
     return user || undefined;
   }

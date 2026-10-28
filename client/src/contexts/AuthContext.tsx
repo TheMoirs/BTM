@@ -8,6 +8,8 @@ export interface AuthUser {
   isSystemAdmin: boolean;
   /** False for accounts that only sign in with Google (no BTM password set yet) */
   hasPassword?: boolean;
+  /** New account that hasn't picked Free or Unlimited yet */
+  needsPlanChoice?: boolean;
 }
 
 type Outcome = { success: boolean; error?: string };

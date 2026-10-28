@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { errorMessage } from "@/lib/backup";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +28,14 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
 }
 
-export default function PlanPage() {
+/**
+ * Plan & billing page. With `signup`, it is the "Choose your plan" step a new
+ * account sees before using the app: Free goes straight in, Unlimited goes to
+ * Stripe Checkout.
+ */
+export default function PlanPage({ signup = false }: { signup?: boolean }) {
   const [, navigate] = useLocation();
+  const { refreshUser } = useAuth();
   const { toast } = useToast();
   const [interval, setBillingInterval] = useState<PlanInterval>("year");
   const [currency, setCurrency] = useState<PlanCurrency>(guessCurrency);
@@ -42,30 +49,45 @@ export default function PlanPage() {
   useEffect(() => {
     if (checkout !== "success" || synced.current) return;
     synced.current = true;
-    apiRequest("POST", "/api/billing/sync")
-      .then((r) => r.json())
-      .then((s: BillingStatus) => {
-        queryClient.setQueryData(STATUS_KEY, s);
-        toast({
-          title: s.unlimited ? "Welcome to Unlimited" : "Payment received",
-          description: s.unlimited
-            ? "Thanks! You can now run as many tournaments and teams as you like."
-            : "We're just confirming it with Stripe. This page will update in a moment.",
-        });
-        window.history.replaceState(null, "", window.location.pathname);
-      })
-      .catch(() => {});
-  }, [checkout, toast]);
+    // Stripe normally confirms within a second or two; try a few times
+    const trySync = async (attempt: number): Promise<void> => {
+      const s: BillingStatus = await (await apiRequest("POST", "/api/billing/sync")).json();
+      queryClient.setQueryData(STATUS_KEY, s);
+      if (!s.unlimited && attempt < 5) {
+        await new Promise((r) => setTimeout(r, 2000));
+        return trySync(attempt + 1);
+      }
+      toast({
+        title: s.unlimited ? "Welcome to Unlimited" : "Payment received",
+        description: s.unlimited
+          ? "Thanks! You can now run as many tournaments and teams as you like."
+          : "We're still confirming it with Stripe. Please refresh this page in a minute.",
+      });
+      window.history.replaceState(null, "", window.location.pathname);
+      // A new account that has now paid moves on into the app
+      if (s.unlimited) await refreshUser();
+    };
+    trySync(1).catch(() => {});
+  }, [checkout, toast, refreshUser]);
 
   const upgrade = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/billing/checkout", { interval, currency });
+      const res = await apiRequest("POST", "/api/billing/checkout", { interval, currency, signup });
       return (await res.json()) as { url: string };
     },
     onSuccess: ({ url }) => {
       window.location.href = url;
     },
     onError: (error) => toast({ title: "Couldn't start the payment", description: errorMessage(error, "Please try again."), variant: "destructive" }),
+  });
+
+  const chooseFree = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/billing/choose-free");
+      await refreshUser();
+    },
+    onSuccess: () => navigate("/"),
+    onError: (error) => toast({ title: "Something went wrong", description: errorMessage(error, "Please try again."), variant: "destructive" }),
   });
 
   const manage = useMutation({
@@ -92,12 +114,20 @@ export default function PlanPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")} data-testid="button-back-home" aria-label="Back">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold text-foreground">Your plan</h1>
-      </div>
+      {signup ? (
+        <div className="text-center space-y-2 pt-4">
+          <img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover mx-auto" />
+          <h1 className="text-2xl font-bold text-foreground">Choose your plan</h1>
+          <p className="text-muted-foreground">Start free, or go Unlimited. You can change your mind later.</p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/")} data-testid="button-back-home" aria-label="Back">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground">Your plan</h1>
+        </div>
+      )}
 
       {status.plan === "admin" && (
         <Card>
@@ -146,10 +176,12 @@ export default function PlanPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                Free <Badge variant="secondary">Current plan</Badge>
+                Free {!signup && <Badge variant="secondary">Current plan</Badge>}
               </CardTitle>
               <CardDescription>
-                You're using {status.usage.tournaments} of {status.limits.tournaments} tournament.
+                {signup
+                  ? "Everything you need to run one tournament. No card needed."
+                  : `You're using ${status.usage.tournaments} of ${status.limits.tournaments} tournament.`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -158,6 +190,19 @@ export default function PlanPage() {
                 <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />Up to {status.limits.teamsPerTournament} teams</li>
                 <li className="flex gap-2"><Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />No time limit and no adverts</li>
               </ul>
+              {signup && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="mt-4"
+                  onClick={() => chooseFree.mutate()}
+                  disabled={chooseFree.isPending || upgrade.isPending}
+                  data-testid="button-choose-free"
+                >
+                  {chooseFree.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Start with Free
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -191,7 +236,7 @@ export default function PlanPage() {
               {status.billingEnabled ? (
                 <Button size="lg" onClick={() => upgrade.mutate()} disabled={upgrade.isPending} data-testid="button-upgrade">
                   {upgrade.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Upgrade to Unlimited
+                  {signup ? "Choose Unlimited" : "Upgrade to Unlimited"}
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground">Upgrades aren't available just yet. Please check back soon.</p>
@@ -202,7 +247,7 @@ export default function PlanPage() {
             </CardContent>
           </Card>
 
-          {status.canManage && (
+          {status.canManage && !signup && (
             <Button variant="ghost" className="px-0 underline-offset-4 hover:underline" onClick={() => manage.mutate()} data-testid="button-past-invoices">
               See past invoices
             </Button>
@@ -211,7 +256,9 @@ export default function PlanPage() {
       )}
 
       {checkout === "cancelled" && status.plan === "free" && (
-        <p className="text-sm text-muted-foreground">No payment was taken. You can upgrade whenever you're ready.</p>
+        <p className="text-sm text-muted-foreground">
+          {signup ? "No payment was taken. Choose a plan to carry on." : "No payment was taken. You can upgrade whenever you're ready."}
+        </p>
       )}
     </div>
   );

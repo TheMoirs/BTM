@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone, Coins, Sparkles } from "lucide-react";
+import { Users, Trophy, ListChecks, Eye, Shield, LogOut, UserCog, User, UserPen, Menu, MonitorSmartphone, Coins, Sparkles, PlayCircle } from "lucide-react";
+import { DemoVideoDialog, useDemoAvailable } from "@/components/demo-video-dialog";
 import { useNavMenuItems } from "@/lib/nav-menu";
 import { cn } from "@/lib/utils";
 import { TournamentSelector } from "@/components/tournament-selector";
@@ -46,6 +47,8 @@ export function Navigation() {
   // mounted, because each box adjusts the page's manifest and title while it is open.
   const [installBox, setInstallBox] = useState<null | "app" | "teams" | "leaderboard" | "scoreflip">(null);
   const closeInstallBox = (open: boolean) => { if (!open) setInstallBox(null); };
+  const [showDemo, setShowDemo] = useState(false);
+  const demoAvailable = useDemoAvailable();
 
   // Profile/settings dialog state
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -237,6 +240,12 @@ export function Navigation() {
                         <Coins className="h-4 w-4 mr-2" />
                         Shortcut: Score Flip
                       </DropdownMenuItem>
+                      {demoAvailable && (
+                        <DropdownMenuItem onClick={() => setShowDemo(true)} data-testid="menu-item-demo">
+                          <PlayCircle className="h-4 w-4 mr-2" />
+                          Watch the demo
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={handleLogout}
@@ -321,6 +330,12 @@ export function Navigation() {
                             <Coins className="h-4 w-4 mr-2" />
                             Shortcut: Score Flip
                           </DropdownMenuItem>
+                          {demoAvailable && (
+                            <DropdownMenuItem onClick={() => setShowDemo(true)} data-testid="menu-item-demo-mobile">
+                              <PlayCircle className="h-4 w-4 mr-2" />
+                              Watch the demo
+                            </DropdownMenuItem>
+                          )}
                         </>
                       )}
                       <DropdownMenuItem
@@ -360,6 +375,7 @@ export function Navigation() {
                       onOpenChange={closeInstallBox}
                     />
                   )}
+                  <DemoVideoDialog open={showDemo} onOpenChange={setShowDemo} />
                   <ScoreFlipShortcutDialog
                     open={installBox === "scoreflip"}
                     onOpenChange={closeInstallBox}

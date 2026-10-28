@@ -29,6 +29,8 @@ export const users = pgTable("users", {
   planCurrency: text("plan_currency"), // "gbp", "eur" or "usd"
   planRenewsAt: timestamp("plan_renews_at"),
   planCancelAtPeriodEnd: boolean("plan_cancel_at_period_end").notNull().default(false),
+  // When the user picked a plan at sign-up. Empty = still needs to choose.
+  planChosenAt: timestamp("plan_chosen_at"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

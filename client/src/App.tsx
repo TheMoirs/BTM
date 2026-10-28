@@ -135,6 +135,15 @@ function AppContent() {
     );
   }
 
+  // New account: choose Free or Unlimited before anything else
+  if (user.needsPlanChoice) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PlanPage signup />
+      </div>
+    );
+  }
+
   const showNavigation = location !== "/leaderboard";
 
   return (
@@ -151,7 +160,7 @@ function AppContent() {
             <Route path="/results" component={Results} />
             <Route path="/leaderboard" component={Leaderboard} />
             <Route path="/admin/users" component={AdminUsers} />
-            <Route path="/plan" component={PlanPage} />
+            <Route path="/plan">{() => <PlanPage />}</Route>
             <Route component={NotFound} />
           </Switch>
           <PlanLimitDialog />
