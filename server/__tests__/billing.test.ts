@@ -14,7 +14,7 @@ vi.mock('../storage', () => ({
 }))
 
 import { storage } from '../storage'
-import { teamLimitProblem, tournamentLimitProblem, hasUnlimited, registerBillingRoutes } from '../billing'
+import { teamLimitProblem, tournamentLimitProblem, transferLimitProblem, hasUnlimited, registerBillingRoutes } from '../billing'
 
 const s = storage as unknown as Record<string, ReturnType<typeof vi.fn>>
 
@@ -79,6 +79,32 @@ describe('team limit', () => {
   })
   it('ignores tournaments with no owner', async () => {
     expect(await teamLimitProblem({ id: 't1', userId: null })).toBeNull()
+  })
+})
+
+describe('transfer limit', () => {
+  it('blocks transferring a tournament with more than 10 teams to a free user', async () => {
+    s.getUserById.mockResolvedValue(freeUser)
+    s.countTeams.mockResolvedValue(11)
+    s.getTournamentsByUserId.mockResolvedValue([])
+    expect((await transferLimitProblem('u1', 't9'))?.error).toMatch(/11 teams/)
+  })
+  it('allows a 10-team tournament to a free user with no tournament', async () => {
+    s.getUserById.mockResolvedValue(freeUser)
+    s.countTeams.mockResolvedValue(10)
+    s.getTournamentsByUserId.mockResolvedValue([])
+    expect(await transferLimitProblem('u1', 't9')).toBeNull()
+  })
+  it('blocks a free user who already has a tournament', async () => {
+    s.getUserById.mockResolvedValue(freeUser)
+    s.countTeams.mockResolvedValue(3)
+    s.getTournamentsByUserId.mockResolvedValue([{ id: 't1' }])
+    expect(await transferLimitProblem('u1', 't9')).toMatchObject({ code: 'plan_limit' })
+  })
+  it('allows any size to a paying user', async () => {
+    s.getUserById.mockResolvedValue(paidUser)
+    s.countTeams.mockResolvedValue(80)
+    expect(await transferLimitProblem('u2', 't9')).toBeNull()
   })
 })
 
