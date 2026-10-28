@@ -1,4 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+
+/** Fire on window to open the Create Tournament form (e.g. from the empty Teams page) */
+export const OPEN_CREATE_TOURNAMENT_EVENT = "btm:create-tournament";
 import { describeTournamentFormat } from "@/lib/tournamentFormat";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
@@ -56,6 +59,11 @@ export function TournamentSelector() {
   const { isReadOnly, isMasterAdmin } = useViewMode();
   const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setIsCreateOpen(true);
+    window.addEventListener(OPEN_CREATE_TOURNAMENT_EVENT, open);
+    return () => window.removeEventListener(OPEN_CREATE_TOURNAMENT_EVENT, open);
+  }, []);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [deletingTournament, setDeletingTournament] = useState<Tournament | null>(null);
   const [transferringTournament, setTransferringTournament] = useState<Tournament | null>(null);

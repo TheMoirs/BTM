@@ -51,6 +51,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTeamSchema, type Team, type InsertTeam } from "@shared/schema";
+import { OPEN_CREATE_TOURNAMENT_EVENT } from "@/components/tournament-selector";
 import { Plus, Trash2, Users, Upload, Check, X, ArrowUpDown, ArrowUp, ArrowDown, FileDown, Download, Printer, Share2, Copy, Mail, ExternalLink, FileSpreadsheet, MessageCircle, Trophy, ClipboardList, Eye, MonitorSmartphone, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -180,7 +181,7 @@ function getMailtoUrl(email: string, tournamentName: string): string {
 }
 
 export default function Teams() {
-  const { currentTournament } = useTournament();
+  const { currentTournament, isLoading: tournamentsLoading } = useTournament();
   const { user } = useAuth();
   const { isReadOnly, viewToken } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -2144,7 +2145,28 @@ export default function Teams() {
           </div>
         </div>
 
-        {!teams || teams.length === 0 ? (
+        {!currentTournament && !tournamentsLoading && !isReadOnly ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="rounded-full bg-muted p-6 mb-4">
+                <Trophy className="h-12 w-12 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                Welcome to PTM
+              </h3>
+              <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
+                Start by creating your tournament. Then you can add teams or share a registration link with captains.
+              </p>
+              <Button
+                onClick={() => window.dispatchEvent(new Event(OPEN_CREATE_TOURNAMENT_EVENT))}
+                data-testid="button-empty-create-tournament"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Tournament
+              </Button>
+            </CardContent>
+          </Card>
+        ) : !teams || teams.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="rounded-full bg-muted p-6 mb-4">

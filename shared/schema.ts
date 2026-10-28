@@ -19,7 +19,7 @@ export const users = pgTable("users", {
   payeeSortCode: text("payee_sort_code"),
   payeeAccountNumber: text("payee_account_number"),
   payeeIban: text("payee_iban"),
-  paymentLink: text("payment_link"), // e.g. monzo.me/name or paypal.me/name
+  paymentLink: text("payment_link"), // no longer used (Monzo/PayPal "Pay now" links were removed)
   // ── Unlimited admin plan (kept in step with Stripe by the webhook) ──
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),

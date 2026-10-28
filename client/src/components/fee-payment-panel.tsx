@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, ExternalLink, Landmark } from "lucide-react";
+import { Check, Copy, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type FeePayment = {
@@ -7,8 +7,6 @@ export type FeePayment = {
   minor: number;
   currency: string;
   reference: string;
-  payNowUrl: string | null;
-  payNowLabel: string | null;
   bank: { accountName: string | null; sortCode: string | null; accountNumber: string | null; iban: string | null } | null;
 };
 
@@ -37,7 +35,7 @@ function CopyRow({ label, value, testId }: { label: string; value: string; testI
   );
 }
 
-/** Registration fee: Pay now (Monzo / PayPal link) and/or bank transfer details with copy buttons */
+/** Registration fee: bank transfer details with copy buttons */
 export function FeePaymentPanel({ fee }: { fee: FeePayment }) {
   const b = fee.bank;
   return (
@@ -47,20 +45,11 @@ export function FeePaymentPanel({ fee }: { fee: FeePayment }) {
         <p className="text-2xl font-bold" data-testid="text-fee-amount">{fee.amount}</p>
       </div>
 
-      {fee.payNowUrl && (
-        <Button asChild className="w-full" size="lg" data-testid="button-pay-now">
-          <a href={fee.payNowUrl} target="_blank" rel="noopener noreferrer">
-            Pay now{fee.payNowLabel ? ` with ${fee.payNowLabel}` : ""}
-            <ExternalLink className="h-4 w-4 ml-2" />
-          </a>
-        </Button>
-      )}
-
       {b && (
         <div className="space-y-1">
           <p className="text-sm font-medium flex items-center gap-1.5">
             <Landmark className="h-4 w-4" />
-            {fee.payNowUrl ? "Or pay by bank transfer" : "Pay by bank transfer"}
+            Pay by bank transfer
           </p>
           <div className="rounded-md border bg-background px-3">
             {b.accountName && <CopyRow label="Account name" value={b.accountName} testId="text-pay-account-name" />}
@@ -74,7 +63,7 @@ export function FeePaymentPanel({ fee }: { fee: FeePayment }) {
         </div>
       )}
 
-      {!fee.payNowUrl && !b && (
+      {!b && (
         <p className="text-sm">The organiser will let you know how to pay.</p>
       )}
     </div>
