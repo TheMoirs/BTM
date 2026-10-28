@@ -76,6 +76,7 @@ export interface IStorage {
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt">>): Promise<User | undefined>;
   countTeams(tournamentId: string): Promise<number>;
+  claimPlanChoice(id: string): Promise<boolean>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
   createUser(email: string, passwordHash: string, displayName: string | null, isSystemAdmin: boolean): Promise<User>;
@@ -1064,6 +1065,14 @@ export class DatabaseStorage implements IStorage {
   async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt">>): Promise<User | undefined> {
     const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
     return user || undefined;
+  }
+
+  /** Records that the user has chosen a plan. True only the first time (so the welcome email goes once). */
+  async claimPlanChoice(id: string): Promise<boolean> {
+    const rows = await db.update(users).set({ planChosenAt: new Date() })
+      .where(and(eq(users.id, id), isNull(users.planChosenAt)))
+      .returning({ id: users.id });
+    return rows.length > 0;
   }
 
   async countTeams(tournamentId: string): Promise<number> {

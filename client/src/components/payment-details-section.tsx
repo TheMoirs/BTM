@@ -3,10 +3,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { describePaymentLink, payeeDetailsProblem } from "@shared/payments";
+import { payeeDetailsProblem } from "@shared/payments";
 
-type Details = { accountName: string; sortCode: string; accountNumber: string; iban: string; paymentLink: string };
-const empty: Details = { accountName: "", sortCode: "", accountNumber: "", iban: "", paymentLink: "" };
+type Details = { accountName: string; sortCode: string; accountNumber: string; iban: string };
+const empty: Details = { accountName: "", sortCode: "", accountNumber: "", iban: "" };
 
 /** Profile Settings: where teams pay registration fees for this organiser's tournaments */
 export function PaymentDetailsSection() {
@@ -38,7 +38,6 @@ export function PaymentDetailsSection() {
     setError(null);
   };
   const changed = JSON.stringify(d) !== JSON.stringify(saved);
-  const link = d.paymentLink.trim() ? describePaymentLink(d.paymentLink) : null;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +47,7 @@ export function PaymentDetailsSection() {
       sortCode: blankToNull(d.sortCode),
       accountNumber: blankToNull(d.accountNumber),
       iban: blankToNull(d.iban),
-      paymentLink: blankToNull(d.paymentLink),
+      paymentLink: null,
     });
     if (problem) {
       setError(problem);
@@ -80,20 +79,6 @@ export function PaymentDetailsSection() {
         <p className="text-sm font-medium">Registration fee payments</p>
         <p className="text-xs text-muted-foreground">
           Where teams pay the registration fee for your tournaments. Shown on the registration page and in the confirmation email.
-        </p>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="pay-link">Pay now link (Monzo.me or PayPal.me)</Label>
-        <Input id="pay-link" placeholder="e.g. monzo.me/yourname" value={d.paymentLink} onChange={set("paymentLink")} disabled={loading} data-testid="input-payment-link" />
-        <p className="text-xs text-muted-foreground">
-          {link?.kind === "monzo"
-            ? "Monzo: Pay now opens with the fee and the team's name as the reference."
-            : link?.kind === "paypal"
-              ? "PayPal: Pay now opens with the fee filled in."
-              : link
-                ? "Pay now opens this page as it is (the amount isn't filled in)."
-                : "Optional. With Monzo.me or PayPal.me the fee is filled in automatically."}
         </p>
       </div>
 

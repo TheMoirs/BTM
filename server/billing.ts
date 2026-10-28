@@ -13,6 +13,7 @@ import Stripe from "stripe";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
+import { sendPlanEmail } from "./planEmail";
 import type { User, Tournament } from "@shared/schema";
 import {
   FREE_LIMITS,
@@ -101,10 +102,9 @@ function periodEndOf(sub: Stripe.Subscription): Date | null {
   return ends.length ? new Date(Math.max(...ends) * 1000) : null;
 }
 
-async function saveSubscription(user: User, sub: Stripe.Subscription): Promise<User | undefined> {
+async function saveSubscription(user: User, sub: Stripe.Subscription, siteUrl: string): Promise<User | undefined> {
   const price = sub.items.data[0]?.price;
-  return storage.updateUserBilling(user.id, {
-    ...(statusGivesUnlimited(sub.status) && !user.planChosenAt ? { planChosenAt: new Date() } : {}),
+  const saved = await storage.updateUserBilling(user.id, {
     stripeSubscriptionId: sub.id,
     subscriptionStatus: sub.status,
     planInterval: price?.recurring?.interval ?? null,
@@ -112,6 +112,17 @@ async function saveSubscription(user: User, sub: Stripe.Subscription): Promise<U
     planRenewsAt: periodEndOf(sub),
     planCancelAtPeriodEnd: !!sub.cancel_at_period_end || !!sub.cancel_at,
   });
+  // A new account that chose Unlimited at sign-up: mark the choice and send the welcome email (once)
+  if (statusGivesUnlimited(sub.status) && !user.planChosenAt && (await storage.claimPlanChoice(user.id))) {
+    await sendPlanEmail(user.email, user.displayName, {
+      plan: "unlimited",
+      interval: price?.recurring?.interval === "year" ? "year" : "month",
+      currency: sub.currency ?? null,
+      renewsAt: periodEndOf(sub),
+    }, siteUrl);
+    return storage.getUserById(user.id);
+  }
+  return saved;
 }
 
 async function userForCustomer(customerId: string, fallbackUserId?: string | null): Promise<User | undefined> {
@@ -129,7 +140,7 @@ async function userForCustomer(customerId: string, fallbackUserId?: string | nul
  * A user may (rarely) end up with more than one subscription, e.g. after
  * cancelling and re-subscribing. Use the one that gives access, newest first.
  */
-async function syncFromStripe(stripe: Stripe, user: User): Promise<User | undefined> {
+async function syncFromStripe(stripe: Stripe, user: User, siteUrl: string): Promise<User | undefined> {
   if (!user.stripeCustomerId) return user;
   const subs = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: "all", limit: 10 });
   const sorted = [...subs.data].sort((a, b) => b.created - a.created);
@@ -137,7 +148,7 @@ async function syncFromStripe(stripe: Stripe, user: User): Promise<User | undefi
   if (!best) {
     return storage.updateUserBilling(user.id, { subscriptionStatus: null, stripeSubscriptionId: null, planRenewsAt: null, planCancelAtPeriodEnd: false });
   }
-  return saveSubscription(user, best);
+  return saveSubscription(user, best, siteUrl);
 }
 
 async function getOrCreateCustomer(stripe: Stripe, user: User): Promise<string> {
@@ -213,7 +224,7 @@ export function registerBillingRoutes(app: Express): void {
       const user = await signedInUser(req, res);
       if (!user) return;
       const stripe = getStripe();
-      const updated = stripe ? await syncFromStripe(stripe, user) : user;
+      const updated = stripe ? await syncFromStripe(stripe, user, siteUrl(req)) : user;
       res.json(await statusFor(updated ?? user));
     } catch (error) {
       console.error("[BILLING] Sync failed:", error);
@@ -226,7 +237,9 @@ export function registerBillingRoutes(app: Express): void {
     try {
       const user = await signedInUser(req, res);
       if (!user) return;
-      if (!user.planChosenAt) await storage.updateUserBilling(user.id, { planChosenAt: new Date() });
+      if (!user.planChosenAt && (await storage.claimPlanChoice(user.id))) {
+        await sendPlanEmail(user.email, user.displayName, { plan: "free" }, siteUrl(req));
+      }
       res.json({ ok: true });
     } catch (error) {
       console.error("[BILLING] Choose free failed:", error);
@@ -363,7 +376,7 @@ export function registerBillingRoutes(app: Express): void {
           const s = event.data.object;
           if (s.mode === "subscription" && typeof s.customer === "string") {
             const user = await userForCustomer(s.customer, s.client_reference_id);
-            if (user) await syncFromStripe(stripe, user);
+            if (user) await syncFromStripe(stripe, user, siteUrl(req));
           }
           break;
         }
@@ -376,7 +389,7 @@ export function registerBillingRoutes(app: Express): void {
           const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
           const user = await userForCustomer(customerId, sub.metadata?.btm_user_id);
           // Re-read from Stripe rather than trusting event order
-          if (user) await syncFromStripe(stripe, user);
+          if (user) await syncFromStripe(stripe, user, siteUrl(req));
           break;
         }
         default:

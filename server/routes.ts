@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTeamSchema, insertMatchSchema, updateMatchScoreSchema, insertTournamentSchema, type Team, type Match, type Result, type Tournament } from "@shared/schema";
-import { formatFee, paymentReference, buildPayNowUrl, payeeDetailsProblem, normaliseSortCode, normaliseIban, formatSortCode, formatIban, describePaymentLink } from "@shared/payments";
+import { formatFee, paymentReference, payeeDetailsProblem, normaliseSortCode, normaliseIban, formatSortCode, formatIban } from "@shared/payments";
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
@@ -25,8 +25,6 @@ type FeePayment = {
   minor: number;
   currency: string;
   reference: string;       // e.g. "BATH BOMBERS"
-  payNowUrl: string | null;
-  payNowLabel: string | null;
   bank: { accountName: string | null; sortCode: string | null; accountNumber: string | null; iban: string | null } | null;
 };
 
@@ -34,15 +32,12 @@ async function feePaymentFor(t: { registrationFeeMinor: number | null; registrat
   if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0) return null;
   const owner = t.userId ? await storage.getUserById(t.userId) : undefined;
   const reference = paymentReference(teamName || "TEAM FEE");
-  const link = owner?.paymentLink ? describePaymentLink(owner.paymentLink) : null;
   const hasBank = !!(owner?.payeeSortCode || owner?.payeeIban);
   return {
     amount: formatFee(t.registrationFeeMinor, t.registrationFeeCurrency),
     minor: t.registrationFeeMinor,
     currency: t.registrationFeeCurrency,
     reference,
-    payNowUrl: owner?.paymentLink ? buildPayNowUrl(owner.paymentLink, t.registrationFeeMinor, t.registrationFeeCurrency, reference) : null,
-    payNowLabel: link ? (link.kind === "monzo" ? "Monzo" : link.kind === "paypal" ? "PayPal" : null) : null,
     bank: hasBank && owner
       ? {
           accountName: owner.payeeAccountName,
@@ -68,9 +63,8 @@ export function feeEmailHtml(p: FeePayment): string {
     : "";
   return `<div style="margin:16px 0;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
 <p style="margin:0 0 8px"><strong>Registration fee: ${escapeHtml(p.amount)}</strong></p>
-${p.payNowUrl ? `<p style="margin:0 0 10px"><a href="${p.payNowUrl}" style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">PAY NOW${p.payNowLabel ? ` (${p.payNowLabel})` : ""}</a></p>` : ""}
-${bankRows ? `<p style="margin:0 0 4px">${p.payNowUrl ? "Or pay by bank transfer:" : "Please pay by bank transfer:"}</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
-${!p.payNowUrl && !bankRows ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
+${bankRows ? `<p style="margin:0 0 4px">Please pay by bank transfer:</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
+${!bankRows ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
 </div>`;
 }
 
@@ -451,7 +445,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       sortCode: u.payeeSortCode ? formatSortCode(u.payeeSortCode) : "",
       accountNumber: u.payeeAccountNumber ?? "",
       iban: u.payeeIban ? formatIban(u.payeeIban) : "",
-      paymentLink: u.paymentLink ?? "",
     });
   });
 
@@ -467,17 +460,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortCode: str(req.body?.sortCode, 12),
         accountNumber: str(req.body?.accountNumber, 12),
         iban: str(req.body?.iban, 50),
-        paymentLink: str(req.body?.paymentLink, 300),
+        // Monzo/PayPal "Pay now" links are no longer offered
+        paymentLink: null,
       };
       const problem = payeeDetailsProblem(d);
       if (problem) return res.status(400).json({ error: problem });
-      const link = d.paymentLink ? describePaymentLink(d.paymentLink) : null;
       await storage.updatePayeeDetails(u.id, {
         payeeAccountName: d.accountName,
         payeeSortCode: d.sortCode ? normaliseSortCode(d.sortCode) : null,
         payeeAccountNumber: d.accountNumber ? d.accountNumber.replace(/\s/g, "") : null,
         payeeIban: d.iban ? normaliseIban(d.iban) : null,
-        paymentLink: link ? link.url : null,
+        paymentLink: null,
       });
       console.log(`[AUTH] Payment details updated for: ${u.email}`);
       res.json({ success: true });
