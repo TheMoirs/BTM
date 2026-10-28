@@ -70,9 +70,8 @@
     return m.tournament + (m.division != null ? " – " + divisionLabel(m.division) : "");
   }
   function resultText(m) {
-    var lines = ["Pétanque – " + niceDate(m.date)];
-    if (eventLine(m)) lines.push(eventLine(m));
-    lines.push(m.t1 + " v " + m.t2);
+    // Shared result: date, teams, game scores, winner (no tournament or division)
+    var lines = [niceDate(m.date), m.t1 + " v " + m.t2];
     m.games.forEach(function (g, i) { lines.push("Game " + (i + 1) + ": " + g[0] + "–" + g[1]); });
     var w = gamesWon(m.games);
     if (w[0] > w[1]) lines.push(m.t1 + " win " + w[0] + "–" + w[1]);
