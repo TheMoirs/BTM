@@ -49,7 +49,15 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
-import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2 } from "lucide-react";
+import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2, ClipboardPaste } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  parseMatchResult,
+  findFixtureCandidates,
+  validateParsedGames,
+  type ParsedResult,
+  type FixtureCandidate,
+} from "@/lib/parse-match-result";
 import { usePageMenuItems, type NavMenuItem } from "@/lib/nav-menu";
 import { useToast } from "@/hooks/use-toast";
 import { HelpDialog } from "@/components/help-dialog";
@@ -146,6 +154,16 @@ export default function Matches() {
   const [showFindEditDialog, setShowFindEditDialog] = useState(false);
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
   const [isFindEditMode, setIsFindEditMode] = useState(false);
+  // Paste result: read a result message (e.g. from WhatsApp) and post it to the matching fixture
+  const [showPasteDialog, setShowPasteDialog] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const [pastePreview, setPastePreview] = useState<{
+    parsed: ParsedResult;
+    candidates: FixtureCandidate<Match>[];
+    selectedId: string;
+  } | null>(null);
+  const [isPostingPaste, setIsPostingPaste] = useState(false);
   const { toast } = useToast();
 
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
@@ -818,6 +836,97 @@ export default function Matches() {
     setTeamSearchQuery("");
     setIsEditAllMode(false);
     setAllEditingValues({});
+  };
+
+  // ----- Paste result -----
+
+  const openPasteDialog = async () => {
+    setShowFindEditDialog(false);
+    setPasteText("");
+    setPasteError(null);
+    setPastePreview(null);
+    setShowPasteDialog(true);
+    // Fill from the clipboard if the browser allows it; otherwise the user pastes by hand
+    try {
+      const text = await navigator.clipboard?.readText?.();
+      if (text) setPasteText(text);
+    } catch {
+      // Permission refused or not supported — the empty box is the fallback
+    }
+  };
+
+  const closePasteDialog = () => {
+    setShowPasteDialog(false);
+    setPastePreview(null);
+    setPasteError(null);
+  };
+
+  const handlePostPaste = () => {
+    setPasteError(null);
+    const outcome = parseMatchResult(pasteText);
+    if (!outcome.ok) {
+      setPasteError(outcome.error);
+      return;
+    }
+    const parsed = outcome.result;
+    const gamesError = validateParsedGames(parsed.games, gamesPerMatch);
+    if (gamesError) {
+      setPasteError(gamesError);
+      return;
+    }
+    const candidates = findFixtureCandidates(parsed, matches || [], teams || []);
+    if (candidates.length === 0) {
+      setPasteError(`No fixture found for "${parsed.team1}" v "${parsed.team2}". Check the team names match the Teams page.`);
+      return;
+    }
+    setPastePreview({ parsed, candidates, selectedId: candidates[0].match.id });
+  };
+
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  // Scores in the fixture's own team order (flipped if the message listed teams the other way round)
+  const pasteScoresFor = (candidate: FixtureCandidate<Match>, parsed: ParsedResult) =>
+    parsed.games.map(g => ({
+      game: g.game,
+      team1: candidate.flipped ? g.score2 : g.score1,
+      team2: candidate.flipped ? g.score1 : g.score2,
+    }));
+
+  const confirmPostPaste = () => {
+    if (!pastePreview) return;
+    const candidate = pastePreview.candidates.find(c => c.match.id === pastePreview.selectedId);
+    if (!candidate) return;
+    const match = candidate.match;
+    const scores = pasteScoresFor(candidate, pastePreview.parsed);
+    const score = (game: number, team: "team1" | "team2") => {
+      const s = scores.find(x => x.game === game);
+      return s ? s[team] : null;
+    };
+    setIsPostingPaste(true);
+    updateMutation.mutate(
+      {
+        id: match.id,
+        data: {
+          team1Game1Score: score(1, "team1"),
+          team2Game1Score: score(1, "team2"),
+          team1Game2Score: score(2, "team1"),
+          team2Game2Score: score(2, "team2"),
+          team1Game3Score: score(3, "team1"),
+          team2Game3Score: score(3, "team2"),
+          matchDate: pastePreview.parsed.date || match.matchDate || today(),
+          team1NoShow: false,
+          team2NoShow: false,
+          pisteId: (match as any).pisteId ?? null,
+        },
+      },
+      {
+        onSuccess: () => closePasteDialog(),
+        onSettled: () => setIsPostingPaste(false),
+      },
+    );
   };
 
   // A match counts as changed only if one of its editable fields differs from what's saved
@@ -2212,6 +2321,109 @@ export default function Matches() {
           </div>
         )}
 
+        <Dialog open={showPasteDialog} onOpenChange={(open) => !open && closePasteDialog()}>
+          <DialogContent aria-describedby="paste-result-description">
+            <DialogHeader>
+              <DialogTitle>{pastePreview ? "Confirm result" : "Paste result"}</DialogTitle>
+              <p id="paste-result-description" className="text-sm text-muted-foreground">
+                {pastePreview
+                  ? "Check this is right before it's saved."
+                  : "Paste a result message, e.g. from WhatsApp, then tap Post."}
+              </p>
+            </DialogHeader>
+
+            {!pastePreview ? (
+              <div className="space-y-4">
+                <Textarea
+                  value={pasteText}
+                  onChange={(e) => { setPasteText(e.target.value); setPasteError(null); }}
+                  placeholder={"Wed 28 Oct 2026\nTeam A v Team B\nGame 1: 13 - 8\nGame 2: 13 - 4"}
+                  rows={7}
+                  className="font-mono text-sm"
+                  data-testid="textarea-paste-result"
+                  autoFocus
+                />
+                {pasteError && (
+                  <p className="text-sm text-destructive" data-testid="text-paste-error">{pasteError}</p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={closePasteDialog} data-testid="button-cancel-paste">
+                    Cancel
+                  </Button>
+                  <Button onClick={handlePostPaste} disabled={!pasteText.trim()} data-testid="button-post-paste">
+                    Post
+                  </Button>
+                </div>
+              </div>
+            ) : (() => {
+              const { parsed, candidates, selectedId } = pastePreview;
+              const candidate = candidates.find(c => c.match.id === selectedId) ?? candidates[0];
+              const match = candidate.match;
+              const scores = pasteScoresFor(candidate, parsed);
+              const t1Wins = scores.filter(s => s.team1 > s.team2).length;
+              const t2Wins = scores.filter(s => s.team2 > s.team1).length;
+              const name1 = getTeamName(match.team1Id);
+              const name2 = getTeamName(match.team2Id);
+              const date = parsed.date || match.matchDate || today();
+              const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
+                weekday: "short", day: "numeric", month: "short", year: "numeric",
+              });
+              const hasExistingScore = match.team1Game1Score !== null;
+              return (
+                <div className="space-y-4">
+                  {candidates.length > 1 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">More than one fixture fits — pick one:</p>
+                      {candidates.map(c => (
+                        <label key={c.match.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            name="paste-fixture"
+                            checked={c.match.id === selectedId}
+                            onChange={() => setPastePreview({ ...pastePreview, selectedId: c.match.id })}
+                          />
+                          {getTeamName(c.match.team1Id)} v {getTeamName(c.match.team2Id)}
+                          {(c.match as any).division ? ` · ${(c.match as any).division}` : ""}
+                          {c.match.matchDate ? ` · ${c.match.matchDate}` : ""}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="rounded-md border p-3 space-y-2" data-testid="paste-preview">
+                    <p className="text-sm text-muted-foreground">
+                      {dateLabel}
+                      {!parsed.date && " (no date in message)"}
+                    </p>
+                    <p className="font-medium">{name1} v {name2}</p>
+                    {scores.map(s => (
+                      <p key={s.game} className="font-mono text-sm">
+                        Game {s.game}: {s.team1} – {s.team2}
+                      </p>
+                    ))}
+                    <p className="text-sm font-medium">
+                      {t1Wins === t2Wins
+                        ? `Each win ${t1Wins === 1 ? "one game" : `${t1Wins} games`}`
+                        : `${t1Wins > t2Wins ? name1 : name2} win ${Math.max(t1Wins, t2Wins)}–${Math.min(t1Wins, t2Wins)}`}
+                    </p>
+                  </div>
+                  {hasExistingScore && (
+                    <p className="text-sm text-destructive">This match already has a score — it will be replaced.</p>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setPastePreview(null)} disabled={isPostingPaste} data-testid="button-back-paste">
+                      Back
+                    </Button>
+                    <Button onClick={confirmPostPaste} disabled={isPostingPaste} data-testid="button-confirm-paste">
+                      {isPostingPaste && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Confirm
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={showFindEditDialog} onOpenChange={setShowFindEditDialog}>
           <DialogContent aria-describedby="find-edit-description">
             <DialogHeader>
@@ -2239,6 +2451,15 @@ export default function Matches() {
                 </p>
               </div>
               <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={openPasteDialog}
+                  className="mr-auto"
+                  data-testid="button-paste-result"
+                >
+                  <ClipboardPaste className="h-4 w-4 mr-2" />
+                  Paste result
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => setShowFindEditDialog(false)}
