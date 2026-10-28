@@ -320,7 +320,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
             {platform === "android" && isApp && !installReady && (
               <ol className="list-decimal pl-5 space-y-1">
                 <li>Tap the browser's <strong>⋮</strong> menu (top right).</li>
-                <li>Tap <strong>Add to Home screen</strong> (or <strong>Install app</strong>).</li>
+                <li>Tap <strong>Install and create shortcut</strong> (older Chrome: <strong>Add to Home screen</strong> or <strong>Install app</strong>).</li>
                 <li>Tap <strong>Install</strong> to confirm.</li>
               </ol>
             )}
@@ -347,7 +347,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
             {platform === "android" && !isApp && (
               <ol className="list-decimal pl-5 space-y-1">
                 <li>Tap the browser's <strong>⋮</strong> menu (top right).</li>
-                <li>Tap <strong>Add to Home screen</strong>.</li>
+                <li>Tap <strong>Install and create shortcut</strong> (older Chrome: <strong>Add to Home screen</strong>).</li>
                 <li>If it asks <strong>Install</strong> or <strong>Create shortcut</strong>, choose <strong>Create shortcut</strong>.</li>
                 <li>Check the name, then tap <strong>Add</strong>.</li>
               </ol>
