@@ -120,6 +120,7 @@ async function ensureTournamentSlugs() {
   try {
     await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS slug TEXT`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS tournaments_slug_unique ON tournaments (slug)`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS previous_slugs TEXT[] NOT NULL DEFAULT '{}'`);
   } finally {
     client.release();
   }

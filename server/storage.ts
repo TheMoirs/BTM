@@ -132,22 +132,35 @@ export class DatabaseStorage implements IStorage {
     return tournament;
   }
 
-  /** A slug made from the name that no other tournament is using (adds -2, -3... if needed). */
+  /**
+   * A slug made from the name that no other tournament is using now or used before a
+   * rename (adds -2, -3... if needed), so old links never point at the wrong tournament.
+   */
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
     const base = slugify(name);
     for (let n = 1; ; n++) {
       const candidate = n === 1 ? base : `${base}-${n}`;
+      const taken = or(eq(tournaments.slug, candidate), sql`${candidate} = ANY(${tournaments.previousSlugs})`);
       const clash = await db
         .select({ id: tournaments.id })
         .from(tournaments)
-        .where(excludeId ? and(eq(tournaments.slug, candidate), ne(tournaments.id, excludeId)) : eq(tournaments.slug, candidate));
+        .where(excludeId ? and(taken, ne(tournaments.id, excludeId)) : taken);
       if (clash.length === 0) return candidate;
     }
   }
 
+  /** Finds a tournament by its current slug, or by one it had before being renamed. */
   async getTournamentBySlug(slug: string): Promise<Tournament | undefined> {
-    const [t] = await db.select().from(tournaments).where(eq(tournaments.slug, slug.toLowerCase()));
-    return t || undefined;
+    const s = slug.toLowerCase();
+    const [current] = await db.select().from(tournaments).where(eq(tournaments.slug, s));
+    if (current) return current;
+    const [renamed] = await db
+      .select()
+      .from(tournaments)
+      .where(sql`${s} = ANY(${tournaments.previousSlugs})`)
+      .orderBy(desc(tournaments.createdAt))
+      .limit(1);
+    return renamed || undefined;
   }
 
   /** Give a slug to any tournament that doesn't have one yet (oldest first, so they get the plain name). */
@@ -165,15 +178,20 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Renaming the tournament changes its public address to match the new name
+    // Renaming the tournament changes its public address to match the new name.
+    // The old address is kept so existing links, shortcuts and QR codes still work.
     const slug =
       existingTournament.name !== insertTournament.name || !existingTournament.slug
         ? await this.uniqueSlug(insertTournament.name, id)
         : existingTournament.slug;
+    const previous = existingTournament.previousSlugs ?? [];
+    const previousSlugs = Array.from(
+      new Set(existingTournament.slug && existingTournament.slug !== slug ? [...previous, existingTournament.slug] : previous),
+    ).filter(s => s !== slug);
 
     const [updatedTournament] = await db
       .update(tournaments)
-      .set({ ...insertTournament, slug })
+      .set({ ...insertTournament, slug, previousSlugs })
       .where(eq(tournaments.id, id))
       .returning();
     return updatedTournament || undefined;

@@ -89,6 +89,12 @@ export function serveStatic(app: Express) {
     try {
       const tournament = await storage.getTournamentBySlug(String(req.params.slug));
       if (!tournament) return next();
+      // An address from before a rename: send people on to the current one
+      if (tournament.slug && tournament.slug !== String(req.params.slug).toLowerCase()) {
+        const section = req.path.split("/")[1];
+        const query = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+        return res.redirect(302, `/${section}/${encodeURIComponent(tournament.slug)}${query}`);
+      }
       const name = escapeHtml(
         req.path.startsWith("/register/")
           ? `Register for ${tournament.name}`

@@ -67,6 +67,8 @@ export const tournaments = pgTable("tournaments", {
   rulesPdfName: text("rules_pdf_name"),   // original filename
   // Readable public address, made from the name: /teams/<slug> and /leaderboard/<slug>
   slug: text("slug"),
+  // Addresses this tournament used before a rename; old links redirect to the current slug
+  previousSlugs: text("previous_slugs").array().notNull().default(sql`'{}'::text[]`),
   // Optional "register by" date (YYYY-MM-DD), shown on the team registration page
   registrationDeadline: text("registration_deadline"),
   // Optional team registration fee, in pence/cents, and its currency
@@ -76,7 +78,7 @@ export const tournaments = pgTable("tournaments", {
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true, slug: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true, slug: true, previousSlugs: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),

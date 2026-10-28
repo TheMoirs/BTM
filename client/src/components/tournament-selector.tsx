@@ -1099,6 +1099,9 @@ export function TournamentSelector() {
                     <FormControl>
                       <Input {...field} placeholder="Summer Tournament 2024" data-testid="input-edit-tournament-name" />
                     </FormControl>
+                    {editingTournament && field.value?.trim() !== editingTournament.name && (
+                      <FormDescription>Existing links and shortcuts will keep working.</FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
