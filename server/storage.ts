@@ -86,7 +86,9 @@ export interface IStorage {
   setUserBlocked(id: string, isBlocked: boolean): Promise<User | undefined>;
   updateUserPassword(id: string, newPasswordHash: string): Promise<User | undefined>;
   updateUserProfile(id: string, displayName: string | null): Promise<User | undefined>;
-  setTeamFeePaid(id: string, paid: boolean): Promise<Team | undefined>;
+  setTeamFeePaid(id: string, paid: boolean, method?: "card" | "manual"): Promise<Team | undefined>;
+  getUserByConnectAccountId(accountId: string): Promise<User | undefined>;
+  updateUserConnect(id: string, fields: Partial<Pick<User, "stripeConnectAccountId" | "stripeConnectReady">>): Promise<User | undefined>;
   updatePayeeDetails(id: string, d: { payeeAccountName: string | null; payeeSortCode: string | null; payeeAccountNumber: string | null; payeeIban: string | null; paymentLink: string | null }): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
@@ -1057,6 +1059,16 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByConnectAccountId(accountId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeConnectAccountId, accountId));
+    return user || undefined;
+  }
+
+  async updateUserConnect(id: string, fields: Partial<Pick<User, "stripeConnectAccountId" | "stripeConnectReady">>): Promise<User | undefined> {
+    const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
+    return user || undefined;
+  }
+
   async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
     return user || undefined;
@@ -1136,8 +1148,8 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async setTeamFeePaid(id: string, paid: boolean): Promise<Team | undefined> {
-    const [team] = await db.update(teams).set({ feePaid: paid }).where(eq(teams.id, id)).returning();
+  async setTeamFeePaid(id: string, paid: boolean, method: "card" | "manual" = "manual"): Promise<Team | undefined> {
+    const [team] = await db.update(teams).set({ feePaid: paid, feePaidMethod: paid ? method : null }).where(eq(teams.id, id)).returning();
     return team || undefined;
   }
 

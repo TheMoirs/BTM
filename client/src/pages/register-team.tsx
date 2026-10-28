@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, ArrowRight, CreditCard } from "lucide-react";
 import { publicRegistrationSchema, REGISTRATION_CONTACT } from "@shared/registration";
 import { FeePaymentPanel, type FeePayment } from "@/components/fee-payment-panel";
 
@@ -78,7 +78,14 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
   const [tournamentName, setTournamentName] = useState<string | null>(null);
   const [registerBy, setRegisterBy] = useState<string | null>(null);
   const [registrationFee, setRegistrationFee] = useState<string | null>(null);
-  const [state, setState] = useState<"loading" | "missing" | "form" | "conflict" | "done">("loading");
+  const [cardPayments, setCardPayments] = useState(false);
+  // Back from Stripe Checkout (?paid=<code>&session_id=…) or from cancelling it (?pay=cancelled&code=…)
+  const [payReturn] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    return { paidCode: q.get("paid"), sessionId: q.get("session_id"), pay: q.get("pay"), code: q.get("code") };
+  });
+  const [paidTeam, setPaidTeam] = useState<{ teamName: string; paid: boolean } | null>(null);
+  const [state, setState] = useState<"loading" | "missing" | "form" | "conflict" | "done" | "paid">("loading");
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [honeypot, setHoneypot] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +107,20 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         setTournamentName(data.name);
         setRegisterBy(formatRegisterBy(data.registrationDeadline));
         setRegistrationFee(data.registrationFee ?? null);
+        setCardPayments(!!data.cardPayments);
+
+        if (payReturn.paidCode) {
+          // Stripe normally confirms within a second or two; check a few times
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const pr = await fetch(`/api/public/pay/${encodeURIComponent(payReturn.paidCode)}/status${payReturn.sessionId ? `?session_id=${encodeURIComponent(payReturn.sessionId)}` : ""}`);
+            const ps = pr.ok ? await pr.json() : null;
+            if (ps) setPaidTeam(ps);
+            if (!ps || ps.paid) break;
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+          setState("paid");
+          return;
+        }
         document.title = `${editCode ? "Update registration" : "Register"} for ${data.name}`;
 
         if (editCode) {
@@ -123,7 +144,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         setState("missing");
       }
     })();
-  }, [slug, editCode]);
+  }, [slug, editCode, payReturn]);
 
   const isEditing = !!editCode && !editLinkError;
 
@@ -188,6 +209,29 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               There's no tournament at this address. It may have been renamed, so please ask the organiser for the latest link.
             </CardDescription>
           </CardHeader>
+        </Card>
+      </Shell>
+    );
+  }
+
+  if (state === "paid") {
+    return (
+      <Shell>
+        <Card>
+          <CardHeader>
+            <div className={`flex items-center gap-2 ${paidTeam?.paid ? "text-green-600 dark:text-green-500" : ""}`}>
+              {paidTeam?.paid ? <CheckCircle2 className="h-6 w-6" /> : <Loader2 className="h-6 w-6" />}
+              <CardTitle>{paidTeam?.paid ? "Payment received" : "Payment being confirmed"}</CardTitle>
+            </div>
+            <CardDescription className="text-base pt-2" data-testid="text-paid">
+              {paidTeam?.paid
+                ? <>Thank you. The registration fee for <strong className="text-foreground">{paidTeam.teamName}</strong> in <strong className="text-foreground">{tournamentName}</strong> has been paid. Stripe will email your receipt.</>
+                : <>Thank you. Stripe is still confirming your payment for <strong className="text-foreground">{tournamentName}</strong>. You'll get a receipt by email once it's done; there's no need to pay again.</>}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ContactDetails />
+          </CardContent>
         </Card>
       </Shell>
     );
@@ -317,10 +361,31 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               Please register by {registerBy}.
             </p>
           )}
-          {registrationFee && !isEditing && (
+          {!isEditing && (
             <p className="pt-1 text-base" data-testid="text-registration-fee">
-              Registration fee: <strong>{registrationFee}</strong> per team. You can pay straight after registering.
+              {registrationFee ? (
+                <>
+                  Registration fee: <strong>{registrationFee}</strong> per team.{" "}
+                  {cardPayments ? "You can pay by card straight after registering." : "You can pay straight after registering."}
+                </>
+              ) : (
+                <>There is <strong>no registration fee</strong> for this tournament.</>
+              )}
             </p>
+          )}
+          {payReturn.pay === "cancelled" && payReturn.code && (
+            <div className="mt-3 rounded-md bg-muted p-3 text-sm space-y-2" data-testid="text-pay-cancelled">
+              <p>Your card payment wasn't completed, and nothing was taken. Your team is still registered.</p>
+              <Button asChild size="sm">
+                <a href={`/api/public/pay/${encodeURIComponent(payReturn.code)}`}>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Try paying by card again
+                </a>
+              </Button>
+            </div>
+          )}
+          {payReturn.pay === "unavailable" && (
+            <p className="mt-3 rounded-md bg-muted p-3 text-sm">Card payment isn't available for this tournament at the moment. Please use the bank details in your confirmation email, or contact the organiser.</p>
           )}
         </CardHeader>
         <CardContent>

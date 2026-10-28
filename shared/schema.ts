@@ -31,6 +31,9 @@ export const users = pgTable("users", {
   planCancelAtPeriodEnd: boolean("plan_cancel_at_period_end").notNull().default(false),
   // When the user picked a plan at sign-up. Empty = still needs to choose.
   planChosenAt: timestamp("plan_chosen_at"),
+  // ── Card payments for team fees (Stripe Connect): the organiser's own Stripe account ──
+  stripeConnectAccountId: text("stripe_connect_account_id"),
+  stripeConnectReady: boolean("stripe_connect_ready").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -116,11 +119,13 @@ export const teams = pgTable("teams", {
   otherPlayers: text("other_players").array(),
   // Registration fee received (ticked by the organiser)
   feePaid: boolean("fee_paid").notNull().default(false),
+  // How it was paid: "card" (Stripe, marked automatically) or "manual" (ticked by the organiser)
+  feePaidMethod: text("fee_paid_method"),
 }, (table) => ({
   uniqueTeamPerTournament: unique().on(table.tournamentId, table.name),
 }));
 
-export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, feePaid: true }).extend({
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, feePaid: true, feePaidMethod: true }).extend({
   tournamentId: z.string().min(1, "Tournament is required"),
   teamDisplayId: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   name: z.string().min(1, "Team name is required"),

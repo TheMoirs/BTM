@@ -66,6 +66,14 @@ Prices are found by lookup key (`btm_unlimited_monthly`, `btm_unlimited_yearly`)
 
 Without `STRIPE_SECRET_KEY` the app still works: everyone stays on the free plan and the Upgrade button is hidden.
 
+### Card payments for team fees (Stripe Connect)
+Captains pay the registration fee by card, straight into the organiser's own Stripe account (BTM takes nothing).
+1. Stripe Dashboard → **Connect** → Get started, and set up your platform (choose a software platform where your users' customers pay them directly).
+2. Add a second webhook destination with scope **Connected accounts**, payload **Snapshot**, URL `https://<your site>/api/stripe/connect-webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `account.updated`.
+3. Put its signing secret in Render as `STRIPE_CONNECT_WEBHOOK_SECRET`.
+
+Organisers turn it on from Profile Settings → **Set up card payments**.
+
 ## Step 4: Deploy
 
 1. Render will automatically deploy when you push to your repository

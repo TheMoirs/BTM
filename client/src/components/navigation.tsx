@@ -48,6 +48,24 @@ export function Navigation() {
   const [installBox, setInstallBox] = useState<null | "app" | "teams" | "leaderboard" | "scoreflip">(null);
   const closeInstallBox = (open: boolean) => { if (!open) setInstallBox(null); };
   const [showDemo, setShowDemo] = useState(false);
+
+  // Back from Stripe's sign-up for card payments (?connect=return): say how it went
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("connect") !== "return") return;
+    q.delete("connect");
+    window.history.replaceState(null, "", window.location.pathname + (q.toString() ? `?${q}` : ""));
+    fetch("/api/connect/status", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((st) => {
+        if (st?.ready) {
+          toast({ title: "Card payments are on", description: "Captains can now pay the registration fee by card, straight into your Stripe account." });
+        } else {
+          toast({ title: "Stripe sign-up not finished yet", description: "Open Profile Settings and choose Finish Stripe sign-up when you're ready." });
+        }
+      })
+      .catch(() => {});
+  }, [toast]);
   const demoAvailable = useDemoAvailable();
 
   // Profile/settings dialog state

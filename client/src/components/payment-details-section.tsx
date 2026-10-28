@@ -4,6 +4,68 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { payeeDetailsProblem } from "@shared/payments";
+import { CheckCircle2, CreditCard, ExternalLink, Loader2 } from "lucide-react";
+
+type ConnectStatus = { available: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean };
+
+/** Card payments: the organiser connects their own Stripe account, and captains' fees go straight to it */
+function StripeConnectBlock() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<ConnectStatus | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/connect/status", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+
+  if (!status?.available) return null;
+
+  const open = async () => {
+    setOpening(true);
+    try {
+      const res = await fetch("/api/connect/onboard", { method: "POST", credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || "Please try again.");
+      window.location.href = data.url;
+    } catch (e) {
+      toast({ title: "Couldn't open Stripe", description: e instanceof Error ? e.message : "Please try again.", variant: "destructive" });
+      setOpening(false);
+    }
+  };
+
+  return (
+    <div className="rounded-md border p-3 space-y-2" data-testid="block-stripe-connect">
+      <p className="text-sm font-medium flex items-center gap-1.5">
+        <CreditCard className="h-4 w-4" /> Card payments with Stripe
+      </p>
+      {status.ready ? (
+        <>
+          <p className="text-sm flex items-center gap-1.5 text-green-700 dark:text-green-500" data-testid="text-stripe-connected">
+            <CheckCircle2 className="h-4 w-4" /> Connected. Captains can pay the fee by card, and teams are ticked as paid automatically.
+          </p>
+          <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary inline-flex items-center gap-1 underline-offset-4 hover:underline">
+            Payments and payouts are in your Stripe Dashboard <ExternalLink className="h-3 w-3" />
+          </a>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground">
+            {status.connected
+              ? "Your Stripe account isn't ready to take payments yet. Finish Stripe's sign-up to turn on card payments."
+              : "Let captains pay the registration fee by card. Fees go straight into your own Stripe account (Stripe charges a small fee per payment; PTM takes nothing). Sign-up takes about 5 minutes."}
+          </p>
+          <Button type="button" size="sm" onClick={open} disabled={opening} data-testid="button-connect-stripe">
+            {opening && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {status.connected ? "Finish Stripe sign-up" : "Set up card payments"}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
 
 type Details = { accountName: string; sortCode: string; accountNumber: string; iban: string };
 const empty: Details = { accountName: "", sortCode: "", accountNumber: "", iban: "" };
@@ -81,6 +143,9 @@ export function PaymentDetailsSection() {
           Where teams pay the registration fee for your tournaments. Shown on the registration page and in the confirmation email.
         </p>
       </div>
+
+      <StripeConnectBlock />
+      <p className="text-xs font-medium text-muted-foreground pt-1">Bank transfer</p>
 
       <div className="space-y-1">
         <Label htmlFor="pay-name">Name on the account</Label>
