@@ -27,7 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AdminBackupCard } from "@/components/admin-backup-card";
-import { ShieldAlert, ShieldCheck, Trash2, Users, ArrowLeft, KeyRound } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Trash2, Users, ArrowLeft, KeyRound, Receipt } from "lucide-react";
+import { AdminUserBillingDialog, PlanBadge } from "@/components/admin-user-billing-dialog";
 
 interface UserRow {
   id: string;
@@ -37,6 +38,10 @@ interface UserRow {
   isBlocked: boolean;
   createdAt: string;
   tournamentCount: number;
+  subscriptionStatus: string | null;
+  planInterval: string | null;
+  planCancelAtPeriodEnd: boolean;
+  planChosenAt: string | null;
 }
 
 export default function AdminUsers() {
@@ -45,6 +50,7 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [billingTarget, setBillingTarget] = useState<UserRow | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -193,6 +199,7 @@ export default function AdminUsers() {
                       {u.isSystemAdmin && (
                         <Badge variant="default" className="text-xs shrink-0">System Admin</Badge>
                       )}
+                      <PlanBadge u={u} />
                       {u.isBlocked && (
                         <Badge variant="destructive" className="text-xs shrink-0">Blocked</Badge>
                       )}
@@ -205,6 +212,15 @@ export default function AdminUsers() {
                   {/* Actions */}
                   {!u.isSystemAdmin && u.id !== user?.id && (
                     <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBillingTarget(u)}
+                        data-testid={`button-billing-user-${u.id}`}
+                      >
+                        <Receipt className="h-3.5 w-3.5 mr-1.5" />
+                        Plan &amp; payments
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -254,6 +270,8 @@ export default function AdminUsers() {
       </Card>
 
       <AdminBackupCard />
+
+      <AdminUserBillingDialog user={billingTarget} onClose={() => setBillingTarget(null)} />
 
       {/* Reset password dialog */}
       <Dialog open={!!resetTarget} onOpenChange={open => { if (!open) { setResetTarget(null); setNewPassword(""); setConfirmPassword(""); } }}>

@@ -200,6 +200,15 @@ async function ensureBillingColumns() {
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_renews_at TIMESTAMP`);
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_cancel_at_period_end BOOLEAN NOT NULL DEFAULT false`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_stripe_customer_unique ON users (stripe_customer_id)`);
+    // Accounts that existed before the "choose a plan" step count as having chosen,
+    // so only new sign-ups see it. Done once, when the column is first added.
+    const { rows } = await client.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'plan_chosen_at'`,
+    );
+    if (rows.length === 0) {
+      await client.query(`ALTER TABLE users ADD COLUMN plan_chosen_at TIMESTAMP DEFAULT now()`);
+      await client.query(`ALTER TABLE users ALTER COLUMN plan_chosen_at DROP DEFAULT`);
+    }
     log("Database initialized: users billing columns ensured");
   } finally {
     client.release();

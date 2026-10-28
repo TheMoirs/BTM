@@ -188,8 +188,13 @@ async function sendRegistrationEmails(
 }
 
 // What the browser is told about the signed-in user
-function publicUser(u: { id: string; email: string; displayName: string | null; isSystemAdmin: boolean; passwordHash: string }) {
-  return { id: u.id, email: u.email, displayName: u.displayName, isSystemAdmin: u.isSystemAdmin, hasPassword: hasUsablePassword(u.passwordHash) };
+function publicUser(u: { id: string; email: string; displayName: string | null; isSystemAdmin: boolean; passwordHash: string; planChosenAt?: Date | null }) {
+  const isAdmin = u.isSystemAdmin || u.email === SYSTEM_ADMIN_EMAIL;
+  return {
+    id: u.id, email: u.email, displayName: u.displayName, isSystemAdmin: u.isSystemAdmin, hasPassword: hasUsablePassword(u.passwordHash),
+    // New accounts are asked to choose Free or Unlimited before using the app
+    needsPlanChoice: !isAdmin && !u.planChosenAt,
+  };
 }
 
 // Public address of this site, used in links BTM hands out (share links, reset emails).
