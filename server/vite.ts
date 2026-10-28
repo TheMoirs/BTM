@@ -83,14 +83,17 @@ export function serveStatic(app: Express) {
   const indexHtml = fs.readFileSync(indexPath, "utf-8");
 
   // Public Teams / Leaderboard links: send the page already titled with the tournament
-  // (e.g. "Summer League-Leaderboard"). Android Chrome names a home-screen shortcut from
+  // (e.g. "Summer League-Leaderboard", "Register for Summer League"). Android Chrome names a home-screen shortcut from
   // the title the page arrived with, before the app's own code renames it.
-  app.get(["/leaderboard/:slug", "/teams/:slug"], async (req, res, next) => {
+  app.get(["/leaderboard/:slug", "/teams/:slug", "/register/:slug"], async (req, res, next) => {
     try {
       const tournament = await storage.getTournamentBySlug(String(req.params.slug));
       if (!tournament) return next();
-      const page = req.path.startsWith("/leaderboard/") ? "Leaderboard" : "Teams";
-      const name = escapeHtml(`${tournament.name}-${page}`);
+      const name = escapeHtml(
+        req.path.startsWith("/register/")
+          ? `Register for ${tournament.name}`
+          : `${tournament.name}-${req.path.startsWith("/leaderboard/") ? "Leaderboard" : "Teams"}`,
+      );
       const html = indexHtml.replace(
         /<title>[^<]*<\/title>/,
         `<title>${name}</title>\n    <meta name="application-name" content="${name}" />`,
