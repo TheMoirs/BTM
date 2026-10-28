@@ -39,7 +39,17 @@ function toIsoDate(day: number, month: number, year: number): string | null {
   return `${year}-${pad(month)}-${pad(day)}`;
 }
 
-function parseDate(line: string): string | null {
+// A date with no year: this year, or last year if that date hasn't happened yet
+// (so a late-December result pasted in January lands in the right year).
+function inferYear(day: number, month: number, now: Date): string | null {
+  const year = now.getFullYear();
+  const thisYear = toIsoDate(day, month, year);
+  if (!thisYear) return toIsoDate(day, month, year - 1); // e.g. 29 Feb
+  const today = toIsoDate(now.getDate(), now.getMonth() + 1, year)!;
+  return thisYear > today ? toIsoDate(day, month, year - 1) : thisYear;
+}
+
+function parseDate(line: string, now: Date): string | null {
   // "28 Oct 2026", "28th October 2026", "28 Oct, 2026"
   const named = line.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,})\.?,?\s+(\d{4})/i);
   if (named) {
@@ -58,13 +68,31 @@ function parseDate(line: string): string | null {
   // "2026-10-28"
   const iso = line.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
   if (iso) return toIsoDate(+iso[3], +iso[2], +iso[1]);
+  // No year. Only when the line is just the date, so scores like "13-8" aren't mistaken for one.
+  // "28/10", "Wed 28/10", "28.10"
+  const short = line.match(/^(?:[a-z']{2,}\.?,?\s+)?(\d{1,2})[\/.](\d{1,2})$/i);
+  if (short) return inferYear(+short[1], +short[2], now);
+  // "28 Oct", "Wed 28th October"
+  const shortNamed = line.match(/^(?:[a-z']{2,}\.?,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,})\.?$/i);
+  if (shortNamed) {
+    const month = MONTHS[shortNamed[2].slice(0, 3).toLowerCase()];
+    if (month) return inferYear(+shortNamed[1], month, now);
+  }
   return null;
 }
 
 const GAME_RE = /^(?:game|g)\s*(\d)\s*[:.)\-]?\s*(\d{1,2})\s*-\s*(\d{1,2})\s*$/i;
 const VS_RE = /^(.+?)\s+(?:v|vs|versus)\.?\s+(.+)$/i;
+// A line of nothing but scores: "13-8 & 13-7", "13-8, 13-7", "13-8 and 13-7", "13-8"
+const SCORE_RE = /(\d{1,2})\s*-\s*(\d{1,2})/g;
+function scoresOnlyLine(line: string): Array<[number, number]> | null {
+  const rest = line.replace(SCORE_RE, " ").replace(/&|,|;|\/|\band\b|\+/gi, " ").trim();
+  if (rest !== "") return null;
+  const found = Array.from(line.matchAll(SCORE_RE), m => [+m[1], +m[2]] as [number, number]);
+  return found.length > 0 ? found : null;
+}
 
-export function parseMatchResult(text: string): ParseOutcome {
+export function parseMatchResult(text: string, now: Date = new Date()): ParseOutcome {
   const lines = text
     // Phones use en dash, em dash, minus sign, etc. in place of a hyphen
     .replace(/[‐-―−﹘﹣－]/g, "-")
@@ -78,6 +106,7 @@ export function parseMatchResult(text: string): ParseOutcome {
   let date: string | null = null;
   let teams: { team1: string; team2: string } | null = null;
   const games: ParsedGame[] = [];
+  const looseScores: Array<Array<[number, number]>> = []; // score lines without "Game N:"
 
   for (const line of lines) {
     const game = line.match(GAME_RE);
@@ -89,8 +118,10 @@ export function parseMatchResult(text: string): ParseOutcome {
       games.push({ game: num, score1: +game[2], score2: +game[3] });
       continue;
     }
+    const loose = scoresOnlyLine(line);
+    if (loose) { looseScores.push(loose); continue; }
     if (!date) {
-      const d = parseDate(line);
+      const d = parseDate(line, now);
       if (d) { date = d; continue; }
     }
     if (!teams) {
@@ -106,6 +137,20 @@ export function parseMatchResult(text: string): ParseOutcome {
   if (!teams) {
     return { ok: false, error: 'Couldn\'t find the teams. Expected a line like "Team A v Team B".' };
   }
+  // No "Game 1:" lines: take the scores in order, from one line ("13-8 & 13-7") or one per line
+  if (games.length === 0 && looseScores.length > 0) {
+    const flat = looseScores.flat();
+    // A trailing lone score that's just the games-won tally ("2-0") is a summary, not a game
+    if (flat.length >= 2 && looseScores[looseScores.length - 1].length === 1) {
+      const [a, b] = flat[flat.length - 1];
+      const before = flat.slice(0, -1);
+      const w1 = before.filter(([x, y]) => x > y).length;
+      const w2 = before.filter(([x, y]) => y > x).length;
+      if ((a === w1 && b === w2) || (a === w2 && b === w1)) flat.pop();
+    }
+    flat.forEach(([score1, score2], i) => games.push({ game: i + 1, score1, score2 }));
+  }
+
   if (games.length === 0) {
     return { ok: false, error: 'Couldn\'t find any scores. Expected lines like "Game 1: 13 - 8".' };
   }

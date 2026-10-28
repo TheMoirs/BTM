@@ -45,6 +45,44 @@ describe("parseMatchResult", () => {
     expect(out.ok && out.result.team2).toBe("B Team");
   });
 
+  it("reads scores on one line and a date with no year", () => {
+    const out = parseMatchResult(
+      "Hi,\n28/10\nMiles Away v Shamblers\n13-8 & 13-7\n2-0 win Miles Away",
+      new Date(2026, 9, 28, 20, 0),
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-10-28",
+        team1: "Miles Away",
+        team2: "Shamblers",
+        games: [
+          { game: 1, score1: 13, score2: 8 },
+          { game: 2, score1: 13, score2: 7 },
+        ],
+      },
+    });
+  });
+
+  it("uses last year for a yearless date still to come", () => {
+    const out = parseMatchResult("28/12\nA v B\n13-1", new Date(2027, 0, 3));
+    expect(out.ok && out.result.date).toBe("2026-12-28");
+  });
+
+  it("reads one score per line and drops a games-won summary", () => {
+    const out = parseMatchResult("A v B\n13-8\n5-13\n13-2\n2-1", new Date(2026, 9, 28));
+    expect(out.ok && out.result.games).toEqual([
+      { game: 1, score1: 13, score2: 8 },
+      { game: 2, score1: 5, score2: 13 },
+      { game: 3, score1: 13, score2: 2 },
+    ]);
+  });
+
+  it("accepts commas and 'and' between scores", () => {
+    const out = parseMatchResult("A v B\n13-8, 4-13 and 13-11");
+    expect(out.ok && out.result.games.length).toBe(3);
+  });
+
   it("allows a missing date", () => {
     const out = parseMatchResult("A v B\nGame 1: 13-2");
     expect(out.ok && out.result.date).toBeNull();
