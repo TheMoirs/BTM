@@ -123,7 +123,9 @@ export function registerConnectRoutes(app: Express): void {
       res.json({ url: await onboardingLink(stripe, accountId, siteUrl(req)) });
     } catch (error) {
       console.error("[CONNECT] Onboarding failed:", error);
-      res.status(500).json({ error: "Couldn't open Stripe's sign-up. Please try again." });
+      // Pass on Stripe's own reason (e.g. a platform setting that still needs doing)
+      const stripeMessage = (error as any)?.type?.startsWith?.("Stripe") ? String((error as any).message || "") : "";
+      res.status(500).json({ error: stripeMessage ? `Stripe said: ${stripeMessage}` : "Couldn't open Stripe's sign-up. Please try again." });
     }
   });
 
