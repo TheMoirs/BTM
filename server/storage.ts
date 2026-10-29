@@ -1,3 +1,4 @@
+import { appSettings } from "@shared/schema";
 import { NO_SHOW_WINNING_SCORE, NO_SHOW_LOSING_SCORE, type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
 import { eq, or, and, desc, ne, isNull, sql } from "drizzle-orm";
@@ -74,7 +75,7 @@ export interface IStorage {
   // User methods
   getUserById(id: string): Promise<User | undefined>;
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
-  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt">>): Promise<User | undefined>;
+  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt" | "billingMode">>): Promise<User | undefined>;
   countTeams(tournamentId: string): Promise<number>;
   claimPlanChoice(id: string): Promise<boolean>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -88,7 +89,9 @@ export interface IStorage {
   updateUserProfile(id: string, displayName: string | null): Promise<User | undefined>;
   setTeamFeePaid(id: string, paid: boolean, method?: "card" | "manual"): Promise<Team | undefined>;
   getUserByConnectAccountId(accountId: string): Promise<User | undefined>;
-  updateUserConnect(id: string, fields: Partial<Pick<User, "stripeConnectAccountId" | "stripeConnectReady">>): Promise<User | undefined>;
+  updateUserConnect(id: string, fields: Partial<Pick<User, "stripeConnectAccountId" | "stripeConnectReady" | "stripeConnectLiveAccountId" | "stripeConnectLiveReady">>): Promise<User | undefined>;
+  getSetting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string): Promise<void>;
   updatePayeeDetails(id: string, d: { payeeAccountName: string | null; payeeSortCode: string | null; payeeAccountNumber: string | null; payeeIban: string | null; paymentLink: string | null }): Promise<User | undefined>;
   deleteUser(id: string): Promise<boolean>;
   getTournamentsByUserId(userId: string): Promise<Tournament[]>;
@@ -1060,11 +1063,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByConnectAccountId(accountId: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.stripeConnectAccountId, accountId));
+    const [user] = await db.select().from(users)
+      .where(or(eq(users.stripeConnectAccountId, accountId), eq(users.stripeConnectLiveAccountId, accountId)));
     return user || undefined;
   }
 
-  async updateUserConnect(id: string, fields: Partial<Pick<User, "stripeConnectAccountId" | "stripeConnectReady">>): Promise<User | undefined> {
+  async getSetting(key: string): Promise<string | null> {
+    const [row] = await db.select().from(appSettings).where(eq(appSettings.key, key));
+    return row?.value ?? null;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    await db.insert(appSettings).values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt: new Date() } });
+  }
+
+  async updateUserConnect(id: string, fields: Partial<Pick<User, "stripeConnectAccountId" | "stripeConnectReady" | "stripeConnectLiveAccountId" | "stripeConnectLiveReady">>): Promise<User | undefined> {
     const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
     return user || undefined;
   }
@@ -1074,7 +1088,7 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt">>): Promise<User | undefined> {
+  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt" | "billingMode">>): Promise<User | undefined> {
     const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
     return user || undefined;
   }

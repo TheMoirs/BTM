@@ -33,9 +33,16 @@ function signed(event: object) {
 
 describe('card pay link', () => {
   it('is only offered when the organiser has finished Stripe sign-up', () => {
-    expect(cardPayUrl({ stripeConnectAccountId: 'acct_x', stripeConnectReady: false }, 'team1', 'https://a')).toBeNull()
-    expect(cardPayUrl({ stripeConnectAccountId: null, stripeConnectReady: false }, 'team1', 'https://a')).toBeNull()
-    expect(cardPayUrl({ stripeConnectAccountId: 'acct_x', stripeConnectReady: true }, 'team1', 'https://a')).toMatch(/^https:\/\/a\/api\/public\/pay\/team1\./)
+    const u = (over: object) => ({ stripeConnectAccountId: null, stripeConnectReady: false, stripeConnectLiveAccountId: null, stripeConnectLiveReady: false, ...over })
+    expect(cardPayUrl(u({ stripeConnectAccountId: 'acct_x' }), 'team1', 'https://a', 'test')).toBeNull()
+    expect(cardPayUrl(u({}), 'team1', 'https://a', 'test')).toBeNull()
+    expect(cardPayUrl(u({ stripeConnectAccountId: 'acct_x', stripeConnectReady: true }), 'team1', 'https://a', 'test')).toMatch(/^https:\/\/a\/api\/public\/pay\/team1\./)
+  })
+  it('uses the account for the tournament\'s mode', () => {
+    const u = { stripeConnectAccountId: 'acct_test', stripeConnectReady: true, stripeConnectLiveAccountId: null, stripeConnectLiveReady: false }
+    // No live key in this test, and no live account: live is unavailable
+    expect(cardPayUrl(u, 'team1', 'https://a', 'live')).toBeNull()
+    expect(cardPayUrl(u, 'team1', 'https://a', 'test')).not.toBeNull()
   })
 })
 

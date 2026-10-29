@@ -7,13 +7,18 @@ import { payeeDetailsProblem } from "@shared/payments";
 import { CheckCircle2, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { StripeTestNotice } from "@/components/stripe-test-notice";
 
-type ConnectStatus = { available: boolean; testMode?: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean };
+type ModeStatus = { available: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean };
+type ConnectStatus = { available: boolean; modes: { test: ModeStatus; live: ModeStatus } };
+type Mode = "test" | "live";
 
-/** Card payments: the organiser connects their own Stripe account, and captains' fees go straight to it */
+/**
+ * Card payments: the organiser connects their own Stripe account, and captains' fees go
+ * straight to it. Stripe keeps test and live apart, so each mode is set up separately.
+ */
 function StripeConnectBlock() {
   const { toast } = useToast();
   const [status, setStatus] = useState<ConnectStatus | null>(null);
-  const [opening, setOpening] = useState(false);
+  const [opening, setOpening] = useState<Mode | null>(null);
 
   useEffect(() => {
     fetch("/api/connect/status", { credentials: "include" })
@@ -24,46 +29,64 @@ function StripeConnectBlock() {
 
   if (!status?.available) return null;
 
-  const open = async () => {
-    setOpening(true);
+  const open = async (mode: Mode) => {
+    setOpening(mode);
     try {
-      const res = await fetch("/api/connect/onboard", { method: "POST", credentials: "include" });
+      const res = await fetch("/api/connect/onboard", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) throw new Error(data.error || "Please try again.");
       window.location.href = data.url;
     } catch (e) {
       toast({ title: "Couldn't open Stripe", description: e instanceof Error ? e.message : "Please try again.", variant: "destructive" });
-      setOpening(false);
+      setOpening(null);
     }
   };
 
+  const row = (mode: Mode) => {
+    const st = status.modes[mode];
+    if (!st.available) return null;
+    const label = mode === "live" ? "Live card payments (real money)" : "Test card payments (no real money)";
+    return (
+      <div className="space-y-2 border-t first:border-t-0 pt-2 first:pt-0" data-testid={`row-stripe-${mode}`}>
+        <p className="text-sm font-medium">{label}</p>
+        {st.ready ? (
+          <p className="text-sm flex items-center gap-1.5 text-green-700 dark:text-green-500" data-testid={`text-stripe-connected-${mode}`}>
+            <CheckCircle2 className="h-4 w-4" /> Connected. Used by your tournaments set to {mode === "live" ? "Live" : "Test"}.
+          </p>
+        ) : (
+          <>
+            {mode === "test" && <StripeTestNotice kind="onboarding" />}
+            <Button type="button" size="sm" variant={mode === "live" ? "default" : "outline"} onClick={() => open(mode)} disabled={opening !== null} data-testid={`button-connect-stripe-${mode}`}>
+              {opening === mode && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {st.connected ? `Finish ${mode} Stripe sign-up` : `Set up ${mode} card payments`}
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="rounded-md border p-3 space-y-2" data-testid="block-stripe-connect">
-      <p className="text-sm font-medium flex items-center gap-1.5">
-        <CreditCard className="h-4 w-4" /> Card payments with Stripe
-      </p>
-      {status.ready ? (
-        <>
-          <p className="text-sm flex items-center gap-1.5 text-green-700 dark:text-green-500" data-testid="text-stripe-connected">
-            <CheckCircle2 className="h-4 w-4" /> Connected. Captains can pay the fee by card, and teams are ticked as paid automatically.
-          </p>
-          <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary inline-flex items-center gap-1 underline-offset-4 hover:underline">
-            Payments and payouts are in your Stripe Dashboard <ExternalLink className="h-3 w-3" />
-          </a>
-        </>
-      ) : (
-        <>
-          <p className="text-xs text-muted-foreground">
-            {status.connected
-              ? "Your Stripe account isn't ready to take payments yet. Finish Stripe's sign-up to turn on card payments."
-              : "Let captains pay the registration fee by card. Fees go straight into your own Stripe account (Stripe charges a small fee per payment; PTM takes nothing). Sign-up takes about 5 minutes."}
-          </p>
-          {status.testMode && <StripeTestNotice kind="onboarding" />}
-          <Button type="button" size="sm" onClick={open} disabled={opening} data-testid="button-connect-stripe">
-            {opening && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {status.connected ? "Finish Stripe sign-up" : "Set up card payments"}
-          </Button>
-        </>
+    <div className="rounded-md border p-3 space-y-3" data-testid="block-stripe-connect">
+      <div className="space-y-1">
+        <p className="text-sm font-medium flex items-center gap-1.5">
+          <CreditCard className="h-4 w-4" /> Card payments with Stripe
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Let captains pay the registration fee by card. Fees go straight into your own Stripe account (Stripe charges a small fee per payment; PTM takes nothing). Each tournament chooses Live or Test in its settings.
+        </p>
+      </div>
+      {row("live")}
+      {row("test")}
+      {(status.modes.live.ready || status.modes.test.ready) && (
+        <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary inline-flex items-center gap-1 underline-offset-4 hover:underline">
+          Payments and payouts are in your Stripe Dashboard <ExternalLink className="h-3 w-3" />
+        </a>
       )}
     </div>
   );

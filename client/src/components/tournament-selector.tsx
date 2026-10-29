@@ -799,6 +799,7 @@ export function TournamentSelector() {
                         registrationDeadline: (tournament as any).registrationDeadline ?? null,
                         registrationFeeMinor: (tournament as any).registrationFeeMinor ?? null,
                         registrationFeeCurrency: (tournament as any).registrationFeeCurrency ?? "GBP",
+                        paymentMode: (tournament as any).paymentMode ?? null,
                       });
                     }}
                     data-testid={`button-edit-tournament-${tournament.id}`}

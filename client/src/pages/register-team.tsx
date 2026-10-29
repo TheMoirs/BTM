@@ -377,6 +377,11 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               )}
             </p>
           )}
+          {cardPayments && stripeTestMode && !isEditing && (
+            <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 p-3 text-sm font-semibold" data-testid="banner-test-payments">
+              TEST: card payments for this tournament use Stripe's test mode. No real money is taken.
+            </p>
+          )}
           {payReturn.pay === "cancelled" && payReturn.code && (
             <div className="mt-3 rounded-md bg-muted p-3 text-sm space-y-2" data-testid="text-pay-cancelled">
               <p>Your card payment wasn't completed, and nothing was taken. Your team is still registered.</p>

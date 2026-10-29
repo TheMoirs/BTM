@@ -32,8 +32,14 @@ export const users = pgTable("users", {
   // When the user picked a plan at sign-up. Empty = still needs to choose.
   planChosenAt: timestamp("plan_chosen_at"),
   // ── Card payments for team fees (Stripe Connect): the organiser's own Stripe account ──
+  // Test-mode (sandbox) connected account (the original columns)…
   stripeConnectAccountId: text("stripe_connect_account_id"),
   stripeConnectReady: boolean("stripe_connect_ready").notNull().default(false),
+  // …and the live-mode one. Stripe keeps the two completely separate.
+  stripeConnectLiveAccountId: text("stripe_connect_live_account_id"),
+  stripeConnectLiveReady: boolean("stripe_connect_live_ready").notNull().default(false),
+  // Which Stripe mode stripeCustomerId / stripeSubscriptionId belong to: "test" or "live"
+  billingMode: text("billing_mode"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -79,6 +85,9 @@ export const tournaments = pgTable("tournaments", {
   // Optional team registration fee, in pence/cents, and its currency
   registrationFeeMinor: integer("registration_fee_minor"),
   registrationFeeCurrency: text("registration_fee_currency").notNull().default("GBP"),
+  // Captain card payments: "live" (real money) or "test" (Stripe sandbox). Empty = live once
+  // a live Stripe key is set, otherwise test.
+  paymentMode: text("payment_mode"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
@@ -101,6 +110,7 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   ).nullable().optional(),
   registrationFeeMinor: z.number().int().min(0, "The fee can't be negative").max(100000000, "That fee is too large").nullable().optional(),
   registrationFeeCurrency: z.enum(["GBP", "EUR", "USD"]).default("GBP"),
+  paymentMode: z.enum(["test", "live"]).nullable().optional(),
 });
 
 export type InsertTournament = z.infer<typeof insertTournamentSchema>;
@@ -296,3 +306,11 @@ export const tournamentSnapshots = pgTable("tournament_snapshots", {
 }));
 
 export type TournamentSnapshot = typeof tournamentSnapshots.$inferSelect;
+
+// ── App settings ──────────────────────────────────────────────────────────
+// Site-wide choices made by the system admin, e.g. "billing_mode" = "test" | "live"
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

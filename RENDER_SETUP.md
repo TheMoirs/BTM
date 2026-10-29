@@ -52,6 +52,17 @@ Add these environment variables in the Render dashboard:
 
 Add any other environment variables your app needs (Resend API key, GitHub tokens, etc.)
 
+### Stripe test and live mode
+BTM holds both Stripe keys. The system admin chooses the mode for new Unlimited upgrades (Users → **Payments**), and each tournament chooses it for captain card payments (Edit Tournament → **Captain card payments**). Stripe keeps the modes separate, so set up each one:
+
+| Variable | Value |
+|---|---|
+| `STRIPE_TEST_SECRET_KEY` / `STRIPE_LIVE_SECRET_KEY` | `sk_test_…` / `sk_live_…` (the older `STRIPE_SECRET_KEY` still works as one of them) |
+| `STRIPE_WEBHOOK_SECRET_TEST` / `_LIVE` | signing secret of the "Your account" webhook in each mode (`/api/stripe/webhook`) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET_TEST` / `_LIVE` | signing secret of the "Connected accounts" webhook in each mode (`/api/stripe/connect-webhook`) |
+
+In live mode you also need: the Unlimited product and both prices (same lookup keys), the Customer Portal settings, Connect switched on, and both webhook destinations.
+
 ### Stripe Variables (Unlimited admin plan)
 | Variable | Value |
 |---|---|
