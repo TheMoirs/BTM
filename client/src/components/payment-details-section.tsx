@@ -20,17 +20,31 @@ function StripeConnectBlock() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [opening, setOpening] = useState<Mode | null>(null);
 
-  useEffect(() => {
+  const loadStatus = () =>
     fetch("/api/connect/status", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then(setStatus)
-      .catch(() => setStatus(null));
+      .then((st) => st && setStatus(st))
+      .catch(() => {});
+
+  useEffect(() => {
+    loadStatus();
+    // Stripe's sign-up opens in another tab: check again when they come back to this one
+    const onFocus = () => loadStatus();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   if (!status?.available) return null;
 
   const open = async (mode: Mode) => {
     setOpening(mode);
+    // Open the tab straight away (browsers block tabs opened after waiting for the server),
+    // so these settings and the test details stay visible here
+    const tab = window.open("", "_blank");
+    if (tab) {
+      tab.document.title = "Opening Stripe…";
+      tab.document.body.textContent = "Opening Stripe…";
+    }
     try {
       const res = await fetch("/api/connect/onboard", {
         method: "POST",
@@ -40,8 +54,17 @@ function StripeConnectBlock() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) throw new Error(data.error || "Please try again.");
-      window.location.href = data.url;
+      if (tab && !tab.closed) {
+        tab.opener = null;
+        tab.location.href = data.url;
+        toast({ title: "Stripe opened in a new tab", description: "Use the details shown here, then come back to this tab when you've finished." });
+        setOpening(null);
+      } else {
+        // Pop-ups blocked: carry on in this tab
+        window.location.href = data.url;
+      }
     } catch (e) {
+      tab?.close();
       toast({ title: "Couldn't open Stripe", description: e instanceof Error ? e.message : "Please try again.", variant: "destructive" });
       setOpening(null);
     }
