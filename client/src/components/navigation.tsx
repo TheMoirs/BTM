@@ -13,6 +13,7 @@ import { useViewMode } from "@/contexts/ViewModeContext";
 import { useTournament } from "@/contexts/TournamentContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import { queryClient } from "@/lib/queryClient";
 import {
   Dialog,
   DialogContent,
@@ -53,13 +54,21 @@ export function Navigation() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get("connect") !== "return") return;
+    const mode = q.get("mode") === "live" ? "live" : "test";
     q.delete("connect");
+    q.delete("mode");
     window.history.replaceState(null, "", window.location.pathname + (q.toString() ? `?${q}` : ""));
     fetch("/api/connect/status", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((st) => {
-        if (st?.ready) {
-          toast({ title: "Card payments are on", description: "Captains can now pay the registration fee by card, straight into your Stripe account." });
+        queryClient.invalidateQueries({ queryKey: ["/api/connect/status"] });
+        if (st?.modes?.[mode]?.ready) {
+          toast({
+            title: mode === "live" ? "Live card payments are on" : "Test card payments are on",
+            description: mode === "live"
+              ? "Captains can now pay by card, straight into your Stripe account, on tournaments set to Live."
+              : "Tournaments set to Test can now take payments with Stripe's test card (no real money).",
+          });
         } else {
           toast({ title: "Stripe sign-up not finished yet", description: "Open Profile Settings and choose Finish Stripe sign-up when you're ready." });
         }

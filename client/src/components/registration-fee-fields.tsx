@@ -5,6 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FEE_CURRENCIES, parseFeeInput } from "@shared/payments";
 import type { InsertTournament } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+
+type ModeInfo = { available: boolean; ready: boolean };
+type ConnectStatus = { available: boolean; modes?: { test: ModeInfo; live: ModeInfo } };
+
+/** Which Stripe modes BTM has keys for, and whether this organiser has set up card payments in each */
+export function useStripeModes() {
+  const { data } = useQuery<ConnectStatus | null>({
+    queryKey: ["/api/connect/status"],
+    queryFn: async () => {
+      const r = await fetch("/api/connect/status", { credentials: "include" });
+      return r.ok ? r.json() : null;
+    },
+    staleTime: 60_000,
+  });
+  return data?.modes ?? null;
+}
 
 /** "Team registration fee": currency (default GBP) and amount, for the tournament settings forms */
 export function RegistrationFeeFields({ control, testIdSuffix = "" }: { control: Control<InsertTournament>; testIdSuffix?: string }) {
@@ -41,7 +58,50 @@ export function RegistrationFeeFields({ control, testIdSuffix = "" }: { control:
       <p className="text-xs text-muted-foreground">
         Per team. Shown on the registration page with your bank details (set them in Profile Settings). Leave blank for no fee.
       </p>
+      <PaymentModeField control={control} testIdSuffix={testIdSuffix} />
     </div>
+  );
+}
+
+/** Captain card payments for this tournament: live (real money) or test (Stripe sandbox) */
+function PaymentModeField({ control, testIdSuffix }: { control: Control<InsertTournament>; testIdSuffix: string }) {
+  const modes = useStripeModes();
+  if (!modes || (!modes.test.available && !modes.live.available)) return null;
+  const fallback = modes.live.available ? "live" : "test";
+  return (
+    <FormField
+      control={control}
+      name="paymentMode"
+      render={({ field }) => {
+        const value = (field.value as string | null | undefined) || fallback;
+        const ready = value === "live" ? modes.live.ready : modes.test.ready;
+        return (
+          <FormItem className="space-y-1 pt-2">
+            <FormLabel>Captain card payments</FormLabel>
+            <Select value={value} onValueChange={field.onChange}>
+              <SelectTrigger data-testid={`select-payment-mode${testIdSuffix}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="live" disabled={!modes.live.available}>
+                  Live: real money{!modes.live.available ? " (not available yet)" : ""}
+                </SelectItem>
+                <SelectItem value="test" disabled={!modes.test.available}>
+                  Test: no real money (Stripe test card)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {value === "test"
+                ? "Captains pay with Stripe's test card and nothing is charged. The registration page shows a TEST banner."
+                : "Captains pay real money by card, straight into your Stripe account."}
+              {!ready && " Set up " + (value === "live" ? "live" : "test") + " card payments in Profile Settings for the Pay by card button to appear."}
+            </p>
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
   );
 }
 

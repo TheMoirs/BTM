@@ -34,6 +34,8 @@ export function statusGivesUnlimited(status: string | null | undefined): boolean
 /** What the plan page and limit checks need to know about a user's plan */
 export type BillingStatus = {
   billingEnabled: boolean;
+  // Stripe sandbox: show test card details
+  testMode: boolean;
   unlimited: boolean;
   // "admin" for system admins, who never need to pay
   plan: "free" | "unlimited" | "admin";

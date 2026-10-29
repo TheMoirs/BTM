@@ -21,6 +21,7 @@ type Payment = {
 type UserBilling = {
   status: BillingStatus;
   customerId: string | null;
+  mode?: "test" | "live" | null;
   stripeCustomerUrl: string | null;
   payments: Payment[];
   stripeError: string | null;
@@ -119,6 +120,12 @@ export function AdminUserBillingDialog({
                 <>
                   <dt className="text-muted-foreground">{st.cancelAtPeriodEnd ? "Ends" : "Renews"}</dt>
                   <dd>{day(st.renewsAt)}</dd>
+                </>
+              )}
+              {data.mode && (
+                <>
+                  <dt className="text-muted-foreground">Stripe mode</dt>
+                  <dd>{data.mode === "live" ? "Live (real money)" : "Test (no real money)"}</dd>
                 </>
               )}
               {st.currency && (

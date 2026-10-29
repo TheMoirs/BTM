@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AdminBackupCard } from "@/components/admin-backup-card";
 import { ShieldAlert, ShieldCheck, Trash2, Users, ArrowLeft, KeyRound, Receipt } from "lucide-react";
 import { AdminUserBillingDialog, PlanBadge } from "@/components/admin-user-billing-dialog";
+import { AdminPaymentSettingsCard } from "@/components/admin-payment-settings-card";
 
 interface UserRow {
   id: string;
@@ -268,6 +269,8 @@ export default function AdminUsers() {
           )}
         </CardContent>
       </Card>
+
+      <AdminPaymentSettingsCard />
 
       <AdminBackupCard />
 

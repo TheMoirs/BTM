@@ -5,11 +5,12 @@
 // between monthly and yearly, changing card and cancelling. A webhook keeps
 // each user's plan in the database in step with Stripe.
 //
-// Settings (environment variables):
-//   STRIPE_SECRET_KEY      sk_test_… or sk_live_…   (required to turn billing on)
-//   STRIPE_WEBHOOK_SECRET  whsec_…                  (from the webhook endpoint in the Stripe Dashboard)
+// Test or live: the system admin picks which Stripe mode new upgrades use
+// (Users page → Payments). Each subscriber remembers the mode they paid in.
+// Keys and webhook secrets: see stripeModes.ts.
 
-import Stripe from "stripe";
+import type Stripe from "stripe";
+import { getStripeFor, isStripeMode, modeAvailable, dashboardUrl, constructEventAnyMode, webhookConfigured, type StripeMode } from "./stripeModes";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { getSessionFromRequest, SYSTEM_ADMIN_EMAIL } from "./sessionAuth";
@@ -25,7 +26,6 @@ import {
   type PlanInterval,
 } from "@shared/plans";
 
-let stripeClient: Stripe | null | undefined;
 
 export type AdminPayment = {
   id: string;
@@ -40,11 +40,21 @@ export type AdminPayment = {
   card: string | null;
 };
 
-export function getStripe(): Stripe | null {
-  if (stripeClient !== undefined) return stripeClient;
-  const key = (process.env.STRIPE_SECRET_KEY || "").trim();
-  stripeClient = key ? new Stripe(key, { appInfo: { name: "Boules Tournament Manager" } }) : null;
-  return stripeClient;
+const BILLING_MODE_SETTING = "billing_mode";
+
+/**
+ * The Stripe mode new Unlimited upgrades use. Chosen by the system admin; until
+ * then (or if that mode has no key) test is used when available.
+ */
+export async function getBillingMode(): Promise<StripeMode> {
+  const chosen = await storage.getSetting(BILLING_MODE_SETTING);
+  if (isStripeMode(chosen) && modeAvailable(chosen)) return chosen;
+  return modeAvailable("test") ? "test" : "live";
+}
+
+/** The mode this user's Stripe customer and subscription belong to */
+function userMode(user: Pick<User, "billingMode">): StripeMode {
+  return isStripeMode(user.billingMode) ? user.billingMode : "test";
 }
 
 function isAdminUser(u: Pick<User, "email" | "isSystemAdmin">): boolean {
@@ -143,13 +153,13 @@ async function saveSubscription(user: User, sub: Stripe.Subscription, siteUrl: s
   return saved;
 }
 
-async function userForCustomer(customerId: string, fallbackUserId?: string | null): Promise<User | undefined> {
+async function userForCustomer(customerId: string, fallbackUserId: string | null | undefined, mode: StripeMode): Promise<User | undefined> {
   const byCustomer = await storage.getUserByStripeCustomerId(customerId);
   if (byCustomer) return byCustomer;
   if (!fallbackUserId) return undefined;
   const byId = await storage.getUserById(fallbackUserId);
   if (byId && !byId.stripeCustomerId) {
-    return storage.updateUserBilling(byId.id, { stripeCustomerId: customerId });
+    return storage.updateUserBilling(byId.id, { stripeCustomerId: customerId, billingMode: mode });
   }
   return undefined;
 }
@@ -158,8 +168,10 @@ async function userForCustomer(customerId: string, fallbackUserId?: string | nul
  * A user may (rarely) end up with more than one subscription, e.g. after
  * cancelling and re-subscribing. Use the one that gives access, newest first.
  */
-async function syncFromStripe(stripe: Stripe, user: User, siteUrl: string): Promise<User | undefined> {
+async function syncFromStripe(user: User, siteUrl: string): Promise<User | undefined> {
   if (!user.stripeCustomerId) return user;
+  const stripe = getStripeFor(userMode(user));
+  if (!stripe) return user;
   const subs = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: "all", limit: 10 });
   const sorted = [...subs.data].sort((a, b) => b.created - a.created);
   const best = sorted.find((s) => statusGivesUnlimited(s.status)) ?? sorted[0];
@@ -169,8 +181,9 @@ async function syncFromStripe(stripe: Stripe, user: User, siteUrl: string): Prom
   return saveSubscription(user, best, siteUrl);
 }
 
-async function getOrCreateCustomer(stripe: Stripe, user: User): Promise<string> {
-  if (user.stripeCustomerId) return user.stripeCustomerId;
+async function getOrCreateCustomer(stripe: Stripe, user: User, mode: StripeMode): Promise<string> {
+  // A customer only exists in the mode it was made in: switching mode needs a new one
+  if (user.stripeCustomerId && userMode(user) === mode) return user.stripeCustomerId;
   const customer = await stripe.customers.create(
     {
       email: user.email,
@@ -178,9 +191,16 @@ async function getOrCreateCustomer(stripe: Stripe, user: User): Promise<string> 
       metadata: { btm_user_id: user.id },
     },
     // Stops a double click creating two customers for one user
-    { idempotencyKey: `btm-customer-${user.id}` },
+    { idempotencyKey: `btm-customer-${mode}-${user.id}` },
   );
-  await storage.updateUserBilling(user.id, { stripeCustomerId: customer.id });
+  await storage.updateUserBilling(user.id, {
+    stripeCustomerId: customer.id,
+    billingMode: mode,
+    stripeSubscriptionId: null,
+    subscriptionStatus: null,
+    planRenewsAt: null,
+    planCancelAtPeriodEnd: false,
+  });
   return customer.id;
 }
 
@@ -188,8 +208,11 @@ async function statusFor(user: User): Promise<BillingStatus> {
   const owned = await storage.getTournamentsByUserId(user.id);
   const admin = isAdminUser(user);
   const paid = statusGivesUnlimited(user.subscriptionStatus);
+  // Paying users see their own subscription's mode; everyone else the mode upgrades use now
+  const mode = paid ? userMode(user) : await getBillingMode();
   return {
-    billingEnabled: !!getStripe(),
+    billingEnabled: modeAvailable(mode),
+    testMode: mode === "test",
     unlimited: admin || paid,
     plan: paid ? "unlimited" : admin ? "admin" : "free",
     status: user.subscriptionStatus,
@@ -197,7 +220,7 @@ async function statusFor(user: User): Promise<BillingStatus> {
     currency: (user.planCurrency as PlanCurrency) ?? null,
     renewsAt: user.planRenewsAt ? user.planRenewsAt.toISOString() : null,
     cancelAtPeriodEnd: user.planCancelAtPeriodEnd,
-    canManage: !!user.stripeCustomerId && !!getStripe(),
+    canManage: !!user.stripeCustomerId && modeAvailable(userMode(user)),
     limits: FREE_LIMITS,
     usage: { tournaments: owned.length },
   };
@@ -241,8 +264,7 @@ export function registerBillingRoutes(app: Express): void {
     try {
       const user = await signedInUser(req, res);
       if (!user) return;
-      const stripe = getStripe();
-      const updated = stripe ? await syncFromStripe(stripe, user, siteUrl(req)) : user;
+      const updated = await syncFromStripe(user, siteUrl(req));
       res.json(await statusFor(updated ?? user));
     } catch (error) {
       console.error("[BILLING] Sync failed:", error);
@@ -288,7 +310,8 @@ export function registerBillingRoutes(app: Express): void {
       const user = await storage.getUserById(String(req.params.id));
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const stripe = getStripe();
+      const mode = userMode(user);
+      const stripe = getStripeFor(mode);
       let payments: AdminPayment[] = [];
       let stripeError: string | null = null;
       if (stripe && user.stripeCustomerId) {
@@ -311,13 +334,11 @@ export function registerBillingRoutes(app: Express): void {
           stripeError = "Couldn't load payments from Stripe.";
         }
       }
-      const testMode = (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_test_");
       res.json({
         status: await statusFor(user),
         customerId: user.stripeCustomerId,
-        stripeCustomerUrl: user.stripeCustomerId
-          ? `https://dashboard.stripe.com/${testMode ? "test/" : ""}customers/${user.stripeCustomerId}`
-          : null,
+        mode: user.stripeCustomerId ? mode : null,
+        stripeCustomerUrl: user.stripeCustomerId ? dashboardUrl(mode, `customers/${user.stripeCustomerId}`) : null,
         payments,
         stripeError,
       });
@@ -327,12 +348,51 @@ export function registerBillingRoutes(app: Express): void {
     }
   });
 
+  // System admin: which Stripe mode new Unlimited upgrades use, and which keys are set
+  app.get("/api/admin/payment-settings", async (req, res) => {
+    try {
+      const me = await signedInUser(req, res);
+      if (!me) return;
+      if (!isAdminUser(me)) return res.status(403).json({ error: "System admin access required" });
+      const chosen = await storage.getSetting(BILLING_MODE_SETTING);
+      res.json({
+        billingMode: await getBillingMode(),
+        billingModeChosen: isStripeMode(chosen) ? chosen : null,
+        testAvailable: modeAvailable("test"),
+        liveAvailable: modeAvailable("live"),
+      });
+    } catch (error) {
+      console.error("[BILLING] Payment settings failed:", error);
+      res.status(500).json({ error: "Couldn't load payment settings." });
+    }
+  });
+
+  app.put("/api/admin/payment-settings", async (req, res) => {
+    try {
+      const me = await signedInUser(req, res);
+      if (!me) return;
+      if (!isAdminUser(me)) return res.status(403).json({ error: "System admin access required" });
+      const mode = req.body?.billingMode;
+      if (!isStripeMode(mode)) return res.status(400).json({ error: "Choose test or live." });
+      if (!modeAvailable(mode)) {
+        return res.status(400).json({ error: `There's no ${mode} Stripe key yet. Add STRIPE_${mode.toUpperCase()}_SECRET_KEY in Render first.` });
+      }
+      await storage.setSetting(BILLING_MODE_SETTING, mode);
+      console.log(`[BILLING] Unlimited plan payments set to ${mode} by ${me.email}`);
+      res.json({ billingMode: mode });
+    } catch (error) {
+      console.error("[BILLING] Saving payment settings failed:", error);
+      res.status(500).json({ error: "Couldn't save payment settings." });
+    }
+  });
+
   // Start an upgrade: returns the address of Stripe's Checkout page
   app.post("/api/billing/checkout", async (req, res) => {
     try {
       const user = await signedInUser(req, res);
       if (!user) return;
-      const stripe = getStripe();
+      const mode = await getBillingMode();
+      const stripe = getStripeFor(mode);
       if (!stripe) return res.status(503).json({ error: "Payments aren't set up yet." });
       if (hasUnlimited(user)) {
         return res.status(400).json({ error: "You already have unlimited access." });
@@ -350,7 +410,7 @@ export function registerBillingRoutes(app: Express): void {
         return res.status(503).json({ error: "That plan isn't available right now." });
       }
 
-      const customerId = await getOrCreateCustomer(stripe, user);
+      const customerId = await getOrCreateCustomer(stripe, user, mode);
       const base = siteUrl(req);
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
@@ -375,7 +435,7 @@ export function registerBillingRoutes(app: Express): void {
     try {
       const user = await signedInUser(req, res);
       if (!user) return;
-      const stripe = getStripe();
+      const stripe = getStripeFor(userMode(user));
       if (!stripe || !user.stripeCustomerId) return res.status(400).json({ error: "There's no subscription to manage." });
       const portal = await stripe.billingPortal.sessions.create({
         customer: user.stripeCustomerId,
@@ -390,25 +450,22 @@ export function registerBillingRoutes(app: Express): void {
 
   // Stripe tells us about payments and subscription changes here
   app.post("/api/stripe/webhook", async (req: any, res) => {
-    const stripe = getStripe();
-    const secret = (process.env.STRIPE_WEBHOOK_SECRET || "").trim();
-    if (!stripe || !secret) return res.status(503).send("Webhook not configured");
-
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(req.rawBody as Buffer, String(req.headers["stripe-signature"] || ""), secret);
-    } catch (error) {
-      console.warn("[STRIPE] Webhook signature check failed:", error instanceof Error ? error.message : error);
+    if (!webhookConfigured("account")) return res.status(503).send("Webhook not configured");
+    // Test and live events both come here; each is signed with its own mode's secret
+    const verified = constructEventAnyMode("account", req.rawBody as Buffer, String(req.headers["stripe-signature"] || ""));
+    if (!verified) {
+      console.warn("[STRIPE] Webhook signature check failed");
       return res.status(400).send("Bad signature");
     }
+    const { event, mode } = verified;
 
     try {
       switch (event.type) {
         case "checkout.session.completed": {
           const s = event.data.object;
           if (s.mode === "subscription" && typeof s.customer === "string") {
-            const user = await userForCustomer(s.customer, s.client_reference_id);
-            if (user) await syncFromStripe(stripe, user, siteUrl(req));
+            const user = await userForCustomer(s.customer, s.client_reference_id, mode);
+            if (user) await syncFromStripe(user, siteUrl(req));
           }
           break;
         }
@@ -419,9 +476,9 @@ export function registerBillingRoutes(app: Express): void {
         case "customer.subscription.resumed": {
           const sub = event.data.object;
           const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-          const user = await userForCustomer(customerId, sub.metadata?.btm_user_id);
+          const user = await userForCustomer(customerId, sub.metadata?.btm_user_id, mode);
           // Re-read from Stripe rather than trusting event order
-          if (user) await syncFromStripe(stripe, user, siteUrl(req));
+          if (user) await syncFromStripe(user, siteUrl(req));
           break;
         }
         default:

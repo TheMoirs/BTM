@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, AlertCircle, CheckCircle2, ArrowRight, CreditCard } from "lucide-react";
 import { publicRegistrationSchema, REGISTRATION_CONTACT } from "@shared/registration";
 import { FeePaymentPanel, type FeePayment } from "@/components/fee-payment-panel";
+import { StripeTestNotice } from "@/components/stripe-test-notice";
 
 type FormValues = {
   name: string;
@@ -79,6 +80,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
   const [registerBy, setRegisterBy] = useState<string | null>(null);
   const [registrationFee, setRegistrationFee] = useState<string | null>(null);
   const [cardPayments, setCardPayments] = useState(false);
+  const [stripeTestMode, setStripeTestMode] = useState(false);
   // Back from Stripe Checkout (?paid=<code>&session_id=…) or from cancelling it (?pay=cancelled&code=…)
   const [payReturn] = useState(() => {
     const q = new URLSearchParams(window.location.search);
@@ -108,6 +110,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         setRegisterBy(formatRegisterBy(data.registrationDeadline));
         setRegistrationFee(data.registrationFee ?? null);
         setCardPayments(!!data.cardPayments);
+        setStripeTestMode(!!data.stripeTestMode);
 
         if (payReturn.paidCode) {
           // Stripe normally confirms within a second or two; check a few times
@@ -252,6 +255,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {outcome.fee?.cardPayUrl && stripeTestMode && <StripeTestNotice kind="card" />}
             {outcome.fee && <FeePaymentPanel fee={outcome.fee} />}
             <p className="text-sm">
               {outcome.emailSent
@@ -373,9 +377,15 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               )}
             </p>
           )}
+          {cardPayments && stripeTestMode && !isEditing && (
+            <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 p-3 text-sm font-semibold" data-testid="banner-test-payments">
+              TEST: card payments for this tournament use Stripe's test mode. No real money is taken.
+            </p>
+          )}
           {payReturn.pay === "cancelled" && payReturn.code && (
             <div className="mt-3 rounded-md bg-muted p-3 text-sm space-y-2" data-testid="text-pay-cancelled">
               <p>Your card payment wasn't completed, and nothing was taken. Your team is still registered.</p>
+              {stripeTestMode && <StripeTestNotice kind="card" />}
               <Button asChild size="sm">
                 <a href={`/api/public/pay/${encodeURIComponent(payReturn.code)}`}>
                   <CreditCard className="h-4 w-4 mr-2" />

@@ -6,16 +6,18 @@
 // fee, and BTM takes nothing. When the payment goes through, the team is ticked
 // as paid automatically.
 //
-// Settings (environment variables):
-//   STRIPE_SECRET_KEY               the platform key (same as for the Unlimited plan)
-//   STRIPE_CONNECT_WEBHOOK_SECRET   whsec_… of the "Connected accounts" webhook destination
+// Test or live is chosen per tournament. Stripe keeps the two apart, so an
+// organiser has a separate connected account for each mode they use.
+// Keys and webhook secrets: see stripeModes.ts.
 
 import type Stripe from "stripe";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
-import { getStripe } from "./billing";
+import { getStripeFor, isStripeMode, modeAvailable, defaultMode, constructEventAnyMode, webhookConfigured, STRIPE_MODES, type StripeMode } from "./stripeModes";
 import { getSessionFromRequest, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
-import type { User } from "@shared/schema";
+import type { User, Tournament } from "@shared/schema";
+
+type ConnectFields = Pick<User, "stripeConnectAccountId" | "stripeConnectReady" | "stripeConnectLiveAccountId" | "stripeConnectLiveReady">;
 
 function siteUrl(req: Request): string {
   const configured = (process.env.PUBLIC_URL || "").trim().replace(/\/+$/, "");
@@ -24,21 +26,40 @@ function siteUrl(req: Request): string {
   return `${proto}://${req.get("host")}`;
 }
 
-/** The "Pay by card" address for a team, or null if its organiser can't take card payments */
-export function cardPayUrl(owner: Pick<User, "stripeConnectAccountId" | "stripeConnectReady"> | undefined | null, teamId: string, site: string): string | null {
-  if (!getStripe() || !owner?.stripeConnectAccountId || !owner.stripeConnectReady) return null;
+/** The mode a tournament's captain payments use: as chosen, else live once a live key is set */
+export function tournamentPaymentMode(t: Pick<Tournament, "paymentMode">): StripeMode {
+  return isStripeMode(t.paymentMode) ? t.paymentMode : defaultMode();
+}
+
+/** The organiser's connected account in one mode */
+function accountFor(u: ConnectFields | undefined | null, mode: StripeMode): { id: string | null; ready: boolean } {
+  if (!u) return { id: null, ready: false };
+  return mode === "live"
+    ? { id: u.stripeConnectLiveAccountId, ready: u.stripeConnectLiveReady }
+    : { id: u.stripeConnectAccountId, ready: u.stripeConnectReady };
+}
+
+function connectUpdate(mode: StripeMode, fields: { id?: string; ready?: boolean }) {
+  return mode === "live"
+    ? { ...(fields.id !== undefined ? { stripeConnectLiveAccountId: fields.id } : {}), ...(fields.ready !== undefined ? { stripeConnectLiveReady: fields.ready } : {}) }
+    : { ...(fields.id !== undefined ? { stripeConnectAccountId: fields.id } : {}), ...(fields.ready !== undefined ? { stripeConnectReady: fields.ready } : {}) };
+}
+
+/** The "Pay by card" address for a team, or null if its organiser can't take card payments in this mode */
+export function cardPayUrl(owner: ConnectFields | undefined | null, teamId: string, site: string, mode: StripeMode): string | null {
+  const acct = accountFor(owner, mode);
+  if (!modeAvailable(mode) || !acct.id || !acct.ready) return null;
   return `${site}/api/public/pay/${encodeURIComponent(createTeamEditCode(teamId))}`;
 }
 
 /** Re-read the organiser's Stripe account and remember whether it can take card payments */
-async function refreshConnectStatus(stripe: Stripe, user: User): Promise<{ ready: boolean; detailsSubmitted: boolean }> {
-  if (!user.stripeConnectAccountId) return { ready: false, detailsSubmitted: false };
+async function refreshConnectStatus(stripe: Stripe, user: User, mode: StripeMode): Promise<{ ready: boolean; detailsSubmitted: boolean }> {
+  const { id, ready: wasReady } = accountFor(user, mode);
+  if (!id) return { ready: false, detailsSubmitted: false };
   // Accounts v2: ready once the merchant configuration's card_payments capability is active
-  const acct = await stripe.v2.core.accounts.retrieve(user.stripeConnectAccountId, {
-    include: ["configuration.merchant", "requirements"],
-  });
+  const acct = await stripe.v2.core.accounts.retrieve(id, { include: ["configuration.merchant", "requirements"] });
   const ready = acct.configuration?.merchant?.capabilities?.card_payments?.status === "active";
-  if (ready !== user.stripeConnectReady) await storage.updateUserConnect(user.id, { stripeConnectReady: ready });
+  if (ready !== wasReady) await storage.updateUserConnect(user.id, connectUpdate(mode, { ready }));
   // Nothing currently due means they've been through Stripe's sign-up
   const detailsSubmitted = ready || !acct.requirements?.entries?.some((e) => e.minimum_deadline?.status === "currently_due");
   return { ready, detailsSubmitted };
@@ -54,63 +75,75 @@ async function signedInUser(req: Request, res: Response): Promise<User | null> {
   return user;
 }
 
-async function onboardingLink(stripe: Stripe, accountId: string, site: string): Promise<string> {
+async function onboardingLink(stripe: Stripe, accountId: string, site: string, mode: StripeMode): Promise<string> {
   const link = await stripe.v2.core.accountLinks.create({
     account: accountId,
     use_case: {
       type: "account_onboarding",
       account_onboarding: {
-        configurations: ["merchant"],
-        refresh_url: `${site}/api/connect/refresh`,
-        return_url: `${site}/?connect=return`,
+        refresh_url: `${site}/api/connect/refresh?mode=${mode}`,
+        return_url: `${site}/?connect=return&mode=${mode}`,
       },
-    } as any, // `configurations` is required by the API but not yet in this SDK's types
+    },
   });
   return link.url;
 }
 
 /** Mark a team paid from a completed Checkout Session on an organiser's account */
-async function markPaidFromSession(session: Stripe.Checkout.Session, accountId: string | null): Promise<boolean> {
+async function markPaidFromSession(session: Stripe.Checkout.Session, accountId: string | null, mode: StripeMode): Promise<boolean> {
   const teamId = session.metadata?.btm_team_id;
   if (!teamId || session.payment_status !== "paid") return false;
   const team = await storage.getTeam(teamId);
   if (!team) return false;
-  // Only trust a payment made on the account of the organiser who runs this tournament
+  // Only trust a payment made on the account of the organiser who runs this tournament, in its mode
   const t = await storage.getTournament(team.tournamentId);
   const owner = t?.userId ? await storage.getUserById(t.userId) : undefined;
-  if (!owner?.stripeConnectAccountId || (accountId && owner.stripeConnectAccountId !== accountId)) return false;
+  const acct = accountFor(owner, mode);
+  if (!acct.id || (accountId && acct.id !== accountId)) return false;
   if (!team.feePaid) {
     await storage.setTeamFeePaid(team.id, true, "card");
-    console.log(`[CONNECT] "${team.name}" paid by card (${session.id})`);
+    console.log(`[CONNECT] "${team.name}" paid by card in ${mode} mode (${session.id})`);
   }
   return true;
 }
 
 export function registerConnectRoutes(app: Express): void {
-  // ── Organiser: connect a Stripe account ───────────────────────────────────
+  // ── Organiser: connect a Stripe account (one per mode) ─────────────────────
   app.get("/api/connect/status", async (req, res) => {
     try {
       const user = await signedInUser(req, res);
       if (!user) return;
-      const stripe = getStripe();
-      if (!stripe) return res.json({ available: false, connected: false, ready: false, detailsSubmitted: false });
-      if (!user.stripeConnectAccountId) return res.json({ available: true, connected: false, ready: false, detailsSubmitted: false });
-      const s = await refreshConnectStatus(stripe, user);
-      res.json({ available: true, connected: true, ...s });
+      const modes: Record<string, { available: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean }> = {};
+      for (const mode of STRIPE_MODES) {
+        const stripe = getStripeFor(mode);
+        const { id } = accountFor(user, mode);
+        if (!stripe) modes[mode] = { available: false, connected: false, ready: false, detailsSubmitted: false };
+        else if (!id) modes[mode] = { available: true, connected: false, ready: false, detailsSubmitted: false };
+        else {
+          try {
+            modes[mode] = { available: true, connected: true, ...(await refreshConnectStatus(stripe, user, mode)) };
+          } catch (error) {
+            console.error(`[CONNECT] ${mode} status failed:`, error);
+            modes[mode] = { available: true, connected: true, ready: accountFor(user, mode).ready, detailsSubmitted: false };
+          }
+        }
+      }
+      res.json({ available: modes.test.available || modes.live.available, modes });
     } catch (error) {
       console.error("[CONNECT] Status failed:", error);
       res.status(500).json({ error: "Couldn't check your Stripe account." });
     }
   });
 
-  // Start (or carry on with) Stripe's sign-up. Returns the address to send them to.
+  // Start (or carry on with) Stripe's sign-up for one mode. Returns the address to send them to.
   app.post("/api/connect/onboard", async (req, res) => {
     try {
       const user = await signedInUser(req, res);
       if (!user) return;
-      const stripe = getStripe();
-      if (!stripe) return res.status(503).json({ error: "Card payments aren't set up yet." });
-      let accountId = user.stripeConnectAccountId;
+      const mode: StripeMode = isStripeMode(req.body?.mode) ? req.body.mode : defaultMode();
+      const stripe = getStripeFor(mode);
+      if (!stripe) return res.status(503).json({ error: `${mode === "live" ? "Live" : "Test"} card payments aren't set up yet.` });
+      let accountId = accountFor(user, mode).id;
       if (!accountId) {
         // Accounts v2 (Stripe's current API for new platforms): Stripe collects its fees from the
         // organiser and handles losses; the organiser gets the full Stripe Dashboard
@@ -128,12 +161,12 @@ export function registerConnectRoutes(app: Express): void {
             include: ["configuration.merchant"],
             metadata: { btm_user_id: user.id },
           } as any,
-          { idempotencyKey: `btm-connect-v2-${user.id}` },
+          { idempotencyKey: `btm-connect-v2-${mode}-${user.id}` },
         );
         accountId = acct.id;
-        await storage.updateUserConnect(user.id, { stripeConnectAccountId: accountId, stripeConnectReady: false });
+        await storage.updateUserConnect(user.id, connectUpdate(mode, { id: accountId, ready: false }));
       }
-      res.json({ url: await onboardingLink(stripe, accountId, siteUrl(req)) });
+      res.json({ url: await onboardingLink(stripe, accountId, siteUrl(req), mode) });
     } catch (error) {
       console.error("[CONNECT] Onboarding failed:", error);
       // Pass on Stripe's own reason (e.g. a platform setting that still needs doing)
@@ -144,15 +177,17 @@ export function registerConnectRoutes(app: Express): void {
 
   // Stripe sends people here when an onboarding link has expired: make a fresh one
   app.get("/api/connect/refresh", async (req, res) => {
+    const mode: StripeMode = isStripeMode(req.query.mode) ? req.query.mode : "test";
     try {
       const session = getSessionFromRequest(req);
       const user = session ? await storage.getUserById(session.userId) : undefined;
-      const stripe = getStripe();
-      if (!user?.stripeConnectAccountId || !stripe) return res.redirect("/?connect=return");
-      res.redirect(await onboardingLink(stripe, user.stripeConnectAccountId, siteUrl(req)));
+      const stripe = getStripeFor(mode);
+      const id = accountFor(user, mode).id;
+      if (!id || !stripe) return res.redirect(`/?connect=return&mode=${mode}`);
+      res.redirect(await onboardingLink(stripe, id, siteUrl(req), mode));
     } catch (error) {
       console.error("[CONNECT] Refresh failed:", error);
-      res.redirect("/?connect=return");
+      res.redirect(`/?connect=return&mode=${mode}`);
     }
   });
 
@@ -168,10 +203,12 @@ export function registerConnectRoutes(app: Express): void {
       const code = encodeURIComponent(String(req.params.code));
       if (team.feePaid) return res.redirect(`${registerPage}?paid=${code}`);
 
+      const mode = tournamentPaymentMode(t);
       const owner = t.userId ? await storage.getUserById(t.userId) : undefined;
-      const stripe = getStripe();
+      const stripe = getStripeFor(mode);
+      const acct = accountFor(owner, mode);
       const fee = t.registrationFeeMinor ?? 0;
-      if (!stripe || !owner?.stripeConnectAccountId || !owner.stripeConnectReady || fee <= 0) {
+      if (!stripe || !acct.id || !acct.ready || fee <= 0) {
         return res.redirect(`${registerPage}?pay=unavailable`);
       }
 
@@ -197,7 +234,7 @@ export function registerConnectRoutes(app: Express): void {
           cancel_url: `${registerPage}?pay=cancelled&code=${code}`,
         },
         // Direct charge: the payment is made on the organiser's own Stripe account
-        { stripeAccount: owner.stripeConnectAccountId },
+        { stripeAccount: acct.id },
       );
       res.redirect(303, session.url!);
     } catch (error) {
@@ -216,10 +253,12 @@ export function registerConnectRoutes(app: Express): void {
       if (!team.feePaid && sessionId.startsWith("cs_")) {
         const t = await storage.getTournament(team.tournamentId);
         const owner = t?.userId ? await storage.getUserById(t.userId) : undefined;
-        const stripe = getStripe();
-        if (stripe && owner?.stripeConnectAccountId) {
-          const session = await stripe.checkout.sessions.retrieve(sessionId, {}, { stripeAccount: owner.stripeConnectAccountId });
-          if (session.metadata?.btm_team_id === team.id) await markPaidFromSession(session, owner.stripeConnectAccountId);
+        const mode = t ? tournamentPaymentMode(t) : "test";
+        const stripe = getStripeFor(mode);
+        const acct = accountFor(owner, mode);
+        if (stripe && acct.id) {
+          const session = await stripe.checkout.sessions.retrieve(sessionId, {}, { stripeAccount: acct.id });
+          if (session.metadata?.btm_team_id === team.id) await markPaidFromSession(session, acct.id, mode);
         }
       }
       const fresh = await storage.getTeam(team.id);
@@ -230,32 +269,22 @@ export function registerConnectRoutes(app: Express): void {
     }
   });
 
-  // Events from organisers' Stripe accounts ("Connected accounts" webhook destination)
+  // Events from organisers' Stripe accounts ("Connected accounts" webhook destination),
+  // test and live both: each is signed with its own mode's secret
   app.post("/api/stripe/connect-webhook", async (req: any, res) => {
-    const stripe = getStripe();
-    const secret = (process.env.STRIPE_CONNECT_WEBHOOK_SECRET || "").trim();
-    if (!stripe || !secret) return res.status(503).send("Webhook not configured");
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(req.rawBody as Buffer, String(req.headers["stripe-signature"] || ""), secret);
-    } catch (error) {
-      console.warn("[CONNECT] Webhook signature check failed:", error instanceof Error ? error.message : error);
+    if (!webhookConfigured("connect")) return res.status(503).send("Webhook not configured");
+    const verified = constructEventAnyMode("connect", req.rawBody as Buffer, String(req.headers["stripe-signature"] || ""));
+    if (!verified) {
+      console.warn("[CONNECT] Webhook signature check failed");
       return res.status(400).send("Bad signature");
     }
+    const { event, mode } = verified;
     try {
       switch (event.type) {
         case "checkout.session.completed":
         case "checkout.session.async_payment_succeeded":
-          await markPaidFromSession(event.data.object, event.account ?? null);
+          await markPaidFromSession(event.data.object, event.account ?? null, mode);
           break;
-        case "account.updated": {
-          const acct = event.data.object;
-          const user = await storage.getUserByConnectAccountId(acct.id);
-          if (user && user.stripeConnectReady !== !!acct.charges_enabled) {
-            await storage.updateUserConnect(user.id, { stripeConnectReady: !!acct.charges_enabled });
-          }
-          break;
-        }
         default:
           break;
       }
