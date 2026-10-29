@@ -52,7 +52,7 @@ import { BackupDialog } from "@/components/backup-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { RegistrationFeeFields } from "@/components/registration-fee-fields";
+import { RegistrationFeeFields, useStripeModes } from "@/components/registration-fee-fields";
 
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament, lockedTournamentId } = useTournament();
@@ -351,12 +351,13 @@ export function TournamentSelector() {
     }
   };
 
+  // Under each tournament's name: whether captain card payments are Live or Test (signed-in organisers only)
+  const stripeModes = useStripeModes();
   const getTournamentDetails = (tournament: Tournament) => {
-    const stages = [];
-    if (tournament.hasQuarterFinals) stages.push("QF");
-    if (tournament.hasSemiFinals) stages.push("SF");
-    if (tournament.hasFinals) stages.push("F");
-    return `${tournament.numberOfDivisions} div${tournament.numberOfDivisions !== 1 ? 's' : ''} • ${tournament.gamesPerMatch} game${tournament.gamesPerMatch !== 1 ? 's' : ''} • ${stages.join(', ') || 'No stages'}`;
+    if (!user || !stripeModes || (!stripeModes.live.available && !stripeModes.test.available)) return "";
+    const chosen = (tournament as any).paymentMode as string | null | undefined;
+    const mode = chosen === "live" || chosen === "test" ? chosen : stripeModes.live.available ? "live" : "test";
+    return mode === "live" ? "Live payments" : "Test payments (no real money)";
   };
 
   // ── "How this tournament will work" confirmation, shown before saving ──────
@@ -732,11 +733,11 @@ export function TournamentSelector() {
         <Trophy className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <div className="flex flex-col items-start min-w-0">
           <span className="font-medium text-sm truncate max-w-full">{currentTournament.name}</span>
-          {/* View-only visitors don't need the divisions / games / stages summary; hidden on phones to save height */}
-          {!isReadOnly && (
+          {/* Organisers see the tournament's payment mode; hidden on phones to save height */}
+          {!isReadOnly && (getTournamentDetails(currentTournament) || isTournamentLocked) && (
             <span className="hidden sm:block text-xs text-muted-foreground truncate max-w-full">
               {getTournamentDetails(currentTournament)}
-              {isTournamentLocked && " • Locked to access link"}
+              {isTournamentLocked && `${getTournamentDetails(currentTournament) ? " • " : ""}Locked to access link`}
             </span>
           )}
         </div>
@@ -752,7 +753,11 @@ export function TournamentSelector() {
             <Trophy className="h-4 w-4 flex-shrink-0" />
             <div className="flex flex-col items-start min-w-0">
               <span className="font-medium truncate max-w-full">{currentTournament.name}</span>
-              <span className="hidden sm:block text-xs text-muted-foreground truncate max-w-full">{getTournamentDetails(currentTournament)}</span>
+              {getTournamentDetails(currentTournament) && (
+                <span className={`hidden sm:block text-xs truncate max-w-full ${getTournamentDetails(currentTournament).startsWith("Test") ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} data-testid="text-tournament-payment-mode">
+                  {getTournamentDetails(currentTournament)}
+                </span>
+              )}
             </div>
             <ChevronDown className="h-4 w-4 flex-shrink-0" />
           </Button>
@@ -771,7 +776,9 @@ export function TournamentSelector() {
                 {tournament.id === currentTournament.id && <Trophy className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />}
                 <div className="flex flex-col min-w-0 flex-1">
                   <span className="font-medium truncate">{tournament.name}</span>
-                  <span className="text-xs text-muted-foreground">{getTournamentDetails(tournament)}</span>
+                  {getTournamentDetails(tournament) && (
+                    <span className={`text-xs ${getTournamentDetails(tournament).startsWith("Test") ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>{getTournamentDetails(tournament)}</span>
+                  )}
                 </div>
               </div>
               {(isMasterAdmin || (user && (tournament.userId === user.id || (tournament as any).isShared))) && (
