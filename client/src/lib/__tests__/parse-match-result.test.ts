@@ -83,6 +83,39 @@ describe("parseMatchResult", () => {
     expect(out.ok && out.result.games.length).toBe(3);
   });
 
+  it("reads numbered games with short team names", () => {
+    const out = parseMatchResult(
+      "Hello... 29/10/26\nCreme Boule v Shamblers... \n1) CB-13 - S-0\n2) CB+13 - S-1",
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-10-29",
+        team1: "Creme Boule",
+        team2: "Shamblers",
+        games: [
+          { game: 1, score1: 13, score2: 0 },
+          { game: 2, score1: 13, score2: 1 },
+        ],
+      },
+    });
+  });
+
+  it("gives scores to the right team when short names are swapped", () => {
+    const out = parseMatchResult("Creme Boule v Shamblers\n1) S-13 - CB-4\n2) Sham 9, CB 13");
+    expect(out.ok && out.result.games).toEqual([
+      { game: 1, score1: 4, score2: 13 },
+      { game: 2, score1: 13, score2: 9 },
+    ]);
+  });
+
+  it("refuses short names that fit neither or both teams", () => {
+    const neither = parseMatchResult("Creme Boule v Shamblers\n1) XY-13 - S-0");
+    expect(!neither.ok && neither.error).toMatch(/couldn't tell/);
+    const both = parseMatchResult("Sun Club v Shamblers\n1) S-13 - S-0");
+    expect(!both.ok && both.error).toMatch(/either team/);
+  });
+
   it("allows a missing date", () => {
     const out = parseMatchResult("A v B\nGame 1: 13-2");
     expect(out.ok && out.result.date).toBeNull();

@@ -92,6 +92,30 @@ function scoresOnlyLine(line: string): Array<[number, number]> | null {
   return found.length > 0 ? found : null;
 }
 
+// A numbered game with short team names and each team's score:
+// "1) CB-13 - S-0", "2) CB+13 - S-1", "Game 3: S 13, CB 9"
+// The -/+/: after a short name separates it from its score; it isn't a sign.
+const LABELLED_RE =
+  /^(?:(?:game|g)\s*)?(\d)\s*[).:]\s*([a-z][a-z'&.]*)\s*[-+:=]?\s*(\d{1,2})\s*(?:-|,|&|\bv\b|\bvs\b)?\s*([a-z][a-z'&.]*)\s*[-+:=]?\s*(\d{1,2})\s*$/i;
+
+type LabelledGame = { game: number; abbr1: string; s1: number; abbr2: string; s2: number };
+
+/** Does a short name ("CB", "S", "Sham") stand for this team? By initials or how the name starts. */
+function shortNameFits(abbr: string, teamName: string): boolean {
+  const a = abbr.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!a) return false;
+  const initials = teamName
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map(w => w[0].toLowerCase())
+    .join("");
+  const full = teamName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return a === initials || full.startsWith(a);
+}
+
+/** Team names without trailing/leading chatter punctuation: "Shamblers..." -> "Shamblers" */
+const cleanTeam = (s: string) => s.replace(/^[\s.,:;!-]+|[\s.,:;!-]+$/g, "");
+
 export function parseMatchResult(text: string, now: Date = new Date()): ParseOutcome {
   const lines = text
     // Phones use en dash, em dash, minus sign, etc. in place of a hyphen
@@ -107,6 +131,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
   let teams: { team1: string; team2: string } | null = null;
   const games: ParsedGame[] = [];
   const looseScores: Array<Array<[number, number]>> = []; // score lines without "Game N:"
+  const labelled: LabelledGame[] = []; // "1) CB-13 - S-0" — sorted out once the teams are known
 
   for (const line of lines) {
     const game = line.match(GAME_RE);
@@ -118,6 +143,11 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
       games.push({ game: num, score1: +game[2], score2: +game[3] });
       continue;
     }
+    const lab = line.match(LABELLED_RE);
+    if (lab) {
+      labelled.push({ game: +lab[1], abbr1: lab[2], s1: +lab[3], abbr2: lab[4], s2: +lab[5] });
+      continue;
+    }
     const loose = scoresOnlyLine(line);
     if (loose) { looseScores.push(loose); continue; }
     if (!date) {
@@ -127,7 +157,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     if (!teams) {
       const vs = line.match(VS_RE);
       if (vs) {
-        teams = { team1: vs[1].trim(), team2: vs[2].trim() };
+        teams = { team1: cleanTeam(vs[1]), team2: cleanTeam(vs[2]) };
         continue;
       }
     }
@@ -137,6 +167,25 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
   if (!teams) {
     return { ok: false, error: 'Couldn\'t find the teams. Expected a line like "Team A v Team B".' };
   }
+  // Numbered lines with short names: give each score to the team its short name stands for
+  for (const g of labelled) {
+    const { team1, team2 } = teams;
+    const straight = shortNameFits(g.abbr1, team1) && shortNameFits(g.abbr2, team2);
+    const reversed = shortNameFits(g.abbr1, team2) && shortNameFits(g.abbr2, team1);
+    if (!straight && !reversed) {
+      return { ok: false, error: `Game ${g.game}: couldn't tell which team "${g.abbr1}" and "${g.abbr2}" are.` };
+    }
+    if (straight && reversed) {
+      return { ok: false, error: `Game ${g.game}: "${g.abbr1}" and "${g.abbr2}" could be either team.` };
+    }
+    if (games.some(x => x.game === g.game)) {
+      return { ok: false, error: `Game ${g.game} appears more than once.` };
+    }
+    games.push(straight
+      ? { game: g.game, score1: g.s1, score2: g.s2 }
+      : { game: g.game, score1: g.s2, score2: g.s1 });
+  }
+
   // No "Game 1:" lines: take the scores in order, from one line ("13-8 & 13-7") or one per line
   if (games.length === 0 && looseScores.length > 0) {
     const flat = looseScores.flat();
