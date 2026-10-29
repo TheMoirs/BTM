@@ -35,7 +35,6 @@ async function feePaymentFor(t: { registrationFeeMinor: number | null; registrat
   if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0) return null;
   const owner = t.userId ? await storage.getUserById(t.userId) : undefined;
   const reference = paymentReference(teamName || "TEAM FEE");
-  const hasBank = !!(owner?.payeeSortCode || owner?.payeeIban);
   return {
     amount: formatFee(t.registrationFeeMinor, t.registrationFeeCurrency),
     minor: t.registrationFeeMinor,
@@ -43,14 +42,8 @@ async function feePaymentFor(t: { registrationFeeMinor: number | null; registrat
     reference,
     cardPayUrl: teamId && site ? cardPayUrl(owner, teamId, site, tournamentPaymentMode(t)) : null,
     testMode: tournamentPaymentMode(t) === "test",
-    bank: hasBank && owner
-      ? {
-          accountName: owner.payeeAccountName,
-          sortCode: owner.payeeSortCode ? formatSortCode(owner.payeeSortCode) : null,
-          accountNumber: owner.payeeAccountNumber,
-          iban: owner.payeeIban ? formatIban(owner.payeeIban) : null,
-        }
-      : null,
+    // Captains pay by card only; bank transfer details are no longer shown
+    bank: null,
   };
 }
 

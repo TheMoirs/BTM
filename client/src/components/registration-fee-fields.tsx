@@ -56,7 +56,7 @@ export function RegistrationFeeFields({ control, testIdSuffix = "" }: { control:
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        Per team. Shown on the registration page with your bank details (set them in Profile Settings). Leave blank for no fee.
+        Per team. Captains pay by card after registering, once you've set up card payments in Profile Settings. Leave blank for no fee.
       </p>
       <PaymentModeField control={control} testIdSuffix={testIdSuffix} />
     </div>
