@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ArrowLeft, Check, CreditCard, Loader2, Sparkles } from "lucide-react";
+import { StripeTestNotice } from "@/components/stripe-test-notice";
 import { PLAN_PRICES, type BillingStatus, type PlanCurrency, type PlanInterval } from "@shared/plans";
 
 const STATUS_KEY = ["/api/billing/status"];
@@ -233,6 +234,7 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
                 {interval === "year" && <p className="text-sm text-muted-foreground">Saves {yearlySaving} compared with paying monthly.</p>}
               </div>
 
+              {status.billingEnabled && status.testMode && <StripeTestNotice kind="card" />}
               {status.billingEnabled ? (
                 <Button size="lg" onClick={() => upgrade.mutate()} disabled={upgrade.isPending} data-testid="button-upgrade">
                   {upgrade.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

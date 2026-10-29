@@ -40,6 +40,11 @@ export type AdminPayment = {
   card: string | null;
 };
 
+/** True while BTM uses a Stripe test (sandbox) key: pages then show test card details */
+export function isStripeTestMode(): boolean {
+  return (process.env.STRIPE_SECRET_KEY || "").trim().startsWith("sk_test_");
+}
+
 export function getStripe(): Stripe | null {
   if (stripeClient !== undefined) return stripeClient;
   const key = (process.env.STRIPE_SECRET_KEY || "").trim();
@@ -190,6 +195,7 @@ async function statusFor(user: User): Promise<BillingStatus> {
   const paid = statusGivesUnlimited(user.subscriptionStatus);
   return {
     billingEnabled: !!getStripe(),
+    testMode: isStripeTestMode(),
     unlimited: admin || paid,
     plan: paid ? "unlimited" : admin ? "admin" : "free",
     status: user.subscriptionStatus,

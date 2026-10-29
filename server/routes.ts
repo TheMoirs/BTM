@@ -12,6 +12,7 @@ import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMA
 import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
 import { registerConnectRoutes, cardPayUrl } from "./connect";
+import { isStripeTestMode } from "./billing";
 import { registerBillingRoutes, tournamentLimitProblem, teamLimitProblem, transferLimitProblem } from "./billing";
 import { publicRegistrationSchema, REGISTRATION_CONTACT, type PublicRegistration } from "@shared/registration";
 
@@ -66,7 +67,7 @@ export function feeEmailHtml(p: FeePayment): string {
     : "";
   return `<div style="margin:16px 0;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
 <p style="margin:0 0 8px"><strong>Registration fee: ${escapeHtml(p.amount)}</strong></p>
-${p.cardPayUrl ? `<p style="margin:0 0 10px"><a href="${p.cardPayUrl}" style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">PAY ${escapeHtml(p.amount)} BY CARD</a></p>` : ""}
+${p.cardPayUrl ? `<p style="margin:0 0 10px"><a href="${p.cardPayUrl}" style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold">PAY ${escapeHtml(p.amount)} BY CARD</a></p>${isStripeTestMode() ? `<p style="margin:0 0 10px;padding:8px 10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:13px"><strong>Stripe is in test mode:</strong> no real money is taken. Use card <strong>4242 4242 4242 4242</strong>, any future expiry date and any 3-digit CVC.</p>` : ""}` : ""}
 ${bankRows ? `<p style="margin:0 0 4px">${p.cardPayUrl ? "Or pay by bank transfer:" : "Please pay by bank transfer:"}</p><table cellpadding="0" cellspacing="0" style="border-collapse:collapse">${bankRows}</table>` : ""}
 ${!bankRows && !p.cardPayUrl ? `<p style="margin:0">The organiser will let you know how to pay.</p>` : ""}
 </div>`;
@@ -707,6 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         tournamentId: t.id, name: t.name, viewToken: t.viewToken, registrationDeadline: t.registrationDeadline ?? null,
         registrationFee: t.registrationFeeMinor && t.registrationFeeMinor > 0 ? formatFee(t.registrationFeeMinor, t.registrationFeeCurrency) : null,
+        stripeTestMode: isStripeTestMode(),
         cardPayments: await (async () => {
           if (!t.registrationFeeMinor || t.registrationFeeMinor <= 0 || !t.userId) return false;
           const owner = await storage.getUserById(t.userId);

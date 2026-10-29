@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { payeeDetailsProblem } from "@shared/payments";
 import { CheckCircle2, CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { StripeTestNotice } from "@/components/stripe-test-notice";
 
-type ConnectStatus = { available: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean };
+type ConnectStatus = { available: boolean; testMode?: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean };
 
 /** Card payments: the organiser connects their own Stripe account, and captains' fees go straight to it */
 function StripeConnectBlock() {
@@ -57,6 +58,7 @@ function StripeConnectBlock() {
               ? "Your Stripe account isn't ready to take payments yet. Finish Stripe's sign-up to turn on card payments."
               : "Let captains pay the registration fee by card. Fees go straight into your own Stripe account (Stripe charges a small fee per payment; PTM takes nothing). Sign-up takes about 5 minutes."}
           </p>
+          {status.testMode && <StripeTestNotice kind="onboarding" />}
           <Button type="button" size="sm" onClick={open} disabled={opening} data-testid="button-connect-stripe">
             {opening && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {status.connected ? "Finish Stripe sign-up" : "Set up card payments"}

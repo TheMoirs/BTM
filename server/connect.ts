@@ -13,7 +13,7 @@
 import type Stripe from "stripe";
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
-import { getStripe } from "./billing";
+import { getStripe, isStripeTestMode } from "./billing";
 import { getSessionFromRequest, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
 import type { User } from "@shared/schema";
 
@@ -93,9 +93,10 @@ export function registerConnectRoutes(app: Express): void {
       if (!user) return;
       const stripe = getStripe();
       if (!stripe) return res.json({ available: false, connected: false, ready: false, detailsSubmitted: false });
-      if (!user.stripeConnectAccountId) return res.json({ available: true, connected: false, ready: false, detailsSubmitted: false });
+      const testMode = isStripeTestMode();
+      if (!user.stripeConnectAccountId) return res.json({ available: true, testMode, connected: false, ready: false, detailsSubmitted: false });
       const s = await refreshConnectStatus(stripe, user);
-      res.json({ available: true, connected: true, ...s });
+      res.json({ available: true, testMode, connected: true, ...s });
     } catch (error) {
       console.error("[CONNECT] Status failed:", error);
       res.status(500).json({ error: "Couldn't check your Stripe account." });
