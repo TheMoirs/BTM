@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { payeeDetailsProblem } from "@shared/payments";
 import { CheckCircle2, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { StripeTestNotice } from "@/components/stripe-test-notice";
+import { StripeSignupGuide } from "@/components/stripe-signup-guide";
 
 type ModeStatus = { available: boolean; connected: boolean; ready: boolean; detailsSubmitted: boolean };
 type ConnectStatus = { available: boolean; modes: { test: ModeStatus; live: ModeStatus } };
@@ -106,6 +107,7 @@ function StripeConnectBlock() {
       </div>
       {row("live")}
       {row("test")}
+      {(!status.modes.live.ready || !status.modes.test.ready) && <StripeSignupGuide />}
       {(status.modes.live.ready || status.modes.test.ready) && (
         <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary inline-flex items-center gap-1 underline-offset-4 hover:underline">
           Payments and payouts are in your Stripe Dashboard <ExternalLink className="h-3 w-3" />
