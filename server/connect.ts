@@ -33,10 +33,15 @@ export function cardPayUrl(owner: Pick<User, "stripeConnectAccountId" | "stripeC
 /** Re-read the organiser's Stripe account and remember whether it can take card payments */
 async function refreshConnectStatus(stripe: Stripe, user: User): Promise<{ ready: boolean; detailsSubmitted: boolean }> {
   if (!user.stripeConnectAccountId) return { ready: false, detailsSubmitted: false };
-  const acct = await stripe.accounts.retrieve(user.stripeConnectAccountId);
-  const ready = !!acct.charges_enabled;
+  // Accounts v2: ready once the merchant configuration's card_payments capability is active
+  const acct = await stripe.v2.core.accounts.retrieve(user.stripeConnectAccountId, {
+    include: ["configuration.merchant", "requirements"],
+  });
+  const ready = acct.configuration?.merchant?.capabilities?.card_payments?.status === "active";
   if (ready !== user.stripeConnectReady) await storage.updateUserConnect(user.id, { stripeConnectReady: ready });
-  return { ready, detailsSubmitted: !!acct.details_submitted };
+  // Nothing currently due means they've been through Stripe's sign-up
+  const detailsSubmitted = ready || !acct.requirements?.entries?.some((e) => e.minimum_deadline?.status === "currently_due");
+  return { ready, detailsSubmitted };
 }
 
 async function signedInUser(req: Request, res: Response): Promise<User | null> {
@@ -50,11 +55,16 @@ async function signedInUser(req: Request, res: Response): Promise<User | null> {
 }
 
 async function onboardingLink(stripe: Stripe, accountId: string, site: string): Promise<string> {
-  const link = await stripe.accountLinks.create({
+  const link = await stripe.v2.core.accountLinks.create({
     account: accountId,
-    type: "account_onboarding",
-    refresh_url: `${site}/api/connect/refresh`,
-    return_url: `${site}/?connect=return`,
+    use_case: {
+      type: "account_onboarding",
+      account_onboarding: {
+        configurations: ["merchant"],
+        refresh_url: `${site}/api/connect/refresh`,
+        return_url: `${site}/?connect=return`,
+      },
+    } as any, // `configurations` is required by the API but not yet in this SDK's types
   });
   return link.url;
 }
@@ -102,20 +112,23 @@ export function registerConnectRoutes(app: Express): void {
       if (!stripe) return res.status(503).json({ error: "Card payments aren't set up yet." });
       let accountId = user.stripeConnectAccountId;
       if (!accountId) {
-        const acct = await stripe.accounts.create(
+        // Accounts v2 (Stripe's current API for new platforms): Stripe collects its fees from the
+        // organiser and handles losses; the organiser gets the full Stripe Dashboard
+        const acct = await stripe.v2.core.accounts.create(
           {
-            email: user.email,
-            // Stripe sets the price and handles losses; the organiser gets the full Stripe Dashboard
-            controller: {
-              fees: { payer: "account" },
-              losses: { payments: "stripe" },
-              stripe_dashboard: { type: "full" },
+            contact_email: user.email,
+            display_name: user.displayName || user.email,
+            dashboard: "full",
+            identity: { country: "gb" },
+            defaults: {
+              responsibilities: { fees_collector: "stripe", losses_collector: "stripe" },
+              profile: { product_description: "Team registration fees for pétanque tournaments" },
             },
-            capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-            business_profile: { product_description: "Team registration fees for pétanque tournaments" },
+            configuration: { merchant: { capabilities: { card_payments: { requested: true } } } },
+            include: ["configuration.merchant"],
             metadata: { btm_user_id: user.id },
-          },
-          { idempotencyKey: `btm-connect-${user.id}` },
+          } as any,
+          { idempotencyKey: `btm-connect-v2-${user.id}` },
         );
         accountId = acct.id;
         await storage.updateUserConnect(user.id, { stripeConnectAccountId: accountId, stripeConnectReady: false });
