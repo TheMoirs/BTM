@@ -1661,7 +1661,7 @@ export default function Teams() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background">
-      <div className={`${isEditAllMode ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6`}>
+      <div className={`${isEditAllMode || editingRowId ? "max-w-none" : "max-w-7xl"} mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6`}>
         {/* Compact header: title, count and division filter on one line; actions in one scrollable row */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-3 sm:mb-4">
           <div className="min-w-0">
@@ -2250,7 +2250,8 @@ export default function Teams() {
                 <Table
                   onKeyDown={isEditAllMode ? handleEditAllKeyDown : undefined}
                   className={
-                    isEditAllMode
+                    // Editing (one row or all): tight cells so the boxes get the room, not the gaps
+                    isEditAllMode || editingRowId
                       ? "[&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-3"
                       : // Tighter cells on mobile so more columns fit; normal spacing from sm up
                         "[&_td]:px-2 [&_td]:py-2 [&_th]:px-3 [&_th]:h-10 sm:[&_td]:p-4 sm:[&_th]:px-4 sm:[&_th]:h-12"
@@ -2406,7 +2407,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.name || ""}
                               onChange={(e) => updateValue("name", e.target.value)}
-                              className={`h-8 ${isEditAllMode ? "min-w-[180px]" : ""}`}
+                              className="h-8 min-w-[180px]"
                               data-editall-col="name"
                               data-testid={`input-edit-name-${team.id}`}
                             />
@@ -2433,7 +2434,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.homePiste || ""}
                               onChange={(e) => updateValue("homePiste", e.target.value)}
-                              className={`h-8 ${isEditAllMode ? "min-w-[130px]" : ""}`}
+                              className="h-8 min-w-[130px]"
                               data-editall-col="homePiste"
                               data-testid={`input-edit-home-piste-${team.id}`}
                             />
@@ -2450,7 +2451,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainName || ""}
                               onChange={(e) => updateValue("captainName", e.target.value)}
-                              className={`h-8 ${isEditAllMode ? "min-w-[160px]" : ""}`}
+                              className="h-8 min-w-[160px]"
                               data-editall-col="captainName"
                               data-testid={`input-edit-captain-name-${team.id}`}
                             />
@@ -2463,7 +2464,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainPhone || ""}
                               onChange={(e) => updateValue("captainPhone", e.target.value)}
-                              className={`h-8 ${isEditAllMode ? "min-w-[120px]" : ""}`}
+                              className="h-8 min-w-[120px]"
                               data-editall-col="captainPhone"
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
@@ -2487,7 +2488,7 @@ export default function Teams() {
                               value={currentValues.captainEmail || ""}
                               onChange={(e) => updateValue("captainEmail", e.target.value)}
                               type="email"
-                              className={`h-8 ${isEditAllMode ? "min-w-[230px]" : ""}`}
+                              className="h-8 min-w-[230px]"
                               data-editall-col="captainEmail"
                               data-testid={`input-edit-captain-email-${team.id}`}
                             />
@@ -2512,7 +2513,7 @@ export default function Teams() {
                                 const lines = e.target.value.split("\n").filter(line => line.trim());
                                 updateValue("otherPlayers", lines as any);
                               }}
-                              className={`min-h-[60px] text-sm ${isEditAllMode ? "min-w-[200px]" : ""}`}
+                              className="min-h-[60px] text-sm min-w-[200px]"
                               placeholder="One per line"
                               data-editall-col="otherPlayers"
                               data-testid={`input-edit-other-players-${team.id}`}
