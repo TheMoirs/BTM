@@ -370,7 +370,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               {registrationFee ? (
                 <>
                   Registration fee: <strong>{registrationFee}</strong> per team.{" "}
-                  {cardPayments ? "You can pay by card straight after registering." : "You can pay straight after registering."}
+                  {cardPayments ? "You can pay by card straight after registering." : "The organiser will let you know how to pay."}
                 </>
               ) : (
                 <>There is <strong>no registration fee</strong> for this tournament.</>
