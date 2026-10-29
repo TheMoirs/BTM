@@ -110,6 +110,8 @@ describe("parseMatchResult", () => {
   });
 
   it("refuses short names that fit neither or both teams", () => {
+    const accented = parseMatchResult("Créme Boule v Shamblers\n1) CB-13 - S-0");
+    expect(accented.ok).toBe(true);
     const neither = parseMatchResult("Creme Boule v Shamblers\n1) XY-13 - S-0");
     expect(!neither.ok && neither.error).toMatch(/couldn't tell/);
     const both = parseMatchResult("Sun Club v Shamblers\n1) S-13 - S-0");
@@ -153,6 +155,26 @@ describe("findFixtureCandidates", () => {
     const parsed = { date: null, team1: "Shamblers", team2: "TandeM", games: [] };
     const res = findFixtureCandidates(parsed, [m("a", "t2", "t3"), m("b", "t5", "t3")], t);
     expect(res.map(c => c.match.id)).toEqual(["a"]);
+  });
+
+  it("ignores accents in team names", () => {
+    const t = [{ id: "cb", name: "Créme Bouleé" }, { id: "s", name: "Shamblers" }];
+    const parsed = { date: null, team1: "Creme Boule", team2: "Shamblers", games: [] };
+    const res = findFixtureCandidates(parsed, [m("x", "cb", "s")], t);
+    expect(res.map(c => c.match.id)).toEqual(["x"]);
+  });
+
+  it("allows a small typo, but prefers a closer match", () => {
+    const parsed = { date: null, team1: "Shamblerz", team2: "TandeM", games: [] };
+    expect(findFixtureCandidates(parsed, [m("a", "t2", "t3")], teams).map(c => c.match.id)).toEqual(["a"]);
+    const t = [...teams, { id: "t6", name: "Shamblerz" }];
+    const res = findFixtureCandidates(parsed, [m("a", "t2", "t3"), m("b", "t6", "t3")], t);
+    expect(res.map(c => c.match.id)).toEqual(["b"]);
+  });
+
+  it("doesn't treat very different names as typos", () => {
+    const parsed = { date: null, team1: "Shufflers", team2: "TandeM", games: [] };
+    expect(findFixtureCandidates(parsed, [m("a", "t2", "t3")], teams)).toHaveLength(0);
   });
 
   it("prefers unplayed fixtures when the teams meet twice", () => {

@@ -100,10 +100,14 @@ const LABELLED_RE =
 
 type LabelledGame = { game: number; abbr1: string; s1: number; abbr2: string; s2: number };
 
+/** "Créme Bouleé" -> "Creme Boulee": accents don't count when comparing names */
+const foldAccents = (s: string) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+
 /** Does a short name ("CB", "S", "Sham") stand for this team? By initials or how the name starts. */
-function shortNameFits(abbr: string, teamName: string): boolean {
-  const a = abbr.toLowerCase().replace(/[^a-z0-9]/g, "");
+function shortNameFits(abbr: string, rawTeamName: string): boolean {
+  const a = foldAccents(abbr).toLowerCase().replace(/[^a-z0-9]/g, "");
   if (!a) return false;
+  const teamName = foldAccents(rawTeamName);
   const initials = teamName
     .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
@@ -143,7 +147,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
       games.push({ game: num, score1: +game[2], score2: +game[3] });
       continue;
     }
-    const lab = line.match(LABELLED_RE);
+    const lab = foldAccents(line).match(LABELLED_RE);
     if (lab) {
       labelled.push({ game: +lab[1], abbr1: lab[2], s1: +lab[3], abbr2: lab[4], s2: +lab[5] });
       continue;
@@ -209,19 +213,40 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
 
 // ---------- Matching against fixtures ----------
 
-const normName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const normName = (s: string) => foldAccents(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Number of single-letter changes (add, remove, swap one letter) between two strings */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
 
 export type TeamLike = { id: string; name: string; teamDisplayId?: string | null };
 
-/** 2 = exact name/ID match, 1 = partial match, 0 = no match */
-export function teamMatchStrength(query: string, team: TeamLike | undefined): 0 | 1 | 2 {
+/**
+ * 3 = exact name/ID match, 2 = partial match, 1 = close spelling (a letter or two out),
+ * 0 = no match. Accents are ignored throughout.
+ */
+export function teamMatchStrength(query: string, team: TeamLike | undefined): 0 | 1 | 2 | 3 {
   if (!team) return 0;
   const q = normName(query);
   if (!q) return 0;
   const name = normName(team.name);
   const display = team.teamDisplayId ? normName(team.teamDisplayId) : "";
-  if (q === name || (display && q === display)) return 2;
-  if (name.includes(q) || (q.length >= 4 && q.includes(name) && name.length >= 4)) return 1;
+  if (q === name || (display && q === display)) return 3;
+  if (name.includes(q) || (q.length >= 4 && q.includes(name) && name.length >= 4)) return 2;
+  // Typos: short names may be one letter out, longer ones two
+  if (q.length >= 4 && name.length >= 4) {
+    const allowed = Math.min(q.length, name.length) <= 6 ? 1 : 2;
+    if (editDistance(q, name) <= allowed) return 1;
+  }
   return 0;
 }
 
@@ -241,7 +266,7 @@ export type FixtureCandidate<M> = {
 
 /**
  * Finds the fixtures that fit the pasted team names, strongest first.
- * Exact name matches beat partial ones, and unplayed fixtures beat
+ * Exact name matches beat partial ones, which beat close spellings; unplayed fixtures beat
  * fixtures that already have a score.
  */
 export function findFixtureCandidates<M extends MatchLike>(
