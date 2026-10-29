@@ -43,14 +43,21 @@ export function StripeTestNotice({ kind }: { kind: "card" | "onboarding" }) {
             <Row label="Business type" value="Individual / sole trader" plain />
             <Row label="Mobile number" value="0000000000" />
             <Row label="SMS / email code" value="000000" />
-            <Row label="Date of birth" value="01/01/1901" />
-            <Row label="Address line 1" value="address_full_match" />
+            <Row label="Date of birth (exactly)" value="01/01/1901" />
+            <Row label="Address line 1 (exactly)" value="address_full_match" />
+            <Row label="Town, postcode" value="e.g. London, SW1A 1AA" plain />
+            <Row label="ID number (if asked)" value="000000000" />
             <Row label="Website" value="https://accessible.stripe.com" />
             <Row label="Sort code" value="10-88-00" />
             <Row label="Account number" value="00012345" />
           </div>
           <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-            Any name, town and postcode will do. If Stripe asks for ID, choose "Use test document".
+            Any name will do, but use a real-looking town and postcode. If Stripe says it couldn't verify your details,
+            check the date of birth and address line above, or choose to upload a document and use Stripe's{" "}
+            <a href="https://d37ugbyn3rpeym.cloudfront.net/docs/identity/success.png" target="_blank" rel="noopener noreferrer" className="underline">
+              test ID image
+            </a>{" "}
+            (or its "Use test image" button).
           </p>
         </>
       )}
