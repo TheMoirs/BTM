@@ -60,11 +60,10 @@ async function onboardingLink(stripe: Stripe, accountId: string, site: string): 
     use_case: {
       type: "account_onboarding",
       account_onboarding: {
-        configurations: ["merchant"],
         refresh_url: `${site}/api/connect/refresh`,
         return_url: `${site}/?connect=return`,
       },
-    } as any, // `configurations` is required by the API but not yet in this SDK's types
+    },
   });
   return link.url;
 }
