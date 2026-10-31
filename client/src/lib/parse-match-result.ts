@@ -103,18 +103,32 @@ type LabelledGame = { game: number; abbr1: string; s1: number; abbr2: string; s2
 /** "Créme Bouleé" -> "Creme Boulee": accents don't count when comparing names */
 const foldAccents = (s: string) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
 
-/** Does a short name ("CB", "S", "Sham") stand for this team? By initials or how the name starts. */
-function shortNameFits(abbr: string, rawTeamName: string): boolean {
+/**
+ * Does a short name ("CB", "S", "Sham") stand for this team? By initials or how the name starts.
+ * `loose` also tries the last few words of the name, in case chat crept in before it
+ * ("Great games between Shoscombe Shambolics" still fits "SS").
+ */
+function shortNameFits(abbr: string, rawTeamName: string, loose = false): boolean {
   const a = foldAccents(abbr).toLowerCase().replace(/[^a-z0-9]/g, "");
   if (!a) return false;
-  const teamName = foldAccents(rawTeamName);
-  const initials = teamName
-    .split(/[^A-Za-z0-9]+/)
-    .filter(Boolean)
-    .map(w => w[0].toLowerCase())
-    .join("");
-  const full = teamName.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return a === initials || full.startsWith(a);
+  const words = foldAccents(rawTeamName).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const starts = loose ? words.length : 1;
+  for (let i = 0; i < starts; i++) {
+    const tail = words.slice(i);
+    if (a === tail.map(w => w[0]).join("") || tail.join("").startsWith(a)) return true;
+  }
+  return false;
+}
+
+// Teams joined by "&" or "and" instead of "v": "... between Shoscombe Shambolics & LCC Snowblowers."
+const AND_RE = /^(.+?)\s+(?:&|and)\s+(.+)$/i;
+/** Drop chat before the first team ("Most enjoyable games between ...") and after the second */
+function teamsFromAndLine(line: string): { team1: string; team2: string } | null {
+  const m = line.match(AND_RE);
+  if (!m) return null;
+  const team1 = cleanTeam(m[1].replace(/^.*\b(?:between|against|with)\s+/i, ""));
+  const team2 = cleanTeam(m[2].split(/[.!?]\s/)[0]);
+  return team1 && team2 ? { team1, team2 } : null;
 }
 
 /** Team names without trailing/leading chatter punctuation: "Shamblers..." -> "Shamblers" */
@@ -133,6 +147,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
 
   let date: string | null = null;
   let teams: { team1: string; team2: string } | null = null;
+  let andTeams: { team1: string; team2: string } | null = null; // used only if there's no "v" line
   const games: ParsedGame[] = [];
   const looseScores: Array<Array<[number, number]>> = []; // score lines without "Game N:"
   const labelled: LabelledGame[] = []; // "1) CB-13 - S-0" — sorted out once the teams are known
@@ -164,18 +179,28 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
         teams = { team1: cleanTeam(vs[1]), team2: cleanTeam(vs[2]) };
         continue;
       }
+      if (!andTeams) {
+        andTeams = teamsFromAndLine(line);
+        if (andTeams) continue;
+      }
     }
     // Anything else (e.g. "Each win one game") is ignored
   }
 
+  if (!teams) teams = andTeams;
   if (!teams) {
     return { ok: false, error: 'Couldn\'t find the teams. Expected a line like "Team A v Team B".' };
   }
   // Numbered lines with short names: give each score to the team its short name stands for
   for (const g of labelled) {
     const { team1, team2 } = teams;
-    const straight = shortNameFits(g.abbr1, team1) && shortNameFits(g.abbr2, team2);
-    const reversed = shortNameFits(g.abbr1, team2) && shortNameFits(g.abbr2, team1);
+    let straight = shortNameFits(g.abbr1, team1) && shortNameFits(g.abbr2, team2);
+    let reversed = shortNameFits(g.abbr1, team2) && shortNameFits(g.abbr2, team1);
+    if (!straight && !reversed) {
+      // Try the last words of each name too, in case chat crept in before it
+      straight = shortNameFits(g.abbr1, team1, true) && shortNameFits(g.abbr2, team2, true);
+      reversed = shortNameFits(g.abbr1, team2, true) && shortNameFits(g.abbr2, team1, true);
+    }
     if (!straight && !reversed) {
       return { ok: false, error: `Game ${g.game}: couldn't tell which team "${g.abbr1}" and "${g.abbr2}" are.` };
     }

@@ -118,6 +118,39 @@ describe("parseMatchResult", () => {
     expect(!both.ok && both.error).toMatch(/either team/);
   });
 
+  it("reads teams joined by '&' inside a sentence", () => {
+    const out = parseMatchResult(
+      "30/10/26\nMost enjoyable games between Shoscombe Shambolics & LCC Snowblowers. \n1) SS - 4 & LCC - 13\n2) SS - 6 & LCC - 13",
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-10-30",
+        team1: "Shoscombe Shambolics",
+        team2: "LCC Snowblowers",
+        games: [
+          { game: 1, score1: 4, score2: 13 },
+          { game: 2, score1: 6, score2: 13 },
+        ],
+      },
+    });
+  });
+
+  it("prefers a 'v' line over an '&' line", () => {
+    const out = parseMatchResult("Hi Bob & Jane\nA Team v B Team\n13-2");
+    expect(out.ok && out.result.team1).toBe("A Team");
+  });
+
+  it("reads 'and', and trims chat after the second team", () => {
+    const out = parseMatchResult("Played against Miles Away and Shamblers. Lovely evening\n13-8 & 13-7");
+    expect(out.ok && [out.result.team1, out.result.team2]).toEqual(["Miles Away", "Shamblers"]);
+  });
+
+  it("still matches short names when chat stays before a team", () => {
+    const out = parseMatchResult("Super games, Shoscombe Shambolics & LCC Snowblowers\n1) SS - 4 & LCC - 13");
+    expect(out.ok && out.result.games).toEqual([{ game: 1, score1: 4, score2: 13 }]);
+  });
+
   it("allows a missing date", () => {
     const out = parseMatchResult("A v B\nGame 1: 13-2");
     expect(out.ok && out.result.date).toBeNull();
