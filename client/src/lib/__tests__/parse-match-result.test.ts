@@ -151,6 +151,57 @@ describe("parseMatchResult", () => {
     expect(out.ok && out.result.games).toEqual([{ game: 1, score1: 4, score2: 13 }]);
   });
 
+  it("takes team names from game lines when the '&' line is just thanks", () => {
+    const out = parseMatchResult(
+      "Good games this morning, thanks Patrick & Paul. \nGame 1 TB 13  Shamblers 6\nGame 2 TB 13  Shamblers 1",
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: null,
+        team1: "TB",
+        team2: "Shamblers",
+        games: [
+          { game: 1, score1: 13, score2: 6 },
+          { game: 2, score1: 13, score2: 1 },
+        ],
+      },
+    });
+  });
+
+  it("reads multi-word names on game lines", () => {
+    const out = parseMatchResult("Game 1 TandeM Boules 13 Shamblers 6\nGame 2: Shamblers 2, TandeM Boules 13");
+    expect(out.ok && out.result.games).toEqual([
+      { game: 1, score1: 13, score2: 6 },
+      { game: 2, score1: 13, score2: 2 },
+    ]);
+  });
+
+  it("reads a colon between scores", () => {
+    const out = parseMatchResult(
+      "2.11.2026.\nOn the Piste Again vs. Bellott\u2019s Boulers\nGame 1 13: 7\nGame 2: 13-2\nMany thanks,\nDom",
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-11-02",
+        team1: "On the Piste Again",
+        team2: "Bellott\u2019s Boulers",
+        games: [
+          { game: 1, score1: 13, score2: 7 },
+          { game: 2, score1: 13, score2: 2 },
+        ],
+      },
+    });
+  });
+
+  it("refuses rather than dropping a game it can't read", () => {
+    const unread = parseMatchResult("A v B\nGame 1 thirteen to 7\nGame 2: 13-2");
+    expect(!unread.ok && unread.error).toMatch(/Couldn't read this line/);
+    const gap = parseMatchResult("A v B\nGame 2: 13-2");
+    expect(!gap.ok && gap.error).toMatch(/Game 1 is missing/);
+  });
+
   it("allows a missing date", () => {
     const out = parseMatchResult("A v B\nGame 1: 13-2");
     expect(out.ok && out.result.date).toBeNull();
@@ -208,6 +259,14 @@ describe("findFixtureCandidates", () => {
   it("doesn't treat very different names as typos", () => {
     const parsed = { date: null, team1: "Shufflers", team2: "TandeM", games: [] };
     expect(findFixtureCandidates(parsed, [m("a", "t2", "t3")], teams)).toHaveLength(0);
+  });
+
+  it("finds a team by its initials, but ranks spelled-out names first", () => {
+    const t = [...teams, { id: "tb", name: "TandeM Boules" }];
+    const parsed = { date: null, team1: "TB", team2: "Shamblers", games: [] };
+    const res = findFixtureCandidates(parsed, [m("x", "t2", "tb"), m("y", "t2", "t4")], t);
+    expect(res.map(c => c.match.id)).toEqual(["x"]);
+    expect(res[0].flipped).toBe(true);
   });
 
   it("prefers unplayed fixtures when the teams meet twice", () => {

@@ -81,7 +81,10 @@ function parseDate(line: string, now: Date): string | null {
   return null;
 }
 
-const GAME_RE = /^(?:game|g)\s*(\d)\s*[:.)\-]?\s*(\d{1,2})\s*-\s*(\d{1,2})\s*$/i;
+// "Game 1: 13-8", "Game 1 13: 7", "Game 1 13 7"
+const GAME_RE = /^(?:game|g)\s*(\d)\s*[:.)\-]?\s*(\d{1,2})(?:\s*[-:]\s*|\s+)(\d{1,2})\s*$/i;
+// Lines that look like a game but weren't understood: refuse rather than post half a result
+const LOOKS_LIKE_GAME_RE = /^(?:(?:game|g)\s*\d\b|\d\s*\)|\d\.\s*[a-z])/i;
 const VS_RE = /^(.+?)\s+(?:v|vs|versus)\.?\s+(.+)$/i;
 // A line of nothing but scores: "13-8 & 13-7", "13-8, 13-7", "13-8 and 13-7", "13-8"
 const SCORE_RE = /(\d{1,2})\s*-\s*(\d{1,2})/g;
@@ -93,10 +96,11 @@ function scoresOnlyLine(line: string): Array<[number, number]> | null {
 }
 
 // A numbered game with short team names and each team's score:
-// "1) CB-13 - S-0", "2) CB+13 - S-1", "Game 3: S 13, CB 9"
-// The -/+/: after a short name separates it from its score; it isn't a sign.
+// "1) CB-13 - S-0", "2) CB+13 - S-1", "Game 3: S 13, CB 9", "Game 1 TB 13  Shamblers 6",
+// "Game 1 TandeM Boules 13 Shamblers 6".
+// The -/+/: after a name separates it from its score; it isn't a sign.
 const LABELLED_RE =
-  /^(?:(?:game|g)\s*)?(\d)\s*[).:]\s*([a-z][a-z'&.]*)\s*[-+:=]?\s*(\d{1,2})\s*(?:-|,|&|\bv\b|\bvs\b)?\s*([a-z][a-z'&.]*)\s*[-+:=]?\s*(\d{1,2})\s*$/i;
+  /^(?:(?:game|g)\s*(\d)\s*[).:]?|(\d)\s*[).:])\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*(?:-|,|&|\bv\b|\bvs\b)?\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*$/i;
 
 type LabelledGame = { game: number; abbr1: string; s1: number; abbr2: string; s2: number };
 
@@ -164,7 +168,11 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     }
     const lab = foldAccents(line).match(LABELLED_RE);
     if (lab) {
-      labelled.push({ game: +lab[1], abbr1: lab[2], s1: +lab[3], abbr2: lab[4], s2: +lab[5] });
+      labelled.push({
+        game: +(lab[1] ?? lab[2]),
+        abbr1: cleanTeam(lab[3]), s1: +lab[4],
+        abbr2: cleanTeam(lab[5]), s2: +lab[6],
+      });
       continue;
     }
     const loose = scoresOnlyLine(line);
@@ -184,9 +192,25 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
         if (andTeams) continue;
       }
     }
+    if (LOOKS_LIKE_GAME_RE.test(line)) {
+      return { ok: false, error: `Couldn't read this line: "${line}". Try "Game 1: 13-8".` };
+    }
     // Anything else (e.g. "Each win one game") is ignored
   }
 
+  // No "v" line: an "&"/"and" line is only the teams if the game lines' names fit it
+  // ("thanks Patrick & Paul" isn't). Otherwise take the names from the game lines.
+  if (!teams && andTeams && labelled.length > 0) {
+    const { team1, team2 } = andTeams;
+    const fits = labelled.every(g =>
+      [false, true].some(loose =>
+        (shortNameFits(g.abbr1, team1, loose) && shortNameFits(g.abbr2, team2, loose)) ||
+        (shortNameFits(g.abbr1, team2, loose) && shortNameFits(g.abbr2, team1, loose))));
+    if (!fits) andTeams = null;
+  }
+  if (!teams && !andTeams && labelled.length > 0) {
+    andTeams = { team1: labelled[0].abbr1, team2: labelled[0].abbr2 };
+  }
   if (!teams) teams = andTeams;
   if (!teams) {
     return { ok: false, error: 'Couldn\'t find the teams. Expected a line like "Team A v Team B".' };
@@ -233,6 +257,10 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     return { ok: false, error: 'Couldn\'t find any scores. Expected lines like "Game 1: 13 - 8".' };
   }
   games.sort((a, b) => a.game - b.game);
+  const missing = games.findIndex((g, i) => g.game !== i + 1);
+  if (missing !== -1) {
+    return { ok: false, error: `Game ${missing + 1} is missing. Check the message and try again.` };
+  }
   return { ok: true, result: { date, ...teams, games } };
 }
 
@@ -256,22 +284,24 @@ function editDistance(a: string, b: string): number {
 export type TeamLike = { id: string; name: string; teamDisplayId?: string | null };
 
 /**
- * 3 = exact name/ID match, 2 = partial match, 1 = close spelling (a letter or two out),
- * 0 = no match. Accents are ignored throughout.
+ * 4 = exact name/ID match, 3 = partial match, 2 = close spelling (a letter or two out),
+ * 1 = initials ("TB" for TandeM Boules), 0 = no match. Accents are ignored throughout.
  */
-export function teamMatchStrength(query: string, team: TeamLike | undefined): 0 | 1 | 2 | 3 {
+export function teamMatchStrength(query: string, team: TeamLike | undefined): 0 | 1 | 2 | 3 | 4 {
   if (!team) return 0;
   const q = normName(query);
   if (!q) return 0;
   const name = normName(team.name);
   const display = team.teamDisplayId ? normName(team.teamDisplayId) : "";
-  if (q === name || (display && q === display)) return 3;
-  if (name.includes(q) || (q.length >= 4 && q.includes(name) && name.length >= 4)) return 2;
+  if (q === name || (display && q === display)) return 4;
+  if ((q.length >= 3 && name.includes(q)) || (q.length >= 4 && q.includes(name) && name.length >= 4)) return 3;
   // Typos: short names may be one letter out, longer ones two
   if (q.length >= 4 && name.length >= 4) {
     const allowed = Math.min(q.length, name.length) <= 6 ? 1 : 2;
-    if (editDistance(q, name) <= allowed) return 1;
+    if (editDistance(q, name) <= allowed) return 2;
   }
+  const initials = foldAccents(team.name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w => w[0]).join("");
+  if (q.length >= 2 && q === initials) return 1;
   return 0;
 }
 
