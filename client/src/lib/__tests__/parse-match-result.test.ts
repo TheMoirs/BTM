@@ -69,6 +69,30 @@ describe("parseMatchResult", () => {
     expect(out.ok && out.result.date).toBe("2026-12-28");
   });
 
+  it("reads several games on one line, and posts a future date as today", () => {
+    const out = parseMatchResult("5 November\nShamboules v Cider Bus\nGame 1: 13-10, Game 2: 5-13.", new Date(2026, 10, 4, 17, 44));
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-11-04",
+        dateFromMessage: "2026-11-05",
+        team1: "Shamboules",
+        team2: "Cider Bus",
+        games: [
+          { game: 1, score1: 13, score2: 10 },
+          { game: 2, score1: 5, score2: 13 },
+        ],
+      },
+    });
+  });
+
+  it("treats a dated future result as today too", () => {
+    const out = parseMatchResult("12/12/2026\nA v B\nGame 1: 13-2", new Date(2026, 10, 4));
+    expect(out.ok && [out.result.date, out.result.dateFromMessage]).toEqual(["2026-11-04", "2026-12-12"]);
+    const past = parseMatchResult("3/11/2026\nA v B\nGame 1: 13-2", new Date(2026, 10, 4));
+    expect(past.ok && past.result.dateFromMessage).toBeUndefined();
+  });
+
   it("reads one score per line and drops a games-won summary", () => {
     const out = parseMatchResult("A v B\n13-8\n5-13\n13-2\n2-1", new Date(2026, 9, 28));
     expect(out.ok && out.result.games).toEqual([

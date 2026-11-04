@@ -2393,6 +2393,9 @@ export default function Matches() {
                     <p className="text-sm text-muted-foreground">
                       {dateLabel}
                       {!parsed.date && " (no date in message)"}
+                      {parsed.dateFromMessage && ` (message said ${new Date(parsed.dateFromMessage + "T00:00:00").toLocaleDateString("en-GB", {
+                        weekday: "short", day: "numeric", month: "short",
+                      })} – using today)`}
                     </p>
                     <p className="font-medium">{name1} v {name2}</p>
                     {scores.map(s => (

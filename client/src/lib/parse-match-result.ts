@@ -14,6 +14,8 @@ export type ParsedGame = { game: number; score1: number; score2: number };
 
 export type ParsedResult = {
   date: string | null; // YYYY-MM-DD
+  /** The date the message gave, when it was after today and so replaced with today */
+  dateFromMessage?: string;
   team1: string;
   team2: string;
   games: ParsedGame[];
@@ -39,14 +41,18 @@ function toIsoDate(day: number, month: number, year: number): string | null {
   return `${year}-${pad(month)}-${pad(day)}`;
 }
 
-// A date with no year: this year, or last year if that date hasn't happened yet
-// (so a late-December result pasted in January lands in the right year).
+const todayIso = (now: Date) => toIsoDate(now.getDate(), now.getMonth() + 1, now.getFullYear())!;
+
+// A date with no year: whichever year puts it nearest today
+// (so "28 Dec" pasted on 3 January is last December, and "5 Nov" on 4 November is this year).
 function inferYear(day: number, month: number, now: Date): string | null {
-  const year = now.getFullYear();
-  const thisYear = toIsoDate(day, month, year);
-  if (!thisYear) return toIsoDate(day, month, year - 1); // e.g. 29 Feb
-  const today = toIsoDate(now.getDate(), now.getMonth() + 1, year)!;
-  return thisYear > today ? toIsoDate(day, month, year - 1) : thisYear;
+  const today = Date.parse(todayIso(now));
+  let best: string | null = null;
+  for (const y of [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]) {
+    const iso = toIsoDate(day, month, y);
+    if (iso && (best === null || Math.abs(Date.parse(iso) - today) < Math.abs(Date.parse(best) - today))) best = iso;
+  }
+  return best;
 }
 
 function parseDate(line: string, now: Date): string | null {
@@ -145,6 +151,10 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     .replace(/ /g, " ")
     .split(/\r?\n/)
     .map(l => l.trim())
+    // Several games on one line: "Game 1: 13-10, Game 2: 5-13."
+    .flatMap(l => ((l.match(/\b(?:game|g)\s*\d/gi) || []).length >= 2 ? l.split(/(?=\b(?:game|g)\s*\d)/i) : [l]))
+    // Game lines may end with a full stop or comma
+    .map(l => (/^(?:game|g)\s*\d/i.test(l.trim()) ? l.trim().replace(/[\s.,;!]+$/, "") : l.trim()))
     .filter(Boolean);
 
   if (lines.length === 0) return { ok: false, error: "Nothing was pasted." };
@@ -260,6 +270,11 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
   const missing = games.findIndex((g, i) => g.game !== i + 1);
   if (missing !== -1) {
     return { ok: false, error: `Game ${missing + 1} is missing. Check the message and try again.` };
+  }
+  // A result can't be dated after today: treat it as a typo and use today
+  const today = todayIso(now);
+  if (date && date > today) {
+    return { ok: true, result: { date: today, dateFromMessage: date, ...teams, games } };
   }
   return { ok: true, result: { date, ...teams, games } };
 }
