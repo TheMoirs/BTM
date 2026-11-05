@@ -613,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // A shortcut covering the whole site would stop Chrome offering the others.
     const scope = start.split(/[?#]/)[0] || "/";
     // Bracket-to-Boule icons: people = Teams, ranked rows = Leaderboard, sliders = Teams Edit (organisers)
-    const iconKinds = ["teams", "leaderboard", "teams-edit"];
+    const iconKinds = ["teams", "leaderboard", "teams-edit", "register"];
     const iconKind = iconKinds.includes(String(req.query.icon)) ? String(req.query.icon) : null;
     const icons = iconKind
       ? [

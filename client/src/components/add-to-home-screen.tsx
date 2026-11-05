@@ -22,7 +22,7 @@ import {
 type Props = {
   tournamentName: string;
   slug?: string | null;
-  page: "leaderboard" | "teams";
+  page: "leaderboard" | "teams" | "register";
   /** Organiser's shortcut to the editable Teams page (needs sign-in) rather than the public view */
   edit?: boolean;
   tournamentId?: string;
@@ -50,7 +50,7 @@ function detectPlatform(): Platform {
   return "other";
 }
 
-const pageLabels = { leaderboard: "Leaderboard", teams: "Teams" } as const;
+const pageLabels = { leaderboard: "Leaderboard", teams: "Teams", register: "Register" } as const;
 
 export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false, tournamentId, label = "Install", variant = "icon", buttonClassName = "", open, onOpenChange, alwaysShow = false }: Props & { buttonClassName?: string }) {
   const [showHelpState, setShowHelpState] = useState(false);
@@ -64,11 +64,11 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   // "could not open app"). So organisers install ONE PTM app (opens on the tournament
   // they last used), and the Teams / Leaderboard views get a plain shortcut instead.
   const isApp = edit && page === "teams";
-  // Which icon: people = Teams, ranked rows = Leaderboard
+  // Which icon: people = Teams, ranked rows = Leaderboard, person + plus = Register
   const iconKind = page;
 
-  // e.g. "Summer League 2026-Leaderboard"; the organiser app is just "PTM"
-  const shortcutName = isApp ? "PTM" : `${tournamentName}-${pageLabels[page]}`;
+  // e.g. "Leaderboard Summer League 2026"; the organiser app is just "PTM"
+  const shortcutName = isApp ? "PTM" : `${pageLabels[page]} ${tournamentName}`;
 
   // View shortcuts open the public page (anyone, no sign-in needed); the app opens at the start
   const startUrl = useMemo(() => {
@@ -104,7 +104,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
       pageIcon.rel = "icon";
       pageIcon.setAttribute("sizes", "192x192");
       pageIcon.type = "image/png";
-      pageIcon.href = `/icons/${iconKind}-192.png?v=5`;
+      pageIcon.href = `/icons/${iconKind}-192.png?v=6`;
       document.head.appendChild(pageIcon);
     }
 
@@ -130,7 +130,7 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
     // iPhone/iPad take the home-screen picture from the apple-touch-icon
     const touchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
     const previousTouchIcon = touchIcon?.getAttribute("href") ?? null;
-    if (touchIcon) touchIcon.href = isApp ? "/apple-touch-icon.png?v=5" : `/icons/${iconKind}-180.png?v=5`;
+    if (touchIcon) touchIcon.href = isApp ? "/apple-touch-icon.png?v=5" : `/icons/${iconKind}-180.png?v=6`;
 
     const previousTitle = document.title;
     document.title = shortcutName;
@@ -245,12 +245,14 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
             <DialogDescription>
               {isApp
                 ? "Put PTM on your home screen or desktop. It opens on the tournament you last used, signed in as long as you're signed in on this browser. Press and hold its icon for Teams, Matches, Results and Leaderboard."
-                : `Put the ${pageLabels[page].toLowerCase()} for this tournament on your home screen or desktop. Anyone can use it, no sign-in needed.`}
+                : page === "register"
+                  ? "Put this tournament's registration form on your home screen or desktop, ready to register teams. Anyone can use it, no sign-in needed."
+                  : `Put the ${pageLabels[page].toLowerCase()} for this tournament on your home screen or desktop. Anyone can use it, no sign-in needed.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3 rounded-md border p-3">
-              <img src={isApp ? "/icon-192.png?v=5" : `/icons/${iconKind}-192.png?v=5`} alt="" className="h-10 w-10 rounded-lg border" />
+              <img src={isApp ? "/icon-192.png?v=5" : `/icons/${iconKind}-192.png?v=6`} alt="" className="h-10 w-10 rounded-lg border" />
               <div className="min-w-0">
                 <p className="font-medium break-words">{shortcutName}</p>
                 <p className="text-xs text-muted-foreground">{isApp ? "App name" : "Shortcut name"}</p>
