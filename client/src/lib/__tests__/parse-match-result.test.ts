@@ -102,6 +102,25 @@ describe("parseMatchResult", () => {
     ]);
   });
 
+  it("reads colons between scores on a scores-only line", () => {
+    const out = parseMatchResult(
+      "5th Nov\nShoscombe Shambolics vs Just Bouling Along\n11:13 and 13:3",
+      new Date(2026, 10, 5, 17, 0),
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-11-05",
+        team1: "Shoscombe Shambolics",
+        team2: "Just Bouling Along",
+        games: [
+          { game: 1, score1: 11, score2: 13 },
+          { game: 2, score1: 13, score2: 3 },
+        ],
+      },
+    });
+  });
+
   it("accepts commas and 'and' between scores", () => {
     const out = parseMatchResult("A v B\n13-8, 4-13 and 13-11");
     expect(out.ok && out.result.games.length).toBe(3);

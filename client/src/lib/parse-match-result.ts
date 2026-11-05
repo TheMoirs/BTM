@@ -92,8 +92,8 @@ const GAME_RE = /^(?:game|g)\s*(\d)\s*[:.)\-]?\s*(\d{1,2})(?:\s*[-:]\s*|\s+)(\d{
 // Lines that look like a game but weren't understood: refuse rather than post half a result
 const LOOKS_LIKE_GAME_RE = /^(?:(?:game|g)\s*\d\b|\d\s*\)|\d\.\s*[a-z])/i;
 const VS_RE = /^(.+?)\s+(?:v|vs|versus)\.?\s+(.+)$/i;
-// A line of nothing but scores: "13-8 & 13-7", "13-8, 13-7", "13-8 and 13-7", "13-8"
-const SCORE_RE = /(\d{1,2})\s*-\s*(\d{1,2})/g;
+// A line of nothing but scores: "13-8 & 13-7", "13-8, 13-7", "13-8 and 13-7", "11:13 and 13:3", "13-8"
+const SCORE_RE = /(\d{1,2})\s*[-:]\s*(\d{1,2})/g;
 function scoresOnlyLine(line: string): Array<[number, number]> | null {
   const rest = line.replace(SCORE_RE, " ").replace(/&|,|;|\/|\band\b|\+/gi, " ").trim();
   if (rest !== "") return null;
