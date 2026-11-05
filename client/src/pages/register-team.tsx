@@ -124,7 +124,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
           setState("paid");
           return;
         }
-        document.title = `${editCode ? "Update registration" : "Register"} for ${data.name}`;
+        document.title = editCode ? `Update registration for ${data.name}` : `Register ${data.name}`;
 
         if (editCode) {
           const tr = await fetch(`${base}/team?code=${encodeURIComponent(editCode)}`);

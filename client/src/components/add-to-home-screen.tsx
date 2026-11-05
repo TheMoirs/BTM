@@ -67,8 +67,8 @@ export function AddToHomeScreenButton({ tournamentName, slug, page, edit = false
   // Which icon: people = Teams, ranked rows = Leaderboard
   const iconKind = page;
 
-  // e.g. "Summer League 2026-Leaderboard"; the organiser app is just "PTM"
-  const shortcutName = isApp ? "PTM" : `${tournamentName}-${pageLabels[page]}`;
+  // e.g. "Leaderboard Summer League 2026"; the organiser app is just "PTM"
+  const shortcutName = isApp ? "PTM" : `${pageLabels[page]} ${tournamentName}`;
 
   // View shortcuts open the public page (anyone, no sign-in needed); the app opens at the start
   const startUrl = useMemo(() => {

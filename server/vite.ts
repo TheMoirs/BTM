@@ -83,7 +83,7 @@ export function serveStatic(app: Express) {
   const indexHtml = fs.readFileSync(indexPath, "utf-8");
 
   // Public Teams / Leaderboard links: send the page already titled with the tournament
-  // (e.g. "Summer League-Leaderboard", "Register for Summer League"). Android Chrome names a home-screen shortcut from
+  // (e.g. "Leaderboard Summer League", "Register Summer League"). Android Chrome names a home-screen shortcut from
   // the title the page arrived with, before the app's own code renames it.
   app.get(["/leaderboard/:slug", "/teams/:slug", "/register/:slug"], async (req, res, next) => {
     try {
@@ -96,9 +96,7 @@ export function serveStatic(app: Express) {
         return res.redirect(302, `/${section}/${encodeURIComponent(tournament.slug)}${query}`);
       }
       const name = escapeHtml(
-        req.path.startsWith("/register/")
-          ? `Register for ${tournament.name}`
-          : `${tournament.name}-${req.path.startsWith("/leaderboard/") ? "Leaderboard" : "Teams"}`,
+        `${req.path.startsWith("/register/") ? "Register" : req.path.startsWith("/leaderboard/") ? "Leaderboard" : "Teams"} ${tournament.name}`,
       );
       const html = indexHtml.replace(
         /<title>[^<]*<\/title>/,
