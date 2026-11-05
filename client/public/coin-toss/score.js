@@ -160,7 +160,7 @@
     if (!home) {
       sel.hidden = true; input.hidden = false;
       if (typed != null) input.value = typed;
-      note.hidden = !homeKey(); // opened from a tournament, but its details aren't on this phone yet
+      note.hidden = false; // no teams saved from a Leaderboard visit: names are typed
       note.textContent = "You're running this scoring app outside of PTM Leaderboard, so you need to type team names manually. To get team names listed, close & re-load Score Flip from within the Leaderboard.";
       return;
     }

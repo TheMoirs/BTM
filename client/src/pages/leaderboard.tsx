@@ -168,7 +168,7 @@ export default function Leaderboard() {
   const openScoreFlip = () => {
     if (!currentTournament) return;
     const key = (currentTournament as any).slug || currentTournament.id;
-    window.open(`/coin-toss/?t=${encodeURIComponent(key)}`, "btm-coin-toss", "popup,width=480,height=800");
+    window.open(`/coin-toss/?t=${encodeURIComponent(key)}&from=leaderboard`, "btm-coin-toss", "popup,width=480,height=800");
   };
 
   const handlePrint = () => {

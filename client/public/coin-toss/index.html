@@ -18,14 +18,19 @@
   <link rel="icon" type="image/png" href="/coin-toss/favicon.png?v=3" />
   <link rel="apple-touch-icon" href="/coin-toss/apple-touch-icon.png?v=3" />
   <script>
-    // Opened from a tournament's Leaderboard (?t=<tournament>): remember it as this
-    // phone's tournament, and install the app so it opens on that tournament
+    // Opened from a tournament's Leaderboard (?t=<tournament>&from=leaderboard): remember it as this
+    // phone's tournament, so its teams are listed (and saved for later, offline and shortcut use).
+    // Opened any other way (a shortcut, the installed app, a link, the plain address) the
+    // tournament in the address is ignored: teams are listed only if a Leaderboard visit saved them.
     (function () {
       try {
-        var t = new URLSearchParams(location.search).get("t");
-        if (t && /^[A-Za-z0-9_-]+$/.test(t)) {
+        var q = new URLSearchParams(location.search);
+        var t = q.get("t");
+        if (q.get("from") === "leaderboard" && t && /^[A-Za-z0-9_-]+$/.test(t)) {
           localStorage.setItem("ptm-score-home", t);
           document.getElementById("manifestLink").href = "/api/public/score-flip-manifest?t=" + encodeURIComponent(t);
+          // Drop the Leaderboard marker, so a shortcut made from this page is a plain shortcut
+          history.replaceState(null, "", "/coin-toss/?t=" + encodeURIComponent(t));
         }
       } catch (_) {}
     })();
@@ -324,7 +329,7 @@
   </div>
 
   <script src="/coin-toss/coin-art.js?v=2"></script>
-  <script src="/coin-toss/score.js?v=9" defer></script>
+  <script src="/coin-toss/score.js?v=10" defer></script>
   <script>
   (function () {
     "use strict";
