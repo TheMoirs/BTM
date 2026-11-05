@@ -8,6 +8,7 @@ import { Loader2, AlertCircle, CheckCircle2, ArrowRight, CreditCard } from "luci
 import { publicRegistrationSchema, REGISTRATION_CONTACT } from "@shared/registration";
 import { FeePaymentPanel, type FeePayment } from "@/components/fee-payment-panel";
 import { StripeTestNotice } from "@/components/stripe-test-notice";
+import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 
 type FormValues = {
   name: string;
@@ -60,13 +61,14 @@ function formatRegisterBy(value: string | null | undefined): string | null {
   return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex justify-center px-4 py-8 sm:py-12">
       <div className="w-full max-w-xl space-y-6">
         <div className="flex items-center gap-3">
-          <img src="/ptm-logo.png?v=4" alt="" className="h-14 w-14 rounded-lg object-cover" />
-          <span className="font-semibold">Pétanque Tournament Manager</span>
+          <img src="/icons/register-192.png?v=1" alt="" className="h-14 w-14 rounded-lg border object-cover" />
+          <span className="font-semibold flex-1">Pétanque Tournament Manager</span>
+          {action}
         </div>
         {children}
       </div>
@@ -348,7 +350,11 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
   }
 
   return (
-    <Shell>
+    <Shell
+      action={!isEditing && tournamentName ? (
+        <AddToHomeScreenButton tournamentName={tournamentName} slug={slug} page="register" variant="sm" />
+      ) : undefined}
+    >
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">{isEditing ? "Update your registration" : `Register for ${tournamentName}`}</CardTitle>
