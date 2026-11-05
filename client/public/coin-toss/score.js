@@ -161,7 +161,7 @@
       sel.hidden = true; input.hidden = false;
       if (typed != null) input.value = typed;
       note.hidden = !homeKey(); // opened from a tournament, but its details aren't on this phone yet
-      note.textContent = "This phone hasn't saved that tournament's teams yet. Open Score Flip once with a signal to get them. You can type names meanwhile.";
+      note.textContent = "You're running this scoring app outside of PTM Leaderboard, so you need to type team names manually. To get team names listed, close & re-load Score Flip from within the Leaderboard.";
       return;
     }
     note.hidden = true;
