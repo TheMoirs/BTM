@@ -216,3 +216,8 @@
 
 /* Close (pop-up windows) is a small round ✕ so it doesn't run into the title */
 #closeBtn { font-size: 18px; }
+
+/* Previous matches: full team names (wrapping), buttons on their own row underneath */
+.history li { flex-direction: column; align-items: stretch; }
+.history .h-text strong { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.history .h-btns { display: flex; gap: 8px; justify-content: flex-end; }

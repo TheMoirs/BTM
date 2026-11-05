@@ -621,7 +621,10 @@
         });
       });
 
-      li.appendChild(text); li.appendChild(edit); li.appendChild(share); li.appendChild(del);
+      var btns = document.createElement("div");
+      btns.className = "h-btns";
+      btns.appendChild(edit); btns.appendChild(share); btns.appendChild(del);
+      li.appendChild(text); li.appendChild(btns);
       ul.appendChild(li);
     });
   }
