@@ -560,6 +560,8 @@ export function registerBillingRoutes(app: Express): void {
       const base = siteUrl(req);
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
+        // Card only (Apple Pay and Google Pay come with it where switched on)
+        allowed_payment_method_types: ["card"],
         customer: customerId,
         client_reference_id: user.id,
         line_items: [{ price: price.id, quantity: 1 }],

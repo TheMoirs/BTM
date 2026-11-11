@@ -215,6 +215,9 @@ export function registerConnectRoutes(app: Express): void {
       const session = await stripe.checkout.sessions.create(
         {
           mode: "payment",
+          // Card only (Apple Pay and Google Pay come with it where switched on), whatever
+          // other payment methods the organiser's own Stripe account has turned on
+          allowed_payment_method_types: ["card"],
           line_items: [{
             quantity: 1,
             price_data: {
