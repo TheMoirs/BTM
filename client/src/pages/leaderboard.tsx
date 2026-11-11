@@ -35,6 +35,8 @@ const stageLabels = {
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
+  "third-place": "3rd/4th Place",
+  "losers-plate": "Loser Plate",
 };
 
 const statusLabels = {

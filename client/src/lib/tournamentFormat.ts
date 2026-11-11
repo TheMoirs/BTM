@@ -5,6 +5,7 @@ import {
   knockoutStages,
   ordinal,
   qualificationPlan,
+  gamesForStage,
   type KnockoutStage,
 } from "@shared/knockoutFormat";
 
@@ -14,6 +15,9 @@ export interface FormatSettings {
   hasQuarterFinals: boolean;
   hasSemiFinals: boolean;
   hasFinals: boolean;
+  hasThirdPlace?: boolean | null;
+  hasLosersPlate?: boolean | null;
+  finalStagesGamesPerMatch?: number | null;
   pointsForWin?: number | null;
   pointsForDraw?: number | null;
   pointsForLoss?: number | null;
@@ -54,7 +58,7 @@ export function describeTournamentFormat(s: FormatSettings): FormatExplanation {
       divisions === 1
         ? "All teams are in one division and play every other team once."
         : `Teams are split into ${divisions} divisions. Each team plays every other team in its own division once.`,
-      `Each match is ${plural(games, "game")}. Points are awarded for every game: ${win} for a win, ${loss} for a loss. Games can't be drawn.`,
+      `Each Stage 1 match is ${plural(games, "game")}. Points are awarded for every game: ${win} for a win, ${loss} for a loss. Games can't be drawn.`,
       `No-Show = The team present gains ${win} league point${win === 1 ? "" : "s"} per game, with a game winning score of 13-7. Team not showing: ${noShow} league point${noShow === 1 ? "" : "s"} per game (losing score of 7-13).`,
       "Teams are ranked within their division by total points, then score difference.",
     ],
@@ -136,7 +140,8 @@ export function describeTournamentFormat(s: FormatSettings): FormatExplanation {
 
   // Bracket progression
   const bracketLines: string[] = [];
-  bracketLines.push("Every knockout match is sudden death. The loser is out.");
+  const koGames = gamesForStage({ gamesPerMatch: games, finalStagesGamesPerMatch: s.finalStagesGamesPerMatch }, "finals");
+  bracketLines.push(`Every knockout match is ${plural(koGames, "game")} and sudden death. The loser is out.`);
   if (s.hasQuarterFinals && s.hasSemiFinals) {
     bracketLines.push("Semi-finals: winner of QF1 v winner of QF2, and winner of QF3 v winner of QF4.");
   }
@@ -161,15 +166,34 @@ export function describeTournamentFormat(s: FormatSettings): FormatExplanation {
   );
   sections.push({ title: "Knockout rounds", lines: bracketLines });
 
+  // Extra matches played alongside the final
+  const extraLines: string[] = [];
+  if (s.hasThirdPlace && s.hasSemiFinals && s.hasFinals) {
+    extraLines.push("3rd/4th Place: the two losing semi-finalists play off. It's generated with the final.");
+  }
+  if (s.hasLosersPlate && s.hasFinals) {
+    extraLines.push(
+      divisions === 1
+        ? "Loser Plate: the bottom two teams in the table play one match. It's generated with the final."
+        : divisions === 2
+          ? "Loser Plate: the bottom team in Division A plays the bottom team in Division B. It's generated with the final."
+          : "Loser Plate: the two weakest last-placed teams (compared on average points per match, then average score difference) play one match. It's generated with the final.",
+    );
+  }
+  if (extraLines.length) {
+    extraLines.push(`These matches are ${plural(koGames, "game")}, like the other knockout matches.`);
+    sections.push({ title: "3rd/4th Place and Loser Plate", lines: extraLines });
+  }
+
   // Warnings about division counts
   if (divisions > size) {
     warnings.push(
       `With ${divisions} divisions and only ${size} knockout places, ${divisions - size} division winner${divisions - size === 1 ? "" : "s"} won't qualify.`,
     );
   }
-  if (games % 2 === 0) {
+  if (koGames % 2 === 0) {
     warnings.push(
-      `With ${games} games per match, knockout matches can finish level on games. Score difference will then decide who goes through.`,
+      `With ${koGames} games per knockout match, knockout matches can finish level on games. Score difference will then decide who goes through.`,
     );
   }
   warnings.push(`At least ${size} teams need to have played group matches before the knockout can be generated.`);

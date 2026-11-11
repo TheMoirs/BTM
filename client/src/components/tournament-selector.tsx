@@ -54,6 +54,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { RegistrationFeeFields, useStripeModes } from "@/components/registration-fee-fields";
 
+// 3rd/4th needs semi-finals and a final; the Loser Plate needs a final
+function withStageRules<T extends { hasSemiFinals?: boolean; hasFinals?: boolean; hasThirdPlace?: boolean; hasLosersPlate?: boolean }>(data: T): T {
+  return {
+    ...data,
+    hasThirdPlace: !!(data.hasThirdPlace && data.hasSemiFinals && data.hasFinals),
+    hasLosersPlate: !!(data.hasLosersPlate && data.hasFinals),
+  };
+}
+
 export function TournamentSelector() {
   const { currentTournament, selectTournament, createTournament, updateTournament, deleteTournament, lockedTournamentId } = useTournament();
   const { isReadOnly, isMasterAdmin } = useViewMode();
@@ -201,6 +210,9 @@ export function TournamentSelector() {
       hasQuarterFinals: false,
       hasSemiFinals: false,
       hasFinals: true,
+      hasThirdPlace: false,
+      hasLosersPlate: false,
+      finalStagesGamesPerMatch: 3,
       pointsForWin: 3,
       pointsForDraw: 0,
       pointsForLoss: 1,
@@ -438,7 +450,7 @@ export function TournamentSelector() {
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "create", data }))} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "create", data: withStageRules(data) }))} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
@@ -519,18 +531,40 @@ export function TournamentSelector() {
                 name="gamesPerMatch"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Games Per Match</FormLabel>
+                    <FormLabel>Stage 1 Games Per Match</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         type="number"
                         min={1}
-                        max={5}
+                        max={3}
                         onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
                         data-testid="input-games-per-match"
                       />
                     </FormControl>
-                    <FormDescription>Number of games in each match (1-5)</FormDescription>
+                    <FormDescription>Group stage (round robin) matches (1-3)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="finalStagesGamesPerMatch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Final Stages Games Per Match</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        max={3}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-final-stages-games-per-match"
+                      />
+                    </FormControl>
+                    <FormDescription>Quarter-finals, semi-finals, final, 3rd/4th and Loser Plate (1-3)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -609,6 +643,48 @@ export function TournamentSelector() {
                           onCheckedChange={field.onChange}
                           data-testid="checkbox-has-quarter-finals"
                         />
+
+                <FormField
+                  control={form.control}
+                  name="hasThirdPlace"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={!!field.value && form.watch("hasSemiFinals") && form.watch("hasFinals")}
+                          disabled={!(form.watch("hasSemiFinals") && form.watch("hasFinals"))}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-third-place"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>3rd/4th Place</FormLabel>
+                        <FormDescription className="text-xs">Semi-final losers play off; needs Semi-Finals and Finals</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasLosersPlate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={!!field.value && form.watch("hasFinals")}
+                          disabled={!(form.watch("hasFinals"))}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-losers-plate"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Loser Plate</FormLabel>
+                        <FormDescription className="text-xs">Bottom teams from Stage 1 play one match; needs Finals</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>Quarter-Finals</FormLabel>
@@ -778,6 +854,9 @@ export function TournamentSelector() {
                         hasQuarterFinals: tournament.hasQuarterFinals,
                         hasSemiFinals: tournament.hasSemiFinals,
                         hasFinals: tournament.hasFinals,
+                        hasThirdPlace: (tournament as any).hasThirdPlace ?? false,
+                        hasLosersPlate: (tournament as any).hasLosersPlate ?? false,
+                        finalStagesGamesPerMatch: (tournament as any).finalStagesGamesPerMatch ?? Math.min(tournament.gamesPerMatch, 3),
                         pointsForWin: tournament.pointsForWin ?? 3,
                         pointsForDraw: tournament.pointsForDraw ?? 2,
                         pointsForLoss: tournament.pointsForLoss ?? 1,
@@ -878,7 +957,7 @@ export function TournamentSelector() {
             <DialogTitle>Create Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "create", data }))} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "create", data: withStageRules(data) }))} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
@@ -959,18 +1038,40 @@ export function TournamentSelector() {
                 name="gamesPerMatch"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Games Per Match</FormLabel>
+                    <FormLabel>Stage 1 Games Per Match</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         type="number"
                         min={1}
-                        max={5}
+                        max={3}
                         onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
                         data-testid="input-games-per-match"
                       />
                     </FormControl>
-                    <FormDescription>Number of games in each match (1-5)</FormDescription>
+                    <FormDescription>Group stage (round robin) matches (1-3)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="finalStagesGamesPerMatch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Final Stages Games Per Match</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        max={3}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-final-stages-games-per-match"
+                      />
+                    </FormControl>
+                    <FormDescription>Quarter-finals, semi-finals, final, 3rd/4th and Loser Plate (1-3)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -1049,6 +1150,48 @@ export function TournamentSelector() {
                           onCheckedChange={field.onChange}
                           data-testid="checkbox-has-quarter-finals"
                         />
+
+                <FormField
+                  control={form.control}
+                  name="hasThirdPlace"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={!!field.value && form.watch("hasSemiFinals") && form.watch("hasFinals")}
+                          disabled={!(form.watch("hasSemiFinals") && form.watch("hasFinals"))}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-third-place"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>3rd/4th Place</FormLabel>
+                        <FormDescription className="text-xs">Semi-final losers play off; needs Semi-Finals and Finals</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasLosersPlate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={!!field.value && form.watch("hasFinals")}
+                          disabled={!(form.watch("hasFinals"))}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-has-losers-plate"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Loser Plate</FormLabel>
+                        <FormDescription className="text-xs">Bottom teams from Stage 1 play one match; needs Finals</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>Quarter-Finals</FormLabel>
@@ -1084,7 +1227,7 @@ export function TournamentSelector() {
             <DialogTitle>Edit Tournament</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "edit", data }))} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={form.handleSubmit((data) => setFormatReview({ mode: "edit", data: withStageRules(data) }))} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-4 pt-2 space-y-4">
               <FormField
                 control={form.control}
@@ -1168,18 +1311,40 @@ export function TournamentSelector() {
                 name="gamesPerMatch"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Games Per Match</FormLabel>
+                    <FormLabel>Stage 1 Games Per Match</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         type="number"
                         min={1}
-                        max={5}
+                        max={3}
                         onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
                         data-testid="input-edit-games-per-match"
                       />
                     </FormControl>
-                    <FormDescription>Number of games in each match (1-5)</FormDescription>
+                    <FormDescription>Group stage (round robin) matches (1-3)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="finalStagesGamesPerMatch"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Final Stages Games Per Match</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        min={1}
+                        max={3}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+                        data-testid="input-edit-final-stages-games-per-match"
+                      />
+                    </FormControl>
+                    <FormDescription>Quarter-finals, semi-finals, final, 3rd/4th and Loser Plate (1-3)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -1258,6 +1423,48 @@ export function TournamentSelector() {
                           onCheckedChange={field.onChange}
                           data-testid="checkbox-edit-has-quarter-finals"
                         />
+
+                <FormField
+                  control={form.control}
+                  name="hasThirdPlace"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={!!field.value && form.watch("hasSemiFinals") && form.watch("hasFinals")}
+                          disabled={!(form.watch("hasSemiFinals") && form.watch("hasFinals"))}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-edit-has-third-place"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>3rd/4th Place</FormLabel>
+                        <FormDescription className="text-xs">Semi-final losers play off; needs Semi-Finals and Finals</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="hasLosersPlate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={!!field.value && form.watch("hasFinals")}
+                          disabled={!(form.watch("hasFinals"))}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-edit-has-losers-plate"
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Loser Plate</FormLabel>
+                        <FormDescription className="text-xs">Bottom teams from Stage 1 play one match; needs Finals</FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>Quarter-Finals</FormLabel>

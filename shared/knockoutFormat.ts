@@ -62,3 +62,20 @@ export function ordinal(n: number): string {
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
+
+/** Matches generated alongside the final (not part of the bracket). */
+export type ExtraStage = "third-place" | "losers-plate";
+
+export const EXTRA_STAGE_LABEL: Record<ExtraStage, string> = {
+  "third-place": "3rd/4th Place",
+  "losers-plate": "Loser Plate",
+};
+
+/** Games per match for a stage: Stage 1 ("initial") uses gamesPerMatch, every other stage the final-stages setting. */
+export function gamesForStage(
+  t: { gamesPerMatch: number; finalStagesGamesPerMatch?: number | null },
+  stage: string | null | undefined,
+): number {
+  const n = stage === "initial" || !stage ? t.gamesPerMatch : (t.finalStagesGamesPerMatch ?? t.gamesPerMatch);
+  return Math.max(1, Math.min(n || 1, 3));
+}

@@ -200,3 +200,42 @@ export function nextRoundPairings(
   if (ranked.length < size) return [];
   return bracketSeedOrder(size).map(([hi, lo]) => [ranked[hi - 1], ranked[lo - 1]]);
 }
+
+/**
+ * 3rd/4th place: the two semi-final losers (loser of SF1 v loser of SF2).
+ * Returns null until both semi-finals have a winner.
+ */
+export function thirdPlacePairing(semiMatches: Match[], results: Result[], teams: Team[]): [Team, Team] | null {
+  if (semiMatches.length !== 2 || semiMatches.some((m) => m.status !== "completed")) return null;
+  const teamsById = new Map(teams.map((t) => [t.id, t]));
+  const ordered = [...semiMatches].sort((a, b) => (a.bracketPosition ?? 0) - (b.bracketPosition ?? 0));
+  const losers = ordered.map((m) => {
+    const winner = matchWinner(m, results, teamsById);
+    if (!winner) return undefined;
+    return teamsById.get(winner.id === m.team1Id ? m.team2Id : m.team1Id);
+  });
+  if (!losers[0] || !losers[1]) return null;
+  return [losers[0], losers[1]];
+}
+
+/**
+ * Loser Plate: one match for the bottom of Stage 1.
+ * Two divisions: bottom of A v bottom of B. One division: the bottom two teams.
+ * Three or more: the two weakest last-placed teams (compared across divisions).
+ */
+export function losersPlatePairing(standings: Standing[]): [Team, Team] | null {
+  const divisions = Array.from(new Set(standings.map((s) => s.division))).sort();
+  if (divisions.length === 0) return null;
+  if (divisions.length === 1) {
+    const list = [...standings].sort((a, b) => a.divisionPosition - b.divisionPosition);
+    if (list.length < 2) return null;
+    return [list[list.length - 2].team, list[list.length - 1].team];
+  }
+  const bottoms = divisions.map((d) => {
+    const inDiv = standings.filter((s) => s.division === d);
+    return inDiv.reduce((worst, s) => (s.divisionPosition > worst.divisionPosition ? s : worst));
+  });
+  // Two divisions keep A v B order; more divisions take the two weakest
+  const pair = bottoms.length === 2 ? bottoms : [...bottoms].sort(compareAcrossDivisions).slice(-2);
+  return [pair[0].team, pair[1].team];
+}

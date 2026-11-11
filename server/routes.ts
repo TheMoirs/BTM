@@ -9,7 +9,7 @@ import { validateTokenMiddleware } from "./tokenMiddleware";
 import { exportTournament, exportAllTournaments, makeBackupFile, parseEntry, restoreEntry, createSnapshot, listSnapshots, getSnapshotEntry, countsOf, BackupError, type SnapshotReason } from "./backup";
 import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
-import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings } from "./knockout";
+import { computeStandings, selectAndSeedQualifiers, firstRoundPairings, nextRoundPairings, thirdPlacePairing, losersPlatePairing } from "./knockout";
 import { knockoutStages, type KnockoutStage } from "@shared/knockoutFormat";
 import { registerConnectRoutes, cardPayUrl, tournamentPaymentMode } from "./connect";
 import { registerBillingRoutes, tournamentLimitProblem, teamLimitProblem, transferLimitProblem } from "./billing";
@@ -2046,6 +2046,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
+        }
+      }
+
+      // ── 3rd/4th Place and Loser Plate: generated with (and kept in step with) the final ──
+      const finalsExist =
+        finalMatches.length > 0 || [...createdMatches, ...updatedMatches].some(m => m.stage === "finals");
+      if (tournament.hasFinals && finalsExist) {
+        const extraTeams = async (stage: "third-place" | "losers-plate"): Promise<[Team, Team] | null> => {
+          if (stage === "third-place") {
+            if (!tournament.hasThirdPlace || !tournament.hasSemiFinals) return null;
+            const semiResults = await storage.getResultsByStage(tournamentId, "semi-finals");
+            return thirdPlacePairing(semiMatches, semiResults, teams);
+          }
+          if (!tournament.hasLosersPlate || !initialComplete) return null;
+          const groupResults = await storage.getResultsByStage(tournamentId, "initial");
+          return losersPlatePairing(computeStandings(groupResults, teams));
+        };
+        const extraLabel = { "third-place": "3rd/4th Place", "losers-plate": "Loser Plate" } as const;
+        for (const stage of ["third-place", "losers-plate"] as const) {
+          const pair = await extraTeams(stage);
+          if (!pair) continue;
+          const existing = existingMatches.filter(m => m.stage === stage);
+          const pairKey = (a: string, b: string) => [a, b].sort().join("-");
+          const wanted = pairKey(pair[0].id, pair[1].id);
+          if (existing.length === 1 && pairKey(existing[0].team1Id, existing[0].team2Id) === wanted) continue;
+          if (existing.some(m => m.status !== "scheduled")) {
+            warnings.push(`Cannot update the ${extraLabel[stage]} match. It already has results.`);
+            continue;
+          }
+          for (const m of existing) await storage.deleteMatch(m.id);
+          const match = await storage.createMatch({
+            tournamentId,
+            team1Id: pair[0].id,
+            team2Id: pair[1].id,
+            stage,
+            status: "scheduled" as const,
+            matchDate: null,
+            team1Game1Score: null,
+            team2Game1Score: null,
+            team1Game2Score: null,
+            team2Game2Score: null,
+            team1Game3Score: null,
+            team2Game3Score: null,
+            winnerId: null,
+            bracketPosition: 0,
+          });
+          (existing.length ? updatedMatches : createdMatches).push(match);
+          if (existing.length) warnings.push(`Updated the ${extraLabel[stage]} match.`);
         }
       }
 

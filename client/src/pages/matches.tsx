@@ -49,6 +49,7 @@ import {
   type Match,
   type InsertMatch,
 } from "@shared/schema";
+import { gamesForStage } from "@shared/knockoutFormat";
 import { Plus, Trash2, Shuffle, Check, X, ArrowUpDown, ArrowUp, ArrowDown, Users, Filter, FileDown, Printer, Download, ExternalLink, FileSpreadsheet, Search, Pencil, Loader2, ClipboardPaste } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -87,12 +88,29 @@ const stageLabels = {
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
+  "third-place": "3rd/4th Place",
+  "losers-plate": "Loser Plate",
 };
+
+// Matches are shown in groups: Stage 1 by division, then the knockout bracket, then the extra matches
+const GROUP_ORDER = ["No Division", "Knockout", "3rd/4th Place", "Loser Plate"];
+function groupKeyFor(match: Match): string {
+  if (match.stage === "initial") return match.division || "No Division";
+  if (match.stage === "third-place") return "3rd/4th Place";
+  if (match.stage === "losers-plate") return "Loser Plate";
+  return "Knockout";
+}
+function groupLabel(key: string): string {
+  if (/^[A-Z]$/.test(key)) return `Division ${key}`;
+  if (key === "No Division") return "No Division Assigned";
+  return key;
+}
 
 // Knockout matches show their place in the bracket, e.g. "Quarter-Final 2"
 function stageLabelFor(match: Match): string {
   const base = stageLabels[match.stage as keyof typeof stageLabels] ?? match.stage;
   const position = (match as any).bracketPosition as number | null | undefined;
+  if (match.stage === "third-place" || match.stage === "losers-plate") return base;
   if (match.stage === "initial" || position == null) return base;
   if (match.stage === "finals") return "Final";
   const single = match.stage === "quarter-finals" ? "Quarter-Final" : "Semi-Final";
@@ -136,7 +154,14 @@ export default function Matches() {
   const { currentTournament } = useTournament();
   const { user } = useAuth();
   const { isReadOnly } = useViewMode();
-  const gamesPerMatch = (currentTournament as any)?.gamesPerMatch ?? 3;
+  // Stage 1 and the knockout stages can have different numbers of games
+  const gameSettings = {
+    gamesPerMatch: (currentTournament as any)?.gamesPerMatch ?? 3,
+    finalStagesGamesPerMatch: (currentTournament as any)?.finalStagesGamesPerMatch ?? null,
+  };
+  const gamesFor = (stage: string | null | undefined) => gamesForStage(gameSettings, stage);
+  const gamesPerMatch = Math.max(gamesFor("initial"), gamesFor("finals"));
+  const gamesInTable = (list: Match[]) => Math.max(1, ...list.map((m) => gamesFor(m.stage)));
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<EditingMatch>>({});
@@ -335,6 +360,8 @@ export default function Matches() {
         "quarter-finals": "quarter-final",
         "semi-finals": "semi-final",
         "finals": "final",
+        "third-place": "3rd/4th place",
+        "losers-plate": "Loser Plate",
       };
       const stageName = stageDisplayNames[response.stage] || response.stage;
       
@@ -930,6 +957,11 @@ export default function Matches() {
     const candidate = pastePreview.candidates.find(c => c.match.id === pastePreview.selectedId);
     if (!candidate) return;
     const match = candidate.match;
+    const stageGamesError = validateParsedGames(pastePreview.parsed.games, gamesFor(match.stage));
+    if (stageGamesError) {
+      setPasteError(stageGamesError);
+      return;
+    }
     const scores = pasteScoresFor(candidate, pastePreview.parsed);
     const score = (game: number, team: "team1" | "team2") => {
       const s = scores.find(x => x.game === game);
@@ -1264,17 +1296,17 @@ export default function Matches() {
     const groups = new Map<string, Match[]>();
     
     getFilteredAndSortedMatches.forEach(match => {
-      const division = match.division || 'No Division';
-      if (!groups.has(division)) {
-        groups.set(division, []);
+      const key = groupKeyFor(match);
+      if (!groups.has(key)) {
+        groups.set(key, []);
       }
-      groups.get(division)!.push(match);
+      groups.get(key)!.push(match);
     });
     
-    // Sort divisions alphabetically (A, B, C, etc.), with "No Division" last
+    // Divisions alphabetically (A, B, C...), then No Division, Knockout, 3rd/4th Place, Loser Plate
     return Array.from(groups.entries()).sort(([a], [b]) => {
-      if (a === 'No Division') return 1;
-      if (b === 'No Division') return -1;
+      const ra = GROUP_ORDER.indexOf(a), rb = GROUP_ORDER.indexOf(b);
+      if (ra !== rb) return ra - rb;
       return a.localeCompare(b);
     });
   }, [getFilteredAndSortedMatches]);
@@ -1318,7 +1350,7 @@ export default function Matches() {
     let startY = headerY + 6;
     
     groupedByDivision.forEach(([division, divisionMatches], index) => {
-      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+      const divisionLabel = groupLabel(division);
       
       // Conservative estimate for space needed (accounting for text wrapping)
       // Header (5) + table header (~10) + rows (matches.length * ~8 for potential wrapping) + spacing
@@ -1468,7 +1500,7 @@ export default function Matches() {
     const workbook = XLSX.utils.book_new();
     
     groupedByDivision.forEach(([division, divisionMatches]) => {
-      const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division';
+      const divisionLabel = groupLabel(division);
       
       const excelData = divisionMatches.map(match => {
         const team1 = getTeamName(match.team1Id);
@@ -1760,6 +1792,8 @@ export default function Matches() {
                               <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
                               <SelectItem value="semi-finals">Semi-Finals</SelectItem>
                               <SelectItem value="finals">Finals</SelectItem>
+                      <SelectItem value="third-place">3rd/4th Place</SelectItem>
+                      <SelectItem value="losers-plate">Loser Plate</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -1862,6 +1896,8 @@ export default function Matches() {
                       <SelectItem value="quarter-finals">Quarter-Finals</SelectItem>
                       <SelectItem value="semi-finals">Semi-Finals</SelectItem>
                       <SelectItem value="finals">Finals</SelectItem>
+                      <SelectItem value="third-place">3rd/4th Place</SelectItem>
+                      <SelectItem value="losers-plate">Loser Plate</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1941,13 +1977,12 @@ export default function Matches() {
               <Card key={division}>
                 <CardHeader>
                   <CardTitle className="text-xl flex items-center gap-2">
-                    {division !== 'No Division' && (
+                    {/^[A-Z]$/.test(division) ? (
                       <Badge variant="default" className="text-lg px-3 py-1">
                         Division {division}
                       </Badge>
-                    )}
-                    {division === 'No Division' && (
-                      <span>No Division Assigned</span>
+                    ) : (
+                      <span>{groupLabel(division)}</span>
                     )}
                     <span className="text-muted-foreground text-base font-normal">
                       ({divisionMatches.length} {divisionMatches.length === 1 ? 'match' : 'matches'})
@@ -2013,8 +2048,8 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
-                    {gamesPerMatch >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
-                    {gamesPerMatch >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
+                    {gamesInTable(divisionMatches) >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
+                    {gamesInTable(divisionMatches) >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
                     <TableHead className="w-[130px] max-md:w-24 text-sm max-sm:text-xs">
                       <button
                         className="flex items-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded"
@@ -2026,8 +2061,8 @@ export default function Matches() {
                       </button>
                     </TableHead>
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
-                    {gamesPerMatch >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
-                    {gamesPerMatch >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
+                    {gamesInTable(divisionMatches) >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
+                    {gamesInTable(divisionMatches) >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
                     {!isReadOnly && (
                       <TableHead className="w-20 max-md:w-16 text-right text-sm max-sm:text-xs">Actions</TableHead>
                     )}
@@ -2159,7 +2194,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        {gamesPerMatch >= 2 && (
+                        {gamesInTable(divisionMatches) >= 2 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -2182,7 +2217,7 @@ export default function Matches() {
                           )}
                         </TableCell>
                         )}
-                        {gamesPerMatch >= 3 && (
+                        {gamesInTable(divisionMatches) >= 3 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -2256,7 +2291,7 @@ export default function Matches() {
                             </span>
                           )}
                         </TableCell>
-                        {gamesPerMatch >= 2 && (
+                        {gamesInTable(divisionMatches) >= 2 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input
@@ -2279,7 +2314,7 @@ export default function Matches() {
                           )}
                         </TableCell>
                         )}
-                        {gamesPerMatch >= 3 && (
+                        {gamesInTable(divisionMatches) >= 3 && (
                         <TableCell className="text-center">
                           {shouldShowInputs ? (
                             <Input

@@ -1,3 +1,4 @@
+import { gamesForStage } from "@shared/knockoutFormat";
 import { appSettings } from "@shared/schema";
 import { NO_SHOW_WINNING_SCORE, NO_SHOW_LOSING_SCORE, type Team, type InsertTeam, type Match, type InsertMatch, type Result, type InsertResult, type Tournament, type InsertTournament, type ShortLink, type InsertShortLink, type User, teams, matches, results, tournaments, shortLinks, users, tournamentCollaborators } from "@shared/schema";
 import { db } from "./db";
@@ -538,8 +539,8 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    // Cap gamesPerMatch at 3 since matches table only supports 3 games
-    const gamesPerMatch = Math.min(tournament.gamesPerMatch, 3);
+    // Stage 1 and the knockout stages can have different numbers of games (max 3: the matches table has 3)
+    const gamesPerMatch = gamesForStage(tournament, match.stage);
     const finalMatchDate = matchDate !== undefined ? matchDate : match.matchDate;
 
     // ── No-show path ────────────────────────────────────────────────────────

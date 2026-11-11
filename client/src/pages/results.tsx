@@ -70,6 +70,8 @@ const stageLabels = {
   "quarter-finals": "Quarter-Finals",
   "semi-finals": "Semi-Finals",
   finals: "Finals",
+  "third-place": "3rd/4th Place",
+  "losers-plate": "Loser Plate",
 };
 
 const statusLabels = {
@@ -262,7 +264,7 @@ export default function Results() {
     });
     
     // Sort stages in tournament progression order
-    const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals'];
+    const stageOrder = ['initial', 'quarter-finals', 'semi-finals', 'finals', 'third-place', 'losers-plate'];
     const sortedStages = Array.from(stageGroups.entries()).sort(([a], [b]) => {
       return stageOrder.indexOf(a) - stageOrder.indexOf(b);
     });

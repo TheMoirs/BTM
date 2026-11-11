@@ -68,6 +68,11 @@ export const tournaments = pgTable("tournaments", {
   hasQuarterFinals: boolean("has_quarter_finals").notNull().default(false),
   hasSemiFinals: boolean("has_semi_finals").notNull().default(false),
   hasFinals: boolean("has_finals").notNull().default(true),
+  // Extra matches generated alongside the final
+  hasThirdPlace: boolean("has_third_place").notNull().default(false),   // the two semi-final losers
+  hasLosersPlate: boolean("has_losers_plate").notNull().default(false), // the bottom teams from Stage 1
+  // Games per match in the knockout stages (QF, SF, Final, 3rd/4th, Loser Plate); Stage 1 uses gamesPerMatch
+  finalStagesGamesPerMatch: integer("final_stages_games_per_match").notNull().default(3),
   pointsForWin: integer("points_for_win").notNull().default(3),
   pointsForDraw: integer("points_for_draw").notNull().default(2),
   pointsForLoss: integer("points_for_loss").notNull().default(1),
@@ -101,6 +106,9 @@ export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id:
   hasQuarterFinals: z.boolean().default(false),
   hasSemiFinals: z.boolean().default(false),
   hasFinals: z.boolean().default(true),
+  hasThirdPlace: z.boolean().default(false),
+  hasLosersPlate: z.boolean().default(false),
+  finalStagesGamesPerMatch: z.number().int().min(1, "Must have at least 1 game").max(3, "Maximum 3 games per match").default(3),
   pointsForWin: z.number().int().min(0, "Points must be 0 or greater").default(3),
   pointsForDraw: z.number().int().min(0, "Points must be 0 or greater").default(2),
   pointsForLoss: z.number().int().min(0, "Points must be 0 or greater").default(1),
@@ -190,7 +198,7 @@ export const insertMatchSchema = createInsertSchema(matches).omit({ id: true }).
   tournamentId: z.string().min(1, "Tournament is required"),
   team1Id: z.string().min(1, "Team 1 is required"),
   team2Id: z.string().min(1, "Team 2 is required"),
-  stage: z.enum(["initial", "quarter-finals", "semi-finals", "finals"]),
+  stage: z.enum(["initial", "quarter-finals", "semi-finals", "finals", "third-place", "losers-plate"]),
   status: z.enum(["scheduled", "in-progress", "completed"]).default("scheduled"),
   team1Game1Score: z.number().int().min(0).nullable().optional(),
   team2Game1Score: z.number().int().min(0).nullable().optional(),

@@ -148,6 +148,25 @@ async function ensureMatchPisteIdColumn() {
   }
 }
 
+async function ensureFinalStageColumns() {
+  const client = await pool.connect();
+  try {
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS has_third_place BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS has_losers_plate BOOLEAN NOT NULL DEFAULT false`);
+    // Existing tournaments keep their knockout format: copy their games per match the first time
+    const added = await client.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'tournaments' AND column_name = 'final_stages_games_per_match'`);
+    if (added.rowCount === 0) {
+      await client.query(`ALTER TABLE tournaments ADD COLUMN final_stages_games_per_match INTEGER NOT NULL DEFAULT 3`);
+      await client.query(`UPDATE tournaments SET final_stages_games_per_match = LEAST(GREATEST(games_per_match, 1), 3)`);
+    }
+    log("Database initialized: tournaments 3rd/4th, Loser Plate and final-stage games columns ensured");
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureRulesPdfColumns() {
   const client = await pool.connect();
   try {
@@ -329,6 +348,7 @@ async function migrateOrphanedTournaments() {
   await ensureRegistrationFeeColumns();
   await ensureBillingColumns();
   await ensureRulesPdfColumns();
+  await ensureFinalStageColumns();
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links
