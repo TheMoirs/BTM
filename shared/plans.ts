@@ -31,6 +31,15 @@ export function statusGivesUnlimited(status: string | null | undefined): boolean
   return !!status && UNLIMITED_STATUSES.has(status);
 }
 
+/** Unlimited given free by the system admin, still in date (no end date = always) */
+export function compGivesUnlimited(
+  u: { compUnlimited?: boolean | null; compUntil?: Date | string | null },
+  now: Date = new Date(),
+): boolean {
+  if (!u.compUnlimited) return false;
+  return !u.compUntil || new Date(u.compUntil).getTime() > now.getTime();
+}
+
 /** What the plan page and limit checks need to know about a user's plan */
 export type BillingStatus = {
   billingEnabled: boolean;
@@ -39,6 +48,9 @@ export type BillingStatus = {
   unlimited: boolean;
   // "admin" for system admins, who never need to pay
   plan: "free" | "unlimited" | "admin";
+  // Unlimited given free by the system admin (not paid through Stripe), and its end date if any
+  complimentary: boolean;
+  complimentaryUntil: string | null;
   status: string | null;
   interval: PlanInterval | null;
   currency: PlanCurrency | null;

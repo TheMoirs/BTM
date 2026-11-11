@@ -240,6 +240,9 @@ async function ensureBillingColumns() {
     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_mode TEXT`);
     // Customers made before live mode existed are all test-mode ones
     await client.query(`UPDATE users SET billing_mode = 'test' WHERE stripe_customer_id IS NOT NULL AND billing_mode IS NULL`);
+    // Unlimited given free by the system admin
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS comp_unlimited BOOLEAN NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS comp_until TIMESTAMP`);
     await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payment_mode TEXT`);
     await client.query(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT now())`);
     log("Database initialized: users billing columns ensured");

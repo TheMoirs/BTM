@@ -141,7 +141,24 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
         </Card>
       )}
 
-      {status.plan === "unlimited" && (
+      {status.plan === "unlimited" && status.complimentary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Unlimited <Badge variant="secondary">Free</Badge>
+            </CardTitle>
+            <CardDescription>
+              You've been given Unlimited at no charge
+              {status.complimentaryUntil
+                ? ` until ${formatDate(status.complimentaryUntil)}. After that you'll be back on the Free plan; your tournaments and teams are kept.`
+                : "."}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {status.plan === "unlimited" && !status.complimentary && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

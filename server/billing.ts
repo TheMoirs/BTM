@@ -21,6 +21,7 @@ import {
   PRICE_LOOKUP_KEYS,
   PLAN_LIMIT_CODE,
   statusGivesUnlimited,
+  compGivesUnlimited,
   type BillingStatus,
   type PlanCurrency,
   type PlanInterval,
@@ -62,8 +63,8 @@ function isAdminUser(u: Pick<User, "email" | "isSystemAdmin">): boolean {
 }
 
 /** System admins and paying users have no limits */
-export function hasUnlimited(u: Pick<User, "email" | "isSystemAdmin" | "subscriptionStatus">): boolean {
-  return isAdminUser(u) || statusGivesUnlimited(u.subscriptionStatus);
+export function hasUnlimited(u: Pick<User, "email" | "isSystemAdmin" | "subscriptionStatus"> & Partial<Pick<User, "compUnlimited" | "compUntil">>): boolean {
+  return isAdminUser(u) || statusGivesUnlimited(u.subscriptionStatus) || compGivesUnlimited(u);
 }
 
 // ── Limit checks ─────────────────────────────────────────────────────────────
@@ -208,13 +209,16 @@ async function statusFor(user: User): Promise<BillingStatus> {
   const owned = await storage.getTournamentsByUserId(user.id);
   const admin = isAdminUser(user);
   const paid = statusGivesUnlimited(user.subscriptionStatus);
+  const comp = !paid && compGivesUnlimited(user);
   // Paying users see their own subscription's mode; everyone else the mode upgrades use now
   const mode = paid ? userMode(user) : await getBillingMode();
   return {
     billingEnabled: modeAvailable(mode),
     testMode: mode === "test",
-    unlimited: admin || paid,
-    plan: paid ? "unlimited" : admin ? "admin" : "free",
+    unlimited: admin || paid || comp,
+    plan: paid || comp ? "unlimited" : admin ? "admin" : "free",
+    complimentary: comp,
+    complimentaryUntil: comp && user.compUntil ? user.compUntil.toISOString() : null,
     status: user.subscriptionStatus,
     interval: (user.planInterval as PlanInterval) ?? null,
     currency: (user.planCurrency as PlanCurrency) ?? null,
@@ -241,6 +245,47 @@ async function signedInUser(req: Request, res: Response): Promise<User | null> {
     return null;
   }
   return user;
+}
+
+// ── System admin: changing a user's plan ─────────────────────────────────────
+
+function periodStartOf(sub: Stripe.Subscription): Date | null {
+  const starts = sub.items.data.map((i) => i.current_period_start).filter((n): n is number => typeof n === "number");
+  return starts.length ? new Date(Math.min(...starts) * 1000) : null;
+}
+
+export type RefundPreview = {
+  amount: number;        // minor units (pence/cents)
+  currency: string;
+  unusedDays: number;
+  chargeId: string;
+};
+
+/**
+ * Refund for the unused part of the current period: the latest card payment, scaled by the share
+ * of the period still to run (never more than what's left unrefunded on that payment).
+ */
+async function refundPreviewFor(stripe: Stripe, customerId: string, sub: Stripe.Subscription, now = new Date()): Promise<RefundPreview | null> {
+  const start = periodStartOf(sub), end = periodEndOf(sub);
+  if (!start || !end || end <= now) return null;
+  const charges = await stripe.charges.list({ customer: customerId, limit: 10 });
+  const charge = charges.data
+    .filter((c) => c.status === "succeeded" && !c.refunded && c.amount - c.amount_refunded > 0)
+    .sort((a, b) => b.created - a.created)[0];
+  if (!charge) return null;
+  const share = Math.min(1, (end.getTime() - now.getTime()) / (end.getTime() - start.getTime()));
+  const amount = Math.min(charge.amount - charge.amount_refunded, Math.floor(charge.amount * share));
+  if (amount <= 0) return null;
+  return { amount, currency: charge.currency, unusedDays: Math.floor((end.getTime() - now.getTime()) / 86_400_000), chargeId: charge.id };
+}
+
+/** The subscription that currently gives this user Unlimited, from Stripe */
+async function liveSubscription(user: User): Promise<{ stripe: Stripe; sub: Stripe.Subscription } | null> {
+  if (!user.stripeSubscriptionId || !statusGivesUnlimited(user.subscriptionStatus)) return null;
+  const stripe = getStripeFor(userMode(user));
+  if (!stripe) return null;
+  const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+  return statusGivesUnlimited(sub.status) ? { stripe, sub } : null;
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -334,8 +379,16 @@ export function registerBillingRoutes(app: Express): void {
           stripeError = "Couldn't load payments from Stripe.";
         }
       }
+      let refundPreview: RefundPreview | null = null;
+      try {
+        const live = await liveSubscription(user);
+        if (live && user.stripeCustomerId) refundPreview = await refundPreviewFor(live.stripe, user.stripeCustomerId, live.sub);
+      } catch (error) {
+        console.error("[BILLING] Couldn't work out a refund:", error);
+      }
       res.json({
         status: await statusFor(user),
+        refundPreview: refundPreview && { amount: refundPreview.amount, currency: refundPreview.currency, unusedDays: refundPreview.unusedDays },
         customerId: user.stripeCustomerId,
         mode: user.stripeCustomerId ? mode : null,
         stripeCustomerUrl: user.stripeCustomerId ? dashboardUrl(mode, `customers/${user.stripeCustomerId}`) : null,
@@ -345,6 +398,99 @@ export function registerBillingRoutes(app: Express): void {
     } catch (error) {
       console.error("[BILLING] Admin billing failed:", error);
       res.status(500).json({ error: "Couldn't load this user's billing." });
+    }
+  });
+
+  // System admin: give Unlimited free (optional end date, YYYY-MM-DD) or take it away
+  app.post("/api/admin/users/:id/comp", async (req, res) => {
+    try {
+      const me = await signedInUser(req, res);
+      if (!me) return;
+      if (!isAdminUser(me)) return res.status(403).json({ error: "System admin access required" });
+      const user = await storage.getUserById(String(req.params.id));
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      if (req.body?.action === "remove") {
+        await storage.updateUserBilling(user.id, { compUnlimited: false, compUntil: null });
+        console.log(`[BILLING] ${me.email} ended free Unlimited for ${user.email}`);
+        return res.json({ ok: true });
+      }
+      if (req.body?.action !== "give") return res.status(400).json({ error: "Unknown action" });
+      if (statusGivesUnlimited(user.subscriptionStatus)) {
+        return res.status(400).json({ error: "This user already pays for Unlimited. Cancel their subscription first." });
+      }
+      const untilRaw = typeof req.body?.until === "string" ? req.body.until.trim() : "";
+      let until: Date | null = null;
+      if (untilRaw) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(untilRaw)) return res.status(400).json({ error: "Please choose a valid end date." });
+        until = new Date(`${untilRaw}T23:59:59Z`); // to the end of that day
+        if (until.getTime() <= Date.now()) return res.status(400).json({ error: "The end date must be in the future." });
+      }
+      await storage.updateUserBilling(user.id, { compUnlimited: true, compUntil: until });
+      // Counts as having chosen a plan, so they aren't asked at their next sign-in
+      if (!user.planChosenAt) await storage.claimPlanChoice(user.id);
+      console.log(`[BILLING] ${me.email} gave ${user.email} free Unlimited${until ? ` until ${untilRaw}` : ""}`);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("[BILLING] Free Unlimited change failed:", error);
+      res.status(500).json({ error: "Couldn't change this user's plan." });
+    }
+  });
+
+  // System admin: change a paying user's Stripe subscription
+  //   switch (interval: month | year) · cancel-at-period-end · resume · cancel-now (refund: boolean)
+  app.post("/api/admin/users/:id/subscription", async (req, res) => {
+    try {
+      const me = await signedInUser(req, res);
+      if (!me) return;
+      if (!isAdminUser(me)) return res.status(403).json({ error: "System admin access required" });
+      const user = await storage.getUserById(String(req.params.id));
+      if (!user) return res.status(404).json({ error: "User not found" });
+      const live = await liveSubscription(user);
+      if (!live) return res.status(400).json({ error: "This user has no active subscription to change." });
+      const { stripe, sub } = live;
+      const action = String(req.body?.action || "");
+      let refunded: { amount: number; currency: string } | null = null;
+
+      if (action === "switch") {
+        const interval: PlanInterval = req.body?.interval === "year" ? "year" : "month";
+        const item = sub.items.data[0];
+        if (item?.price?.recurring?.interval === interval) return res.status(400).json({ error: `They're already ${interval === "year" ? "yearly" : "monthly"}.` });
+        const prices = await stripe.prices.list({ lookup_keys: [PRICE_LOOKUP_KEYS[interval]], active: true, limit: 1 });
+        const price = prices.data[0];
+        if (!price || !item) return res.status(503).json({ error: "That plan isn't available right now." });
+        await stripe.subscriptions.update(sub.id, {
+          items: [{ id: item.id, price: price.id }],
+          proration_behavior: "create_prorations",
+        });
+      } else if (action === "cancel-at-period-end") {
+        await stripe.subscriptions.update(sub.id, { cancel_at_period_end: true });
+      } else if (action === "resume") {
+        await stripe.subscriptions.update(sub.id, { cancel_at_period_end: false });
+      } else if (action === "cancel-now") {
+        // Work out the refund before cancelling, while the period is still current
+        const preview = req.body?.refund === true && user.stripeCustomerId
+          ? await refundPreviewFor(stripe, user.stripeCustomerId, sub)
+          : null;
+        await stripe.subscriptions.cancel(sub.id);
+        if (preview) {
+          await stripe.refunds.create(
+            { charge: preview.chargeId, amount: preview.amount, reason: "requested_by_customer", metadata: { btm_user_id: user.id } },
+            { idempotencyKey: `btm-refund-${sub.id}` },
+          );
+          refunded = { amount: preview.amount, currency: preview.currency };
+        }
+      } else {
+        return res.status(400).json({ error: "Unknown action" });
+      }
+
+      const fresh = await stripe.subscriptions.retrieve(sub.id);
+      await saveSubscription(user, fresh, siteUrl(req));
+      console.log(`[BILLING] ${me.email} changed ${user.email}'s subscription: ${action}${refunded ? ` (refunded ${refunded.amount} ${refunded.currency})` : ""}`);
+      res.json({ ok: true, refunded });
+    } catch (error: any) {
+      console.error("[BILLING] Subscription change failed:", error);
+      res.status(500).json({ error: error?.message ? `Stripe: ${error.message}` : "Couldn't change the subscription." });
     }
   });
 
@@ -394,7 +540,7 @@ export function registerBillingRoutes(app: Express): void {
       const mode = await getBillingMode();
       const stripe = getStripeFor(mode);
       if (!stripe) return res.status(503).json({ error: "Payments aren't set up yet." });
-      if (hasUnlimited(user)) {
+      if (isAdminUser(user) || statusGivesUnlimited(user.subscriptionStatus)) {
         return res.status(400).json({ error: "You already have unlimited access." });
       }
 

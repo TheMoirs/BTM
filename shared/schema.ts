@@ -40,6 +40,9 @@ export const users = pgTable("users", {
   stripeConnectLiveReady: boolean("stripe_connect_live_ready").notNull().default(false),
   // Which Stripe mode stripeCustomerId / stripeSubscriptionId belong to: "test" or "live"
   billingMode: text("billing_mode"),
+  // Unlimited given free by the system admin (no Stripe). compUntil empty = no end date.
+  compUnlimited: boolean("comp_unlimited").notNull().default(false),
+  compUntil: timestamp("comp_until"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

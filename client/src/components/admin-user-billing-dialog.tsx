@@ -1,4 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,6 +25,7 @@ type Payment = {
 
 type UserBilling = {
   status: BillingStatus;
+  refundPreview?: { amount: number; currency: string; unusedDays: number } | null;
   customerId: string | null;
   mode?: "test" | "live" | null;
   stripeCustomerUrl: string | null;
@@ -34,6 +40,8 @@ export type BillingFields = {
   planInterval: string | null;
   planCancelAtPeriodEnd: boolean;
   planChosenAt: string | null;
+  compUnlimited?: boolean;
+  compUntil?: string | null;
 };
 
 function money(minor: number, currency: string) {
@@ -56,6 +64,14 @@ const PAYMENT_LABELS: Record<string, { label: string; variant: "default" | "seco
 export function PlanBadge({ u }: { u: BillingFields }) {
   if (u.isSystemAdmin) return null;
   const s = u.subscriptionStatus;
+  const paying = s === "active" || s === "trialing" || s === "past_due";
+  if (!paying && u.compUnlimited && (!u.compUntil || new Date(u.compUntil) > new Date())) {
+    return (
+      <Badge variant="default" className="text-xs shrink-0">
+        Unlimited · free{u.compUntil ? ` to ${day(u.compUntil)}` : ""}
+      </Badge>
+    );
+  }
   const per = u.planInterval === "year" ? "yearly" : "monthly";
   if (s === "active" || s === "trialing") {
     return (
@@ -108,7 +124,13 @@ export function AdminUserBillingDialog({
             <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
               <dt className="text-muted-foreground">Plan</dt>
               <dd className="font-medium">
-                {st.plan === "admin" ? "System admin (free)" : st.plan === "unlimited" ? `Unlimited, ${st.interval === "year" ? "yearly" : "monthly"}` : "Free"}
+                {st.plan === "admin"
+                  ? "System admin (free)"
+                  : st.complimentary
+                    ? `Unlimited, given free${st.complimentaryUntil ? ` until ${day(st.complimentaryUntil)}` : " (no end date)"}`
+                    : st.plan === "unlimited"
+                      ? `Unlimited, ${st.interval === "year" ? "yearly" : "monthly"}`
+                      : "Free"}
               </dd>
               {st.status && (
                 <>
@@ -137,6 +159,8 @@ export function AdminUserBillingDialog({
               <dt className="text-muted-foreground">Tournaments</dt>
               <dd>{st.usage.tournaments}</dd>
             </dl>
+
+            {user && st.plan !== "admin" && <ChangePlan userId={user.id} billing={data} />}
 
             {data.stripeCustomerUrl && (
               <a
@@ -203,5 +227,137 @@ export function AdminUserBillingDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+type PlanAction =
+  | { kind: "switch"; interval: "month" | "year" }
+  | { kind: "cancel-at-period-end" }
+  | { kind: "resume" }
+  | { kind: "cancel-now"; refund: boolean };
+
+/** System admin: change a user's plan — free Unlimited, or their paid Stripe subscription */
+function ChangePlan({ userId, billing }: { userId: string; billing: UserBilling }) {
+  const { toast } = useToast();
+  const st = billing.status;
+  const paying = st.plan === "unlimited" && !st.complimentary && !!st.status && ["active", "trialing", "past_due"].includes(st.status);
+  const [until, setUntil] = useState(st.complimentaryUntil ? st.complimentaryUntil.slice(0, 10) : "");
+  const [confirming, setConfirming] = useState<PlanAction | null>(null);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/users", userId, "billing"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+  };
+  const errorText = (e: unknown) => {
+    const m = e instanceof Error ? e.message.match(/^\d{3}: ([\s\S]*)$/) : null;
+    if (m) { try { return JSON.parse(m[1]).error ?? m[1]; } catch { return m[1]; } }
+    return e instanceof Error ? e.message : "Something went wrong";
+  };
+
+  const comp = useMutation({
+    mutationFn: async (body: { action: "give" | "remove"; until?: string }) =>
+      (await apiRequest("POST", `/api/admin/users/${userId}/comp`, body)).json(),
+    onSuccess: (_d, body) => {
+      refresh();
+      toast({ title: body.action === "give" ? "Unlimited given free" : "Back on the Free plan" });
+    },
+    onError: (e) => toast({ title: "Couldn't change the plan", description: errorText(e), variant: "destructive" }),
+  });
+
+  const subscription = useMutation({
+    mutationFn: async (a: PlanAction) => {
+      const body = a.kind === "switch" ? { action: "switch", interval: a.interval }
+        : a.kind === "cancel-now" ? { action: "cancel-now", refund: a.refund }
+        : { action: a.kind };
+      return (await apiRequest("POST", `/api/admin/users/${userId}/subscription`, body)).json();
+    },
+    onSuccess: (d: { refunded: { amount: number; currency: string } | null }) => {
+      setConfirming(null);
+      refresh();
+      toast({
+        title: "Subscription updated",
+        description: d?.refunded ? `${money(d.refunded.amount, d.refunded.currency)} refunded to their card.` : undefined,
+      });
+    },
+    onError: (e) => toast({ title: "Couldn't change the subscription", description: errorText(e), variant: "destructive" }),
+  });
+
+  const refund = billing.refundPreview;
+  const describe = (a: PlanAction): string => {
+    if (a.kind === "switch") {
+      return a.interval === "year"
+        ? "Switch to yearly. Stripe charges the difference for the rest of this period straight away."
+        : "Switch to monthly. Stripe credits the unused yearly time to their account, used against future payments.";
+    }
+    if (a.kind === "cancel-at-period-end") return `Cancel at the end of the period. They keep Unlimited until ${day(st.renewsAt)} and won't be charged again.`;
+    if (a.kind === "resume") return "Undo the cancellation. Their subscription renews as normal.";
+    return a.refund && refund
+      ? `Cancel now and refund ${money(refund.amount, refund.currency)} (${refund.unusedDays} unused days) to their card. Unlimited ends straight away.`
+      : "Cancel now with no refund. Unlimited ends straight away.";
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <h3 className="font-semibold">Change plan</h3>
+
+      {paying ? (
+        confirming ? (
+          <div className="space-y-3">
+            <p className="text-sm">{describe(confirming)}</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant={confirming.kind === "cancel-now" ? "destructive" : "default"}
+                onClick={() => subscription.mutate(confirming)} disabled={subscription.isPending} data-testid="button-confirm-plan-change">
+                {subscription.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Confirm
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setConfirming(null)} disabled={subscription.isPending}>Back</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" data-testid="button-switch-interval"
+              onClick={() => setConfirming({ kind: "switch", interval: st.interval === "year" ? "month" : "year" })}>
+              Switch to {st.interval === "year" ? "monthly" : "yearly"}
+            </Button>
+            {st.cancelAtPeriodEnd ? (
+              <Button size="sm" variant="outline" onClick={() => setConfirming({ kind: "resume" })} data-testid="button-resume">
+                Undo cancellation
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" onClick={() => setConfirming({ kind: "cancel-at-period-end" })} data-testid="button-cancel-at-end">
+                Cancel at period end
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="text-destructive" onClick={() => setConfirming({ kind: "cancel-now", refund: false })} data-testid="button-cancel-now">
+              Cancel now
+            </Button>
+            {refund && (
+              <Button size="sm" variant="outline" className="text-destructive" onClick={() => setConfirming({ kind: "cancel-now", refund: true })} data-testid="button-cancel-refund">
+                Cancel now and refund {money(refund.amount, refund.currency)}
+              </Button>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            {st.complimentary
+              ? "They have Unlimited free. Change the end date, or switch them back to Free."
+              : "Give Unlimited free, with no payment. Leave the end date blank for no end."}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input type="date" value={until} onChange={(e) => setUntil(e.target.value)} className="h-9 w-40" aria-label="End date (optional)" data-testid="input-comp-until" />
+            <Button size="sm" onClick={() => comp.mutate({ action: "give", until })} disabled={comp.isPending} data-testid="button-give-unlimited">
+              {comp.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {st.complimentary ? "Save end date" : "Give Unlimited free"}
+            </Button>
+            {st.complimentary && (
+              <Button size="sm" variant="outline" onClick={() => comp.mutate({ action: "remove" })} disabled={comp.isPending} data-testid="button-remove-unlimited">
+                Switch back to Free
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
