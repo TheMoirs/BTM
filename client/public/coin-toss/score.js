@@ -272,6 +272,10 @@
     var dValue = $("divisionSel").value;
     var division = t && dValue ? (dValue === "-" ? "" : dValue) : null;
     var t1 = teamName(1, "Us"), t2 = teamName(2, "Them");
+    if (t1.toLowerCase() === t2.toLowerCase()) {
+      toast("Pick two different teams");
+      return;
+    }
     store(KEY_LAST, {
       home: homeKey(),
       tournament: t ? t.key : (tName ? OTHER : ""),
