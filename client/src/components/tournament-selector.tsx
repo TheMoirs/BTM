@@ -835,6 +835,13 @@ export function TournamentSelector() {
                   {getTournamentDetails(tournament) && (
                     <span className={`text-xs ${getTournamentDetails(tournament).startsWith("Test") ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>{getTournamentDetails(tournament)}</span>
                   )}
+                  {isMasterAdmin && (
+                    <span className="text-xs text-muted-foreground truncate" data-testid={`text-tournament-owner-${tournament.id}`}>
+                      Owner: {(tournament as any).ownerEmail
+                        ? `${(tournament as any).ownerName ? `${(tournament as any).ownerName} · ` : ""}${(tournament as any).ownerEmail}`
+                        : "none"}
+                    </span>
+                  )}
                 </div>
               </div>
               {(isMasterAdmin || (user && (tournament.userId === user.id || (tournament as any).isShared))) && (

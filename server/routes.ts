@@ -883,8 +883,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (req.isMasterAdmin) {
         // System admin / master admin sees all
-        const ts = await storage.getAllTournaments();
-        res.json(ts.map(({ adminToken, viewToken, ...t }) => t));
+        const [ts, allUsers] = await Promise.all([storage.getAllTournaments(), storage.getAllUsers()]);
+        // Show the admin who owns each tournament
+        const owners = new Map(allUsers.map((u) => [u.id, u]));
+        res.json(ts.map(({ adminToken, viewToken, ...t }) => {
+          const owner = t.userId ? owners.get(t.userId) : undefined;
+          return { ...t, ownerName: owner?.displayName ?? null, ownerEmail: owner?.email ?? null };
+        }));
       } else if (req.tokenTournamentId) {
         // Token-based share link — only the specific tournament
         const t = await storage.getTournament(req.tokenTournamentId);
