@@ -227,6 +227,15 @@ export default function Teams() {
   // Edit All mode state
   const [isEditAllMode, setIsEditAllMode] = useState(false);
   const [allEditingValues, setAllEditingValues] = useState<Record<string, EditingTeam>>({});
+  // While editing, each box is as wide as the longest entry in its column (no wasted gaps, nothing cut off)
+  const fitWidth = (field: string, minCh: number, maxCh = 40) => {
+    const rows: any[] = isEditAllMode ? Object.values(allEditingValues) : editingRowId ? [editingValues] : [];
+    const longest = Math.max(0, ...rows.map((v) => {
+      const val = v?.[field];
+      return Array.isArray(val) ? Math.max(0, ...val.map((x: string) => String(x).length)) : String(val ?? "").length;
+    }));
+    return { width: `${Math.min(maxCh, Math.max(minCh, longest + 3))}ch` };
+  };
   const [newTeamCounter, setNewTeamCounter] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -2252,7 +2261,7 @@ export default function Teams() {
                   className={
                     // Editing (one row or all): tight cells so the boxes get the room, not the gaps
                     isEditAllMode || editingRowId
-                      ? "[&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-3"
+                      ? "[&_td]:px-1 [&_td]:py-1.5 [&_th]:px-2 [&_th]:!w-auto"
                       : // Tighter cells on mobile so more columns fit; normal spacing from sm up
                         "[&_td]:px-2 [&_td]:py-2 [&_th]:px-3 [&_th]:h-10 sm:[&_td]:p-4 sm:[&_th]:px-4 sm:[&_th]:h-12"
                   }
@@ -2407,7 +2416,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.name || ""}
                               onChange={(e) => updateValue("name", e.target.value)}
-                              className="h-8 min-w-[180px]"
+                              className="h-8 px-2" style={fitWidth("name", 10)}
                               data-editall-col="name"
                               data-testid={`input-edit-name-${team.id}`}
                             />
@@ -2434,7 +2443,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.homePiste || ""}
                               onChange={(e) => updateValue("homePiste", e.target.value)}
-                              className="h-8 min-w-[130px]"
+                              className="h-8 px-2" style={fitWidth("homePiste", 8)}
                               data-editall-col="homePiste"
                               data-testid={`input-edit-home-piste-${team.id}`}
                             />
@@ -2451,7 +2460,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainName || ""}
                               onChange={(e) => updateValue("captainName", e.target.value)}
-                              className="h-8 min-w-[160px]"
+                              className="h-8 px-2" style={fitWidth("captainName", 10)}
                               data-editall-col="captainName"
                               data-testid={`input-edit-captain-name-${team.id}`}
                             />
@@ -2464,7 +2473,7 @@ export default function Teams() {
                             <Input
                               value={currentValues.captainPhone || ""}
                               onChange={(e) => updateValue("captainPhone", e.target.value)}
-                              className="h-8 min-w-[120px]"
+                              className="h-8 px-2" style={fitWidth("captainPhone", 10)}
                               data-editall-col="captainPhone"
                               data-testid={`input-edit-captain-phone-${team.id}`}
                             />
@@ -2488,7 +2497,7 @@ export default function Teams() {
                               value={currentValues.captainEmail || ""}
                               onChange={(e) => updateValue("captainEmail", e.target.value)}
                               type="email"
-                              className="h-8 min-w-[230px]"
+                              className="h-8 px-2" style={fitWidth("captainEmail", 12)}
                               data-editall-col="captainEmail"
                               data-testid={`input-edit-captain-email-${team.id}`}
                             />
@@ -2513,7 +2522,7 @@ export default function Teams() {
                                 const lines = e.target.value.split("\n").filter(line => line.trim());
                                 updateValue("otherPlayers", lines as any);
                               }}
-                              className="min-h-[60px] text-sm min-w-[200px]"
+                              className="min-h-[60px] text-sm px-2" style={fitWidth("otherPlayers", 12)}
                               placeholder="One per line"
                               data-editall-col="otherPlayers"
                               data-testid={`input-edit-other-players-${team.id}`}
@@ -2604,7 +2613,7 @@ export default function Teams() {
                         <Input
                           value={teamData.name || ""}
                           onChange={(e) => updateAllEditingValue(id, "name", e.target.value)}
-                          className="h-8 min-w-[180px]"
+                          className="h-8 px-2" style={fitWidth("name", 10)}
                           placeholder="New team name"
                           data-editall-col="name"
                           data-testid={`input-edit-name-${id}`}
@@ -2615,7 +2624,7 @@ export default function Teams() {
                         <Input
                           value={teamData.homePiste || ""}
                           onChange={(e) => updateAllEditingValue(id, "homePiste", e.target.value)}
-                          className="h-8 min-w-[130px]"
+                          className="h-8 px-2" style={fitWidth("homePiste", 8)}
                           data-editall-col="homePiste"
                           data-testid={`input-edit-home-piste-${id}`}
                         />
@@ -2624,7 +2633,7 @@ export default function Teams() {
                         <Input
                           value={teamData.captainName || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainName", e.target.value)}
-                          className="h-8 min-w-[160px]"
+                          className="h-8 px-2" style={fitWidth("captainName", 10)}
                           data-editall-col="captainName"
                           data-testid={`input-edit-captain-name-${id}`}
                         />
@@ -2633,7 +2642,7 @@ export default function Teams() {
                         <Input
                           value={teamData.captainPhone || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainPhone", e.target.value)}
-                          className="h-8 min-w-[120px]"
+                          className="h-8 px-2" style={fitWidth("captainPhone", 10)}
                           data-editall-col="captainPhone"
                           data-testid={`input-edit-captain-phone-${id}`}
                         />
@@ -2643,7 +2652,7 @@ export default function Teams() {
                           value={teamData.captainEmail || ""}
                           onChange={(e) => updateAllEditingValue(id, "captainEmail", e.target.value)}
                           type="email"
-                          className="h-8 min-w-[230px]"
+                          className="h-8 px-2" style={fitWidth("captainEmail", 12)}
                           data-editall-col="captainEmail"
                           data-testid={`input-edit-captain-email-${id}`}
                         />
@@ -2655,7 +2664,7 @@ export default function Teams() {
                             const lines = e.target.value.split("\n").filter(line => line.trim());
                             updateAllEditingValue(id, "otherPlayers", lines as any);
                           }}
-                          className="min-h-[60px] text-sm min-w-[200px]"
+                          className="min-h-[60px] text-sm px-2" style={fitWidth("otherPlayers", 12)}
                           placeholder="One per line"
                           data-editall-col="otherPlayers"
                           data-testid={`input-edit-other-players-${id}`}
