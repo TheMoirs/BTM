@@ -91,9 +91,16 @@ function StripeConnectBlock() {
       <div className="space-y-2 border-t first:border-t-0 pt-2 first:pt-0" data-testid={`row-stripe-${mode}`}>
         <p className="text-sm font-medium">{label}</p>
         {st.ready ? (
+          <>
           <p className="text-sm flex items-center gap-1.5 text-green-700 dark:text-green-500" data-testid={`text-stripe-connected-${mode}`}>
             <CheckCircle2 className="h-4 w-4" /> Connected. Used by your tournaments set to {mode === "live" ? "Live" : "Test"}.
           </p>
+          <Button type="button" size="sm" variant="outline" asChild data-testid={`button-stripe-settings-${mode}`}>
+            <a href={`https://dashboard.stripe.com/${mode === "test" ? "test/" : ""}settings`} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4 mr-2" /> {mode === "live" ? "Stripe settings" : "Stripe test settings"}
+            </a>
+          </Button>
+          </>
         ) : (
           <>
             {mode === "test" && <StripeTestNotice kind="onboarding" />}
