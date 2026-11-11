@@ -551,7 +551,7 @@ export default function Results() {
       startY += 6;
       
       divisions.forEach(([division, divisionResults], divIndex) => {
-        const divisionLabel = division !== 'No Division' ? `Division ${division}` : 'No Division Assigned';
+        const divisionLabel = division !== 'No Division' ? `Division ${division}` : '';
         
         // Conservative estimate for space needed (accounting for text wrapping)
         // Header (5) + table header (~10) + rows (results.length * ~7 for potential wrapping) + spacing
@@ -995,9 +995,6 @@ export default function Results() {
                             Division {division}
                           </Badge>
                         )}
-                        {division === 'No Division' && (
-                          <span>No Division Assigned</span>
-                        )}
                         <span className="text-muted-foreground text-sm font-normal">
                           ({divisionMatches.length} {divisionMatches.length === 1 ? 'match' : 'matches'})
                         </span>
@@ -1136,9 +1133,6 @@ export default function Results() {
                                 Division {division}
                               </Badge>
                             )}
-                            {division === 'No Division' && (
-                              <span>No Division Assigned</span>
-                            )}
                             <span className="text-muted-foreground text-sm font-normal">
                               ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
                             </span>
@@ -1238,9 +1232,6 @@ export default function Results() {
                         <Badge variant="outline" className="text-base px-3 py-1">
                           Division {division}
                         </Badge>
-                      )}
-                      {division === 'No Division' && (
-                        <span>No Division Assigned</span>
                       )}
                       <span className="text-muted-foreground text-sm font-normal">
                         ({divisionResults.length} {divisionResults.length === 1 ? 'result' : 'results'})

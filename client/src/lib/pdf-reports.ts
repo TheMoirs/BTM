@@ -54,7 +54,7 @@ export function buildLeaderboardPdf(opts: {
     startY += 6;
 
     divisions.forEach(([division, summaries], divIndex) => {
-      const divisionLabel = division !== "No Division" ? `Division ${division}` : "No Division Assigned";
+      const divisionLabel = division !== "No Division" ? `Division ${division}` : "";
 
       // Conservative estimate of the space this division needs
       const estimatedHeight = 5 + 12 + summaries.length * 9 + 15;

@@ -496,9 +496,6 @@ export default function Leaderboard() {
                           Division {division}
                         </Badge>
                       )}
-                      {division === 'No Division' && (
-                        <span>No Division Assigned</span>
-                      )}
                       <span className="text-muted-foreground text-sm font-normal">
                         ({divisionSummaries.length} {divisionSummaries.length === 1 ? 'team' : 'teams'})
                       </span>
@@ -595,9 +592,6 @@ export default function Leaderboard() {
                         <Badge variant="outline" className="px-2 py-1" data-testid={`badge-division-${division}`}>
                           Division {division}
                         </Badge>
-                      )}
-                      {division === 'No Division' && (
-                        <span>No Division Assigned</span>
                       )}
                       <span className="text-muted-foreground text-sm font-normal">
                         ({divisionMatches.length} {divisionMatches.length === 1 ? 'match' : 'matches'})
