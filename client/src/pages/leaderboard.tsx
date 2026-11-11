@@ -330,7 +330,7 @@ export default function Leaderboard() {
                   <h3 className="font-semibold mb-2">Team Leaderboard</h3>
                   <ul className="list-disc pl-5 space-y-1">
                     <li>View team rankings grouped by Stage and Division</li>
-                    <li>See statistics: Points, Games Played/Won/Drawn/Lost, Score For/Against</li>
+                    <li>See statistics: Points, Games Played/Won/Lost, Score For/Against</li>
                     <li><strong>Click on a team name</strong> to view only that team's match results</li>
                   </ul>
                 </div>
@@ -366,7 +366,7 @@ export default function Leaderboard() {
                   <h3 className="font-semibold mb-2">Points</h3>
                   <p>
                     Points are awarded for every game played: Win = {currentTournament.pointsForWin ?? 3},
-                    Draw = {currentTournament.pointsForDraw ?? 2}, Loss = {currentTournament.pointsForLoss ?? 1}.
+                    Loss = {currentTournament.pointsForLoss ?? 1}.
                     {" "}No-Show = the team present gains {currentTournament.pointsForWin ?? 3} league points per game, with a game winning score of 13-7.
                     Team not showing: {(currentTournament as any).pointsForNoShow ?? 0} league points per game (losing score of 7-13).
                   </p>
@@ -496,7 +496,6 @@ export default function Leaderboard() {
                             <TableHead className="text-sm max-sm:text-xs">Team</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Played</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Won</TableHead>
-                            <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
                             <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
@@ -527,9 +526,6 @@ export default function Leaderboard() {
                               </TableCell>
                               <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-won-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesWon}</span>
-                              </TableCell>
-                              <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-drawn-${summary.teamName}`}>
-                                <span className="font-mono">{summary.gamesDrawn}</span>
                               </TableCell>
                               <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-lost-${summary.teamName}`}>
                                 <span className="font-mono">{summary.gamesLost}</span>

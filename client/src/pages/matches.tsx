@@ -121,6 +121,17 @@ type EditingMatch = {
   pisteId: string;
 };
 
+// apiRequest errors look like `400: {"error":"..."}`; show just the message.
+function serverErrorMessage(error: Error): string {
+  const m = error.message.match(/^\d{3}: ([\s\S]*)$/);
+  if (!m) return error.message;
+  try {
+    const body = JSON.parse(m[1]);
+    if (body && typeof body.error === "string") return body.error;
+  } catch {}
+  return m[1];
+}
+
 export default function Matches() {
   const { currentTournament } = useTournament();
   const { user } = useAuth();
@@ -259,7 +270,7 @@ export default function Matches() {
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: serverErrorMessage(error),
         variant: "destructive",
         duration: Infinity,
       });
@@ -615,6 +626,25 @@ export default function Matches() {
         }, 100);
       }
       return;
+    }
+
+    // Pétanque games can't be drawn: every completed game needs a winner
+    if (!(editingValues.team1NoShow ?? false) && !(editingValues.team2NoShow ?? false)) {
+      const games: [number | null, number | null][] = [
+        [team1Game1Score, team2Game1Score],
+        [team1Game2Score, team2Game2Score],
+        [team1Game3Score, team2Game3Score],
+      ];
+      const levelGame = games.findIndex(([a, b]) => a !== null && b !== null && a === b);
+      if (levelGame !== -1) {
+        toast({
+          title: "Level score",
+          description: `Game ${levelGame + 1} can't end level – one team must win.`,
+          variant: "destructive",
+          duration: Infinity,
+        });
+        return;
+      }
     }
 
     updateMutation.mutate({
@@ -1046,6 +1076,20 @@ export default function Matches() {
           return;
         }
 
+        // Pétanque games can't be drawn: every completed game needs a winner
+        if (!noShow1 && !noShow2) {
+          const games: [number | null, number | null][] = [
+            [team1Game1Score, team2Game1Score],
+            [team1Game2Score, team2Game2Score],
+            [team1Game3Score, team2Game3Score],
+          ];
+          const levelGame = games.findIndex(([a, b]) => a !== null && b !== null && a === b);
+          if (levelGame !== -1) {
+            errors.push(`${matchLabel}: Game ${levelGame + 1} can't end level – one team must win`);
+            return;
+          }
+        }
+
         // Update the match
         await apiRequest("PATCH", `/api/matches/${match.id}/score`, {
           team1Game1Score,
@@ -1062,7 +1106,7 @@ export default function Matches() {
 
         successCount++;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to save changes";
+        const errorMessage = error instanceof Error ? serverErrorMessage(error) : "Failed to save changes";
         errors.push(`${matchLabel}: ${errorMessage}`);
       }
     };
@@ -1769,7 +1813,7 @@ export default function Matches() {
                     <li><strong>Edit All Mode:</strong> Enable bulk editing to enter scores for multiple matches quickly</li>
                     <li><strong>Keyboard Navigation:</strong> In Edit All mode, use arrow keys to move between score fields</li>
                     <li><strong>Match Completion:</strong> Matches complete when all game scores are entered (1, 2 or 3 games per match)</li>
-                    <li><strong>Points:</strong> Winners earn 2 points per game. One point for a draw.</li>
+                    <li><strong>Points:</strong> {currentTournament?.pointsForWin ?? 3} points per game won, {currentTournament?.pointsForLoss ?? 1} per game lost. Games can't end level.</li>
                     <li><strong>Results:</strong> Match scores are automatically transferred to the Results page.</li>
                   </ul>
                 </div>

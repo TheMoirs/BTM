@@ -74,7 +74,6 @@ export function buildLeaderboardPdf(opts: {
         s.teamName,
         s.gamesPlayed.toString(),
         s.gamesWon.toString(),
-        s.gamesDrawn.toString(),
         s.gamesLost.toString(),
         s.points.toString(),
         s.scoreFor.toString(),
@@ -84,7 +83,7 @@ export function buildLeaderboardPdf(opts: {
 
       let isFirstPageForDivision = true;
       autoTable(doc, {
-        head: [["Pos", "Team", "Played", "Won", "Drawn", "Lost", "Points", "For", "Against", "Diff"]],
+        head: [["Pos", "Team", "Played", "Won", "Lost", "Points", "For", "Against", "Diff"]],
         body,
         startY,
         margin: { top: 25, bottom: 10, left: 14, right: 14 },
@@ -92,7 +91,7 @@ export function buildLeaderboardPdf(opts: {
         headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
         columnStyles: {
           0: { cellWidth: 18, halign: "center" },
-          1: { cellWidth: 60 },
+          1: { cellWidth: 82 },
           2: { cellWidth: 22, halign: "center" },
           3: { cellWidth: 22, halign: "center" },
           4: { cellWidth: 22, halign: "center" },
@@ -100,7 +99,6 @@ export function buildLeaderboardPdf(opts: {
           6: { cellWidth: 22, halign: "center" },
           7: { cellWidth: 22, halign: "center" },
           8: { cellWidth: 22, halign: "center" },
-          9: { cellWidth: 22, halign: "center" },
         },
         didDrawPage: () => {
           if (!isFirstPageForDivision) {

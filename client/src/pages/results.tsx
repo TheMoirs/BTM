@@ -575,7 +575,6 @@ export default function Results() {
           result.matchDate || '—',
           result.gamesPlayed.toString(),
           result.gamesWon.toString(),
-          result.gamesDrawn.toString(),
           result.gamesLost.toString(),
           result.points.toString(),
           result.scoreFor.toString(),
@@ -585,7 +584,7 @@ export default function Results() {
         
         let isFirstPageForDivision = true;
         autoTable(doc, {
-          head: [['Team', 'Match', 'Date', 'P', 'W', 'D', 'L', 'Pts', 'F', 'A', 'Diff']],
+          head: [['Team', 'Match', 'Date', 'P', 'W', 'L', 'Pts', 'F', 'A', 'Diff']],
           body: tableData,
           startY: startY,
           margin: { top: 25, bottom: 10, left: 14, right: 14 },
@@ -605,11 +604,10 @@ export default function Results() {
             3: { cellWidth: 10, halign: 'center' },
             4: { cellWidth: 10, halign: 'center' },
             5: { cellWidth: 10, halign: 'center' },
-            6: { cellWidth: 10, halign: 'center' },
-            7: { cellWidth: 12, halign: 'center' },
+            6: { cellWidth: 12, halign: 'center' },
+            7: { cellWidth: 10, halign: 'center' },
             8: { cellWidth: 10, halign: 'center' },
-            9: { cellWidth: 10, halign: 'center' },
-            10: { cellWidth: 12, halign: 'center' },
+            9: { cellWidth: 12, halign: 'center' },
           },
           didDrawPage: function (data) {
             if (!isFirstPageForDivision) {
@@ -702,7 +700,6 @@ export default function Results() {
             'Team': summary.teamName,
             'Played': summary.gamesPlayed,
             'Won': summary.gamesWon,
-            'Drawn': summary.gamesDrawn,
             'Lost': summary.gamesLost,
             'Points': summary.points,
             'For': summary.scoreFor,
@@ -728,7 +725,6 @@ export default function Results() {
             'Date': result.matchDate || '—',
             'P': result.gamesPlayed,
             'W': result.gamesWon,
-            'D': result.gamesDrawn,
             'L': result.gamesLost,
             'Pts': result.points,
             'F': result.scoreFor,
@@ -859,8 +855,8 @@ export default function Results() {
               <div>
                 <h3 className="font-semibold mb-2">Understanding Statistics</h3>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Points:</strong> Total points earned (2 points per game won, 1 for a draw)</li>
-                  <li><strong>Games Played/Won/Drawn/Lost:</strong> Individual game statistics</li>
+                  <li><strong>Points:</strong> Total league points earned ({currentTournament?.pointsForWin ?? 3} per game won, {currentTournament?.pointsForLoss ?? 1} per game lost)</li>
+                  <li><strong>Games Played/Won/Lost:</strong> Individual game statistics</li>
                   <li><strong>Score For/Against:</strong> Total points scored for and against the team</li>
                   <li><strong>Score Difference:</strong> The difference between points for and against (used for ranking)</li>
                 </ul>
@@ -1155,7 +1151,6 @@ export default function Results() {
                                   <TableHead className="text-sm max-sm:text-xs">Team</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Played</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Won</TableHead>
-                                  <TableHead className="text-center text-sm max-sm:text-xs">Drawn</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Lost</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Points</TableHead>
                                   <TableHead className="text-center text-sm max-sm:text-xs">Score For</TableHead>
@@ -1186,9 +1181,6 @@ export default function Results() {
                                     </TableCell>
                                     <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-won-${summary.teamName}`}>
                                       <span className="font-mono">{summary.gamesWon}</span>
-                                    </TableCell>
-                                    <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-drawn-${summary.teamName}`}>
-                                      <span className="font-mono">{summary.gamesDrawn}</span>
                                     </TableCell>
                                     <TableCell className="text-center text-sm max-sm:text-xs py-2 max-sm:py-1 px-1" data-testid={`text-inline-lost-${summary.teamName}`}>
                                       <span className="font-mono">{summary.gamesLost}</span>
@@ -1322,16 +1314,6 @@ export default function Results() {
                         <TableHead className="text-center">
                           <button
                             className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
-                            onClick={() => handleSort("gamesDrawn")}
-                            data-testid="sort-gamesDrawn"
-                          >
-                            Drawn
-                            <SortIcon column="gamesDrawn" />
-                          </button>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <button
-                            className="flex items-center justify-center hover-elevate active-elevate-2 font-medium -ml-3 px-3 py-1 rounded w-full"
                             onClick={() => handleSort("points")}
                             data-testid="sort-points"
                           >
@@ -1414,9 +1396,6 @@ export default function Results() {
                           </TableCell>
                           <TableCell className="text-center" data-testid={`text-games-lost-${result.id}`}>
                             <span className="font-mono">{result.gamesLost}</span>
-                          </TableCell>
-                          <TableCell className="text-center" data-testid={`text-games-drawn-${result.id}`}>
-                            <span className="font-mono">{result.gamesDrawn}</span>
                           </TableCell>
                           <TableCell className="text-center" data-testid={`text-points-${result.id}`}>
                             <Badge 

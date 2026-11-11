@@ -2077,6 +2077,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied: token is only valid for a specific tournament" });
       }
       const validatedData = updateMatchScoreSchema.parse(req.body);
+
+      // Pétanque games can't be drawn: once a match is being completed (date entered,
+      // not a no-show), every game with both scores entered must have a winner.
+      const isNoShow = validatedData.team1NoShow || validatedData.team2NoShow;
+      if (!isNoShow && validatedData.matchDate) {
+        const games: [number | null, number | null][] = [
+          [validatedData.team1Game1Score, validatedData.team2Game1Score],
+          [validatedData.team1Game2Score, validatedData.team2Game2Score],
+          [validatedData.team1Game3Score, validatedData.team2Game3Score],
+        ];
+        const levelGame = games.findIndex(([a, b]) => a !== null && b !== null && a === b);
+        if (levelGame !== -1) {
+          return res.status(400).json({
+            error: `Game ${levelGame + 1} can't end level – one team must win.`,
+          });
+        }
+      }
+
       const match = await storage.updateMatchScore(
         req.params.id,
         validatedData.team1Game1Score,

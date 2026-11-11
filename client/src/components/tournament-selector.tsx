@@ -202,7 +202,7 @@ export function TournamentSelector() {
       hasSemiFinals: false,
       hasFinals: true,
       pointsForWin: 3,
-      pointsForDraw: 2,
+      pointsForDraw: 0,
       pointsForLoss: 1,
       pointsForNoShow: 0,
       numberOfPistes: null,
@@ -272,7 +272,6 @@ export function TournamentSelector() {
     if (!editingTournament) return;
     const pointValuesChanged =
       data.pointsForWin !== (editingTournament.pointsForWin ?? 3) ||
-      data.pointsForDraw !== (editingTournament.pointsForDraw ?? 2) ||
       data.pointsForLoss !== (editingTournament.pointsForLoss ?? 1) ||
       data.pointsForNoShow !== ((editingTournament as any).pointsForNoShow ?? 0);
 
@@ -622,7 +621,7 @@ export function TournamentSelector() {
               <div className="space-y-3">
                 <FormLabel>Point Values</FormLabel>
                 <FormDescription>Points awarded per game result</FormDescription>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <FormField
                     control={form.control}
                     name="pointsForWin"
@@ -636,25 +635,6 @@ export function TournamentSelector() {
                             min={0}
                             onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
                             data-testid="input-points-for-win"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="pointsForDraw"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Draw</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            min={0}
-                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
-                            data-testid="input-points-for-draw"
                           />
                         </FormControl>
                         <FormMessage />
@@ -1290,7 +1270,7 @@ export function TournamentSelector() {
               <div className="space-y-3">
                 <FormLabel>Point Values</FormLabel>
                 <FormDescription>Points awarded per game result</FormDescription>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <FormField
                     control={form.control}
                     name="pointsForWin"
@@ -1304,25 +1284,6 @@ export function TournamentSelector() {
                             min={0}
                             onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
                             data-testid="input-edit-points-for-win"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="pointsForDraw"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Draw</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            min={0}
-                            onChange={(e) => field.onChange(parseInt(e.target.value, 10) || 0)}
-                            data-testid="input-edit-points-for-draw"
                           />
                         </FormControl>
                         <FormMessage />

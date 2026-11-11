@@ -686,7 +686,7 @@ export class DatabaseStorage implements IStorage {
           const team2TotalScore = (team2Game1Score ?? 0) + (team2Game2Score ?? 0) + (team2Game3Score ?? 0);
           
           // Calculate points and game statistics based on individual game results
-          // Use tournament-specific point values (defaults: 2 for win, 1 for draw, 0 for loss)
+          // Use tournament-specific point values. Level games are blocked at score entry (pétanque has no draws); the draw branch below is a fallback for old data.
           const pointsForWin = tournament.pointsForWin ?? 2;
           const pointsForDraw = tournament.pointsForDraw ?? 1;
           const pointsForLoss = tournament.pointsForLoss ?? 0;

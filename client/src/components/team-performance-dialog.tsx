@@ -234,7 +234,7 @@ export function TeamPerformanceDialog({ teamId, teams, matches, results, tournam
                     </thead>
                     <tbody>
                       <Row label="Matches" values={[perf.matchesPlayed, perf.matchesWon, perf.matchesDrawn, perf.matchesLost]} />
-                      <Row label="Games" values={[perf.gamesPlayed, perf.gamesWon, perf.gamesDrawn, perf.gamesLost]} />
+                      <Row label="Games" values={[perf.gamesPlayed, perf.gamesWon, "–", perf.gamesLost]} />
                     </tbody>
                   </table>
 
