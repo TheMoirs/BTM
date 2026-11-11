@@ -231,6 +231,8 @@ export function registerConnectRoutes(app: Express): void {
           metadata: { btm_team_id: team.id, btm_tournament_id: t.id },
           payment_intent_data: {
             description: `${t.name}: ${team.name}`,
+            // Stripe emails the captain a receipt (live mode), whatever the organiser's email settings
+            ...(team.captainEmail ? { receipt_email: team.captainEmail } : {}),
             metadata: { btm_team_id: team.id, btm_tournament_id: t.id },
           },
           success_url: `${registerPage}?paid=${code}&session_id={CHECKOUT_SESSION_ID}`,
