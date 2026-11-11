@@ -328,6 +328,7 @@ async function migrateOrphanedTournaments() {
   // New columns first: later start-up steps read whole rows from these tables
   await ensureRegistrationFeeColumns();
   await ensureBillingColumns();
+  await ensureRulesPdfColumns();
   // Initialize database constraints
   await initializeDatabase();
   // Ensure tiny_url column on short_links
@@ -338,7 +339,6 @@ async function migrateOrphanedTournaments() {
   await ensureMatchPisteIdColumn();
   await ensureMatchBracketPositionColumn();
   await ensureTournamentSlugs();
-  await ensureRulesPdfColumns();
   await ensureShortLinkTinyUrl();
   // Ensure Clerk user ID column on users
   await ensureClerkUserIdColumn();
