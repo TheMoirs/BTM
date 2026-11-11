@@ -204,11 +204,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTournamentRules(id: string, pdfData: string, pdfName: string): Promise<void> {
-    await db.update(tournaments).set({ rulesPdfData: pdfData, rulesPdfName: pdfName }).where(eq(tournaments.id, id));
+    await db.update(tournaments).set({ rulesPdfData: pdfData, rulesPdfName: pdfName, rulesPdfUpdatedAt: new Date() }).where(eq(tournaments.id, id));
   }
 
   async clearTournamentRules(id: string): Promise<void> {
-    await db.update(tournaments).set({ rulesPdfData: null, rulesPdfName: null }).where(eq(tournaments.id, id));
+    await db.update(tournaments).set({ rulesPdfData: null, rulesPdfName: null, rulesPdfUpdatedAt: null }).where(eq(tournaments.id, id));
   }
 
   async transferTournamentOwnership(id: string, newUserId: string | null): Promise<Tournament | undefined> {

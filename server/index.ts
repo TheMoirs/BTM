@@ -153,6 +153,7 @@ async function ensureRulesPdfColumns() {
   try {
     await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf_data TEXT`);
     await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf_name TEXT`);
+    await client.query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rules_pdf_updated_at TIMESTAMP`);
     log("Database initialized: tournaments.rules_pdf columns ensured");
   } finally {
     client.release();

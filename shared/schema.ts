@@ -76,6 +76,7 @@ export const tournaments = pgTable("tournaments", {
   viewToken: varchar("view_token", { length: 32 }).notNull().unique(),
   rulesPdfData: text("rules_pdf_data"),   // base64-encoded PDF
   rulesPdfName: text("rules_pdf_name"),   // original filename
+  rulesPdfUpdatedAt: timestamp("rules_pdf_updated_at"), // when the PDF was last uploaded (used to bust phone caches)
   // Readable public address, made from the name: /teams/<slug> and /leaderboard/<slug>
   slug: text("slug"),
   // Addresses this tournament used before a rename; old links redirect to the current slug
@@ -92,7 +93,7 @@ export const tournaments = pgTable("tournaments", {
   userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
 });
 
-export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true, slug: true, previousSlugs: true }).extend({
+export const insertTournamentSchema = createInsertSchema(tournaments).omit({ id: true, createdAt: true, adminToken: true, viewToken: true, userId: true, rulesPdfData: true, rulesPdfName: true, rulesPdfUpdatedAt: true, slug: true, previousSlugs: true }).extend({
   name: z.string().min(1, "Tournament name is required"),
   description: z.string().transform(val => val === "" ? null : val).nullable().optional(),
   numberOfDivisions: z.number().int().min(1, "Must have at least 1 division").default(2),

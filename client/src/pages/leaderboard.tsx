@@ -43,6 +43,12 @@ const statusLabels = {
   completed: "Completed",
 };
 
+// Rules PDF link; the upload time makes each new PDF a new address so phones don't show an old copy
+function rulesUrl(t: { id: string; rulesPdfUpdatedAt?: string | Date | null }): string {
+  const v = t.rulesPdfUpdatedAt ? new Date(t.rulesPdfUpdatedAt).getTime() : null;
+  return `/api/tournaments/${t.id}/rules${v ? `?v=${v}` : ""}`;
+}
+
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
   const { viewToken, isReadOnly } = useViewMode();
@@ -252,7 +258,7 @@ export default function Leaderboard() {
                   </DropdownMenuItem>
                   {(currentTournament as any).rulesPdfName && (
                     <DropdownMenuItem
-                      onClick={() => window.open(`/api/tournaments/${currentTournament.id}/rules`, "_blank", "noopener,noreferrer")}
+                      onClick={() => window.open(rulesUrl(currentTournament), "_blank", "noopener,noreferrer")}
                       data-testid="menu-item-rules"
                     >
                       <FileText className="h-4 w-4 mr-2" />
@@ -290,7 +296,7 @@ export default function Leaderboard() {
             </Button>
             {(currentTournament as any).rulesPdfName && (
               <a
-                href={`/api/tournaments/${currentTournament.id}/rules`}
+                href={rulesUrl(currentTournament)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
