@@ -1992,7 +1992,7 @@ export default function Matches() {
                 <CardContent>
             <div className="overflow-x-auto">
               <div className="rounded-md border">
-              <Table className="min-w-max">
+              <Table className={`min-w-max ${isEditAllMode ? "[&_td]:px-1.5 [&_th]:px-1.5" : ""}`}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[100px] max-md:w-16 text-sm max-sm:text-xs">
@@ -2063,7 +2063,7 @@ export default function Matches() {
                     <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G1</TableHead>
                     {gamesInTable(divisionMatches) >= 2 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G2</TableHead>}
                     {gamesInTable(divisionMatches) >= 3 && <TableHead className="w-12 max-md:w-10 text-center text-sm max-sm:text-xs">G3</TableHead>}
-                    {!isReadOnly && (
+                    {!isReadOnly && !isEditAllMode && (
                       <TableHead className="w-20 max-md:w-16 text-right text-sm max-sm:text-xs">Actions</TableHead>
                     )}
                   </TableRow>
@@ -2182,7 +2182,7 @@ export default function Matches() {
                               value={currentValues?.team1Game1Score || ""}
                               onChange={(e) => updateValue("team1Game1Score", e.target.value)}
                               onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team1Game1Score", matchIndex, divisionMatches.length, division)}
-                              className="h-8 w-14 text-center"
+                              className="h-8 w-12 px-1 text-center"
                               data-testid={`input-edit-team1-game1-${match.id}`}
                               data-field-name="team1Game1Score"
                               data-match-index={matchIndex}
@@ -2204,7 +2204,7 @@ export default function Matches() {
                               value={currentValues?.team1Game2Score || ""}
                               onChange={(e) => updateValue("team1Game2Score", e.target.value)}
                               onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team1Game2Score", matchIndex, divisionMatches.length, division)}
-                              className="h-8 w-14 text-center"
+                              className="h-8 w-12 px-1 text-center"
                               data-testid={`input-edit-team1-game2-${match.id}`}
                               data-field-name="team1Game2Score"
                               data-match-index={matchIndex}
@@ -2227,7 +2227,7 @@ export default function Matches() {
                               value={currentValues?.team1Game3Score || ""}
                               onChange={(e) => updateValue("team1Game3Score", e.target.value)}
                               onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team1Game3Score", matchIndex, divisionMatches.length, division)}
-                              className="h-8 w-14 text-center"
+                              className="h-8 w-12 px-1 text-center"
                               data-testid={`input-edit-team1-game3-${match.id}`}
                               data-field-name="team1Game3Score"
                               data-match-index={matchIndex}
@@ -2279,7 +2279,7 @@ export default function Matches() {
                               value={currentValues?.team2Game1Score || ""}
                               onChange={(e) => updateValue("team2Game1Score", e.target.value)}
                               onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team2Game1Score", matchIndex, divisionMatches.length, division)}
-                              className="h-8 w-14 text-center"
+                              className="h-8 w-12 px-1 text-center"
                               data-testid={`input-edit-team2-game1-${match.id}`}
                               data-field-name="team2Game1Score"
                               data-match-index={matchIndex}
@@ -2301,7 +2301,7 @@ export default function Matches() {
                               value={currentValues?.team2Game2Score || ""}
                               onChange={(e) => updateValue("team2Game2Score", e.target.value)}
                               onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team2Game2Score", matchIndex, divisionMatches.length, division)}
-                              className="h-8 w-14 text-center"
+                              className="h-8 w-12 px-1 text-center"
                               data-testid={`input-edit-team2-game2-${match.id}`}
                               data-field-name="team2Game2Score"
                               data-match-index={matchIndex}
@@ -2324,7 +2324,7 @@ export default function Matches() {
                               value={currentValues?.team2Game3Score || ""}
                               onChange={(e) => updateValue("team2Game3Score", e.target.value)}
                               onKeyDown={(e) => handleKeyboardNavigation(e, match.id, "team2Game3Score", matchIndex, divisionMatches.length, division)}
-                              className="h-8 w-14 text-center"
+                              className="h-8 w-12 px-1 text-center"
                               data-testid={`input-edit-team2-game3-${match.id}`}
                               data-field-name="team2Game3Score"
                               data-match-index={matchIndex}
@@ -2337,7 +2337,7 @@ export default function Matches() {
                           )}
                         </TableCell>
                         )}
-                        {!isReadOnly && (
+                        {!isReadOnly && !isEditAllMode && (
                           <TableCell className="text-right">
                             {isEditAllMode ? (
                               // Hide individual actions in Edit All mode
