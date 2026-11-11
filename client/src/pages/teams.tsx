@@ -234,7 +234,7 @@ export default function Teams() {
       const val = v?.[field];
       return Array.isArray(val) ? Math.max(0, ...val.map((x: string) => String(x).length)) : String(val ?? "").length;
     }));
-    return { width: `${Math.min(maxCh, Math.max(minCh, longest + 3))}ch` };
+    return { width: `${Math.min(maxCh, Math.max(minCh, Math.ceil(longest * 0.85) + 2))}ch` };
   };
   const [newTeamCounter, setNewTeamCounter] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -2261,7 +2261,7 @@ export default function Teams() {
                   className={
                     // Editing (one row or all): tight cells so the boxes get the room, not the gaps
                     isEditAllMode || editingRowId
-                      ? "[&_td]:px-1 [&_td]:py-1.5 [&_th]:px-2 [&_th]:!w-auto"
+                      ? "[&_td]:px-1 [&_td]:py-1.5 [&_th]:px-1 [&_th]:!w-auto [&_th]:text-xs [&_th]:whitespace-nowrap [&_th_button]:!ml-0 [&_th_button]:!px-1"
                       : // Tighter cells on mobile so more columns fit; normal spacing from sm up
                         "[&_td]:px-2 [&_td]:py-2 [&_th]:px-3 [&_th]:h-10 sm:[&_td]:p-4 sm:[&_th]:px-4 sm:[&_th]:h-12"
                   }
@@ -2378,7 +2378,7 @@ export default function Teams() {
                               value={currentValues.division || ""}
                               onChange={(e) => updateValue("division", e.target.value)}
                               maxLength={1}
-                              className="h-8 w-16 uppercase"
+                              className="h-8 w-10 px-2 uppercase"
                               data-editall-col="division"
                               data-testid={`input-edit-division-${team.id}`}
                             />
@@ -2398,7 +2398,7 @@ export default function Teams() {
                               <Input
                                 value={currentValues.teamDisplayId || ""}
                                 onChange={(e) => updateValue("teamDisplayId", e.target.value)}
-                                className="h-8 w-20"
+                                className="h-8 px-2" style={fitWidth("teamDisplayId", 5)}
                                 data-editall-col="teamDisplayId"
                                 data-testid={`input-edit-team-id-${team.id}`}
                               />
@@ -2595,7 +2595,7 @@ export default function Teams() {
                           value={teamData.division || ""}
                           onChange={(e) => updateAllEditingValue(id, "division", e.target.value)}
                           maxLength={1}
-                          className="h-8 w-16 uppercase"
+                          className="h-8 w-10 px-2 uppercase"
                           data-editall-col="division"
                           data-testid={`input-edit-division-${id}`}
                         />
@@ -2604,7 +2604,7 @@ export default function Teams() {
                         <Input
                           value={teamData.teamDisplayId || ""}
                           onChange={(e) => updateAllEditingValue(id, "teamDisplayId", e.target.value)}
-                          className="h-8 w-20"
+                          className="h-8 px-2" style={fitWidth("teamDisplayId", 5)}
                           data-editall-col="teamDisplayId"
                           data-testid={`input-edit-team-id-${id}`}
                         />
