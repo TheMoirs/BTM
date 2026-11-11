@@ -484,9 +484,17 @@
     });
     again.addEventListener("click", resetToHand);
 
+    // ✕: a pop-up window (computer) closes; on a phone, opened in the same tab from a
+    // Leaderboard, it goes back to that Leaderboard page
     var closeBtn = $("closeBtn");
-    if (window.opener) closeBtn.hidden = false;
-    closeBtn.addEventListener("click", function () { window.close(); });
+    var returnTo = null;
+    try { returnTo = sessionStorage.getItem("ptm-score-return"); } catch (_) {}
+    if (returnTo && !/^\/(?![\/\\])/.test(returnTo)) returnTo = null; // this site's own pages only
+    if (window.opener || returnTo) closeBtn.hidden = false;
+    closeBtn.addEventListener("click", function () {
+      if (window.opener) { window.close(); return; }
+      if (returnTo) location.replace(returnTo);
+    });
 
     // ── Create shortcut (home screen / desktop) ────────────────────────────
     // Browsers don't let a page make a shortcut by itself, so the button shows the steps for this device.

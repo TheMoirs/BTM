@@ -174,7 +174,16 @@ export default function Leaderboard() {
   const openScoreFlip = () => {
     if (!currentTournament) return;
     const key = (currentTournament as any).slug || currentTournament.id;
-    window.open(`/coin-toss/?t=${encodeURIComponent(key)}&from=leaderboard`, "btm-coin-toss", "popup,width=480,height=800");
+    const url = `/coin-toss/?t=${encodeURIComponent(key)}&from=leaderboard`;
+    // Phones: open in this tab, so Back (or Score Flip's ✕) returns to this Leaderboard.
+    // Computers: a separate pop-up window, closed with its ✕.
+    const isPhone = window.matchMedia("(max-width: 767px), (pointer: coarse)").matches;
+    if (isPhone) {
+      try { sessionStorage.setItem("ptm-score-return", location.pathname + location.search + location.hash); } catch {}
+      window.location.href = url;
+    } else {
+      window.open(url, "btm-coin-toss", "popup,width=480,height=800");
+    }
   };
 
   const handlePrint = () => {
