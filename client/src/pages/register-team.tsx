@@ -8,7 +8,6 @@ import { Loader2, AlertCircle, CheckCircle2, ArrowRight, CreditCard } from "luci
 import { publicRegistrationSchema, REGISTRATION_CONTACT } from "@shared/registration";
 import { FeePaymentPanel, type FeePayment } from "@/components/fee-payment-panel";
 import { StripeTestNotice } from "@/components/stripe-test-notice";
-import { AddToHomeScreenButton } from "@/components/add-to-home-screen";
 
 type FormValues = {
   name: string;
@@ -54,6 +53,15 @@ function ContactDetails() {
   );
 }
 
+// True when today (local date) is after the "register by" date ("2026-10-31")
+function isPastRegisterBy(value: string | null | undefined): boolean {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.getTime() > new Date(y, m - 1, d).getTime();
+}
+
 // "2026-10-31" -> "Saturday 31 October 2026"
 function formatRegisterBy(value: string | null | undefined): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -80,6 +88,7 @@ function Shell({ children, action }: { children: React.ReactNode; action?: React
 export default function RegisterTeamPage({ slug }: { slug: string }) {
   const [tournamentName, setTournamentName] = useState<string | null>(null);
   const [registerBy, setRegisterBy] = useState<string | null>(null);
+  const [registrationClosed, setRegistrationClosed] = useState(false);
   const [registrationFee, setRegistrationFee] = useState<string | null>(null);
   const [cardPayments, setCardPayments] = useState(false);
   const [stripeTestMode, setStripeTestMode] = useState(false);
@@ -110,6 +119,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
         if (!data?.name) return setState("missing");
         setTournamentName(data.name);
         setRegisterBy(formatRegisterBy(data.registrationDeadline));
+        setRegistrationClosed(isPastRegisterBy(data.registrationDeadline));
         setRegistrationFee(data.registrationFee ?? null);
         setCardPayments(!!data.cardPayments);
         setStripeTestMode(!!data.stripeTestMode);
@@ -350,11 +360,7 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
   }
 
   return (
-    <Shell
-      action={!isEditing && tournamentName ? (
-        <AddToHomeScreenButton tournamentName={tournamentName} slug={slug} page="register" variant="sm" />
-      ) : undefined}
-    >
+    <Shell>
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">{isEditing ? "Update your registration" : `Register for ${tournamentName}`}</CardTitle>
@@ -366,10 +372,16 @@ export default function RegisterTeamPage({ slug }: { slug: string }) {
               If you wish to compete, please enter your details below. All fields are required.</>
             )}
           </CardDescription>
-          {registerBy && !isEditing && (
+          {registerBy && !isEditing && !registrationClosed && (
             <p className="pt-2 text-base font-semibold" data-testid="text-register-by">
               Please register by {registerBy}.
             </p>
+          )}
+          {registerBy && !isEditing && registrationClosed && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-base text-amber-900" role="alert" data-testid="text-registration-closed">
+              <p className="font-semibold">Registration closed on {registerBy}.</p>
+              <p>You can still send your details, but the organiser may not be able to accept your registration.</p>
+            </div>
           )}
           {!isEditing && (
             <p className="pt-1 text-base" data-testid="text-registration-fee">

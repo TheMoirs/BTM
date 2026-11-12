@@ -128,6 +128,11 @@ function AppContent() {
   }
 
   if (!user) {
+    // Visitors who aren't signed in see the public home page at the bare site address
+    if (atBareRoot) {
+      window.location.replace(`${basePath}/home/`);
+      return null;
+    }
     return (
       <>
         <Redirect to="/sign-in" />

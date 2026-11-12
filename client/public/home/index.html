@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pétanque Tournament Manager (PTM): run your league without the spreadsheet</title>
+<meta name="description" content="PTM runs round-robin pétanque leagues: teams register and pay online, fixtures in one click, live tables and team stats. Free for up to 10 teams.">
+<link rel="icon" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:title" content="Pétanque Tournament Manager">
+<meta property="og:description" content="Run your pétanque league without the spreadsheet. Free for up to 10 teams.">
+<meta property="og:image" content="https://ptm.themoirs.uk/home/img/results.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+html{scroll-behavior:smooth}
+body{margin:0;background:#FFFFFF}
+*{box-sizing:border-box}
+img{max-width:100%}
+section[id]{scroll-margin-top:80px}
+a{color:#0F4C5C}a:hover{color:#0A3540}
+.cur{padding:10px 16px;border:none;border-radius:8px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;min-height:44px;background:transparent;color:#46545F}
+.cur.on{background:#FFFFFF;color:#0F4C5C;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+@media (max-width:640px){.navlink{display:none}section[id]{scroll-margin-top:70px}h1{font-size:38px!important}h2{font-size:30px!important}h3{font-size:26px!important}}
+</style>
+</head>
+<body>
+<div style="font-family: Inter, system-ui, sans-serif; color: #14212B; background: #FFFFFF; width: 100%">
+
+<div role="note" style="background: #E3A72F; color: #14212B; padding: 10px 16px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 12px; text-align: center">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+<strong style="font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase">Under Construction</strong>
+<span style="font-size: 15px">This site is still being built. Features and prices may change.</span>
+</div>
+<header style="position: sticky; top: 0; z-index: 50; background: #FFFFFF; border-bottom: 1px solid #E3E8EB; box-shadow: 0 2px 12px rgba(15,76,92,0.08)">
+<nav aria-label="Main" style="max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<a href="#top" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #14212B">
+<svg width="40" height="33" viewBox="-3 -3 82 69" aria-hidden="true"><path d="M0 2.5H25V22H0M25 12H44M0 41H25V60H0M25 50H44M44 12V50M44 31H58" fill="none" stroke="#0F4C5C" stroke-width="5"></path><circle cx="66" cy="31" r="10" fill="#E3A72F"></circle></svg>
+<span style="display: flex; flex-direction: column; line-height: 1.1"><span style="font-weight: 800; font-size: 13px; letter-spacing: 0.18em; color: #0F4C5C">PTM</span><span style="font-weight: 700; font-size: 16px">Pétanque Tournament Manager</span></span>
+</a>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<a class="navlink" href="#features" style="padding: 10px 12px; text-decoration: none; color: #3E4C57; font-size: 15px; font-weight: 500">Features</a>
+<a class="navlink" href="#demo" style="padding: 10px 12px; text-decoration: none; color: #3E4C57; font-size: 15px; font-weight: 500">Demo</a>
+<a class="navlink" href="#scoreflip" style="padding: 10px 12px; text-decoration: none; color: #3E4C57; font-size: 15px; font-weight: 500">Score Flip</a>
+<a class="navlink" href="#pricing" style="padding: 10px 12px; text-decoration: none; color: #3E4C57; font-size: 15px; font-weight: 500">Pricing</a>
+<a href="/sign-in" style="padding: 10px 16px; border: 1px solid #C9D3D9; border-radius: 8px; text-decoration: none; color: #14212B; font-size: 15px; font-weight: 600">Sign in</a>
+<a href="/sign-up" style="padding: 11px 16px; border-radius: 8px; text-decoration: none; color: #FFFFFF; font-size: 15px; font-weight: 600; background: #0F4C5C">Start free</a>
+</div>
+</nav>
+</header>
+
+<section id="top" style="background: #F4F7F8">
+<div style="max-width: 1200px; margin: 0 auto; padding: 72px 24px 88px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+<p style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #0F4C5C"><span style="width: 10px; height: 10px; border-radius: 50%; background: #E3A72F"></span>Round-robin leagues, made simple</p>
+<h1 style="margin: 0; font-size: 54px; line-height: 1.06; font-weight: 800; letter-spacing: -0.02em">Run your pétanque league without the spreadsheet.</h1>
+<p style="margin: 0; font-size: 19px; line-height: 1.55; color: #46545F">Teams register themselves, fixtures are generated in one click, and the tables update the moment a score goes in. Every team gets its own stats to share.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px">
+<a href="/sign-up" style="padding: 15px 22px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 600; background: #0F4C5C">Create your free account</a>
+<a href="#demo" style="padding: 14px 20px; border-radius: 10px; text-decoration: none; color: #14212B; font-size: 17px; font-weight: 600; border: 1px solid #C9D3D9; background: #FFFFFF; display: flex; align-items: center; gap: 8px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+Watch the demo</a>
+</div>
+<p style="margin: 0; font-size: 15px; color: #56636D">Free for up to 10 teams · No credit card needed · Unlimited from £5 a month</p>
+</div>
+<div style="flex: 1 1 540px; min-width: 0; position: relative; padding-bottom: 48px">
+<div style="border: 1px solid #DCE3E7; border-radius: 14px; background: #FFFFFF; box-shadow: 0 24px 60px rgba(15,76,92,0.16); overflow: hidden">
+<div aria-hidden="true" style="display: flex; gap: 6px; padding: 10px 14px; background: #EDF1F3; border-bottom: 1px solid #DCE3E7"><span style="width: 10px; height: 10px; border-radius: 50%; background: #C9D3D9"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #C9D3D9"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #C9D3D9"></span></div>
+<img src="/home/img/results.webp" alt="Results page showing the Division A league table" style="display: block; width: 100%; height: auto">
+</div>
+<img src="/home/img/perf.webp" alt="Performance card for Boules Brothers with points, win rate and form" style="position: absolute; right: -10px; bottom: 0; width: 34%; height: auto; border-radius: 14px; border: 1px solid #DCE3E7; box-shadow: 0 24px 50px rgba(15,76,92,0.24); background: #FFFFFF">
+</div>
+</div>
+</section>
+
+<section style="border-bottom: 1px solid #E3E8EB">
+<div style="max-width: 1200px; margin: 0 auto; padding: 40px 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 6px"><p style="margin: 0; font-size: 17px; font-weight: 700">Self-service registration</p><p style="margin: 0; font-size: 15px; line-height: 1.5; color: #46545F">Share one link. Captains enter their own details.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><p style="margin: 0; font-size: 17px; font-weight: 700">One-click fixtures</p><p style="margin: 0; font-size: 15px; line-height: 1.5; color: #46545F">A full round robin for every division, generated for you.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><p style="margin: 0; font-size: 17px; font-weight: 700">Live tables</p><p style="margin: 0; font-size: 15px; line-height: 1.5; color: #46545F">Standings and stats update as soon as a score is saved.</p></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><p style="margin: 0; font-size: 17px; font-weight: 700">Any device</p><p style="margin: 0; font-size: 15px; line-height: 1.5; color: #46545F">Works in the browser on phones, tablets and laptops.</p></div>
+</div>
+</section>
+
+<section id="demo" style="background: #0F4C5C">
+<div style="max-width: 1000px; margin: 0 auto; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center">
+<h2 style="margin: 0; font-size: 38px; line-height: 1.15; font-weight: 800; color: #FFFFFF">See a whole season in two minutes</h2>
+<p style="margin: 0; max-width: 620px; font-size: 18px; line-height: 1.55; color: #CFE0E4">From the registration link to the league table, everything an organiser does in PTM.</p>
+<video controls preload="none" playsinline poster="/home/demo-poster.jpg" style="width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; background: #0B3945; display: block"><source src="/home/ptm-demo.mp4" type="video/mp4">Your browser cannot play this video.</video>
+</div>
+</section>
+
+<section id="features" style="background: #FFFFFF">
+<div style="max-width: 1200px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; gap: 104px">
+
+<div style="text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center">
+<h2 style="margin: 0; font-size: 42px; line-height: 1.15; font-weight: 800; letter-spacing: -0.01em">How a season runs in PTM</h2>
+<p style="margin: 0; max-width: 640px; font-size: 18px; line-height: 1.55; color: #46545F">PTM is a simple round-robin tournament manager: every team in a division plays every other, followed by knockout finals if you want them.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 56px">
+<div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #B47B0E">Step 1 · Set up</p>
+<h3 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700">Your league, your rules</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #46545F">Name the tournament, choose the number of divisions and games per match, add pistes and knockout stages, and set your own points for wins, losses and no-shows.</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.8; color: #34414B">
+<li>Registration closing date and entry fee</li>
+<li>Quarter-finals, semi-finals and finals</li>
+<li>Attach your rules as a PDF</li>
+</ul>
+</div>
+<div style="flex: 1 1 440px; min-width: 0; display: flex; justify-content: center; align-items: flex-start; gap: 20px">
+<img src="/home/img/edittour2.webp" alt="Edit Tournament form with registration date, entry fee, divisions, games per match, pistes and stages" style="width: 70%; max-width: 380px; height: auto; border-radius: 14px; border: 1px solid #DCE3E7; box-shadow: 0 18px 40px rgba(15,76,92,0.14)">
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap-reverse; align-items: center; gap: 56px">
+<div style="flex: 1 1 440px; min-width: 0; display: flex; justify-content: center; align-items: flex-start; gap: 20px">
+<img src="/home/img/register.webp" alt="Public registration form for Summer League" style="width: 48%; max-width: 300px; height: auto; border-radius: 14px; border: 1px solid #DCE3E7; box-shadow: 0 18px 40px rgba(15,76,92,0.14)">
+<div style="width: 48%; max-width: 300px; margin-top: 48px; display: flex; flex-direction: column; gap: 20px">
+<img src="/home/img/regdone2.webp" alt="Registration complete with a Pay by card button" style="width: 100%; height: auto; border-radius: 14px; border: 1px solid #DCE3E7; box-shadow: 0 18px 40px rgba(15,76,92,0.14)">
+<img src="/home/img/stripe.webp" alt="Secure Stripe checkout with Apple Pay, Google Pay and card" style="width: 100%; height: auto; border-radius: 14px; border: 1px solid #DCE3E7; box-shadow: 0 18px 40px rgba(15,76,92,0.14)">
+</div>
+</div>
+<div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #B47B0E">Step 2 · Registration</p>
+<h3 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700">Teams sign up, and pay, themselves</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #46545F">Send captains your registration link. They enter their team, contact details and players, then pay the entry fee straight away by card, Apple Pay or Google Pay through a secure Stripe checkout. The money goes straight to you.</p>
+<ul style="margin: 0; padding-left: 20px; font-size: 16px; line-height: 1.8; color: #34414B">
+<li>Confirmation email with a link to change details</li>
+<li>Paid column shows who has paid</li>
+<li>Tap a captain's phone or email to message them</li>
+</ul>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end">
+<div style="flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #B47B0E">Already have a list?</p>
+<h3 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700">Import your teams from Excel</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #46545F">Download the sample file, paste in your teams and divisions, and upload it. Your whole league is set up in seconds.</p>
+</div>
+<div style="flex: 0 1 380px; min-width: 0">
+<img src="/home/img/import.webp" alt="Import teams from Excel dialog offering a sample file" style="width: 100%; height: auto; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 14px 34px rgba(15,76,92,0.12)">
+</div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 28px">
+<img src="/home/img/excel.webp" alt="Sample spreadsheet with team, piste, captain and division columns" style="width: 100%; max-width: 900px; height: auto; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 14px 34px rgba(15,76,92,0.12)">
+<img src="/home/img/teams_full.webp" alt="Teams page listing Division A teams with captains, contact details, players and a Paid column" style="width: 100%; height: auto; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 18px 44px rgba(15,76,92,0.14)">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 16px; max-width: 760px">
+<p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #B47B0E">Step 3 · Fixtures and scores</p>
+<h3 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700">Generate every match in one click</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #46545F">Press Generate Matches and PTM draws up the full round robin for each division. Find any match by team name, add the date and type in the game scores. Tick NS for a no-show.</p>
+</div>
+<div style="border: 1px solid #DCE3E7; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 44px rgba(15,76,92,0.14)">
+<img src="/home/img/matches.webp" alt="Matches page with Generate Matches and a list of scheduled Division A matches" style="display: block; width: 100%; height: auto">
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; align-items: center">
+<img src="/home/img/scoreedit.webp" alt="Editing a match: date and game scores for both teams" style="width: 100%; height: auto; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 14px 34px rgba(15,76,92,0.12)">
+<img src="/home/img/findedit.webp" alt="Find and Edit Team Matches search box" style="width: 100%; max-width: 520px; height: auto; justify-self: center; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 14px 34px rgba(15,76,92,0.12)">
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 56px">
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #B47B0E">Step 4 · Results</p>
+<h3 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700">Tables that update themselves</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #46545F">The leaderboard, forecast and detailed results stay up to date for everyone. Players tap their team name for a stats card with form, win rate, best win and closest game, then share it to the team chat as an image.</p>
+</div>
+<div style="flex: 1 1 520px; min-width: 0; position: relative; padding-bottom: 40px">
+<img src="/home/img/results.webp" alt="Leaderboard with positions, points and score difference" style="width: 100%; height: auto; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 14px 34px rgba(15,76,92,0.12)">
+<img src="/home/img/perf.webp" alt="Team performance card" style="position: absolute; right: -8px; bottom: 0; width: 36%; height: auto; border-radius: 12px; border: 1px solid #DCE3E7; box-shadow: 0 20px 44px rgba(15,76,92,0.22)">
+</div>
+</div>
+
+</div>
+</section>
+
+<section id="scoreflip" style="background: #F5EFE3">
+<div style="max-width: 1200px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; gap: 48px">
+<div style="display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end">
+<div style="flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<p style="margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8A5A06">Score Flip</p>
+<span style="padding: 4px 10px; border-radius: 999px; background: #FFFFFF; color: #1E6B3A; font-size: 13px; font-weight: 700">Free for everyone</span>
+</div>
+<h3 style="margin: 0; font-size: 36px; line-height: 1.15; font-weight: 800">Toss, play and keep score on the piste</h3>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #3F3A30">Score Flip is a phone app for the game itself. Flip the coin to see who throws the jack, pick your teams, and keep score with big up and down buttons and a match timer. When the match ends, share the result straight to your group chat.</p>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #14212B; font-weight: 700">You don't need PTM to use it. Score Flip is free for any game of pétanque, with no account.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<a href="/coin-toss/" style="padding: 14px 22px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 16px; font-weight: 600; background: #14212B">Open Score Flip</a>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px; align-items: start">
+<figure style="margin: 0; display: flex; flex-direction: column; gap: 10px">
+<img src="/home/img/sfhome.webp" alt="Score Flip home with Coin Flip and Log Score" style="width: 100%; height: auto; border-radius: 22px; border: 6px solid #14212B; box-shadow: 0 16px 34px rgba(60,45,20,0.18); box-sizing: border-box">
+<figcaption style="font-size: 14px; font-weight: 600; color: #3F3A30">Choose a tool</figcaption>
+</figure>
+<figure style="margin: 0; display: flex; flex-direction: column; gap: 10px">
+<img src="/home/img/coinflip.webp" alt="Coin Flip screen with a coin on a hand" style="width: 100%; height: auto; border-radius: 22px; border: 6px solid #14212B; box-shadow: 0 16px 34px rgba(60,45,20,0.18); box-sizing: border-box">
+<figcaption style="font-size: 14px; font-weight: 600; color: #3F3A30">Swipe up to flip the coin</figcaption>
+</figure>
+<figure style="margin: 0; display: flex; flex-direction: column; gap: 10px">
+<img src="/home/img/newmatch.webp" alt="New match form with tournament, division, date and teams" style="width: 100%; height: auto; border-radius: 22px; border: 6px solid #14212B; box-shadow: 0 16px 34px rgba(60,45,20,0.18); box-sizing: border-box">
+<figcaption style="font-size: 14px; font-weight: 600; color: #3F3A30">Pick the match</figcaption>
+</figure>
+<figure style="margin: 0; display: flex; flex-direction: column; gap: 10px">
+<img src="/home/img/game2.webp" alt="Scorekeeper with up and down buttons and a 30 minute timer" style="width: 100%; height: auto; border-radius: 22px; border: 6px solid #14212B; box-shadow: 0 16px 34px rgba(60,45,20,0.18); box-sizing: border-box">
+<figcaption style="font-size: 14px; font-weight: 600; color: #3F3A30">Tap to score, with a timer</figcaption>
+</figure>
+<figure style="margin: 0; display: flex; flex-direction: column; gap: 10px">
+<img src="/home/img/saved.webp" alt="Match saved summary with a Share button" style="width: 100%; height: auto; border-radius: 22px; border: 6px solid #14212B; box-shadow: 0 16px 34px rgba(60,45,20,0.18); box-sizing: border-box">
+<figcaption style="font-size: 14px; font-weight: 600; color: #3F3A30">Share the result</figcaption>
+</figure>
+</div>
+</div>
+</section>
+
+<section id="roadmap" style="background: #FFFFFF">
+<div style="max-width: 1100px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; gap: 40px">
+<div style="text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center">
+<h2 style="margin: 0; font-size: 40px; line-height: 1.15; font-weight: 800">Where PTM is going</h2>
+<p style="margin: 0; max-width: 640px; font-size: 18px; line-height: 1.55; color: #46545F">Today PTM runs simple round-robin leagues. More tournament formats are on the way, and every account gets them as they arrive.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px">
+<div style="border: 2px solid #0F4C5C; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px; background: #F4F7F8">
+<span style="align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: #0F4C5C; color: #FFFFFF; font-size: 13px; font-weight: 700">Available now</span>
+<p style="margin: 0; font-size: 20px; font-weight: 700">Round robin</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Every team plays every other team in its division, with optional knockout finals.</p>
+</div>
+<div style="border: 1px solid #DCE3E7; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: #FBF1DC; color: #7A4F05; font-size: 13px; font-weight: 700">Coming soon</span>
+<p style="margin: 0; font-size: 20px; font-weight: 700">Poules</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Small groups play each other, with the top teams going through.</p>
+</div>
+<div style="border: 1px solid #DCE3E7; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: #FBF1DC; color: #7A4F05; font-size: 13px; font-weight: 700">Coming soon</span>
+<p style="margin: 0; font-size: 20px; font-weight: 700">Swiss</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Each round pairs teams with similar records.</p>
+</div>
+<div style="border: 1px solid #DCE3E7; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<span style="align-self: flex-start; padding: 4px 10px; border-radius: 999px; background: #FBF1DC; color: #7A4F05; font-size: 13px; font-weight: 700">Coming soon</span>
+<p style="margin: 0; font-size: 20px; font-weight: 700">Progressive</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Multi-day events where groups are redrawn as the tournament goes on.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="pricing" style="background: #F4F7F8; border-top: 1px solid #E3E8EB">
+<div style="max-width: 1000px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; align-items: center; gap: 36px">
+<div style="text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center">
+<h2 style="margin: 0; font-size: 42px; line-height: 1.15; font-weight: 800">Free for small clubs. One simple price for more.</h2>
+<p style="margin: 0; max-width: 620px; font-size: 18px; line-height: 1.55; color: #46545F">Sign up now and use every feature for free, for up to 10 teams and 1 tournament, for as long as you like. No credit card required.</p>
+</div>
+<div role="group" aria-label="Currency" style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #E3E8EB">
+<button type="button" data-cur="GBP" aria-pressed="true" class="cur on">£ GBP</button>
+<button type="button" data-cur="EUR" aria-pressed="false" class="cur">€ EUR</button>
+<button type="button" data-cur="USD" aria-pressed="false" class="cur">$ USD</button>
+</div>
+<div style="width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px">
+<div style="background: #FFFFFF; border: 1px solid #DCE3E7; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 18px; font-weight: 700">Free</p>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="0">£0</span></p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Full access to every feature, limited only to 10 teams and 1 tournament. No time limit. No adverts.</p>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #DCE3E7; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<p style="margin: 0; font-size: 18px; font-weight: 700">Monthly</p>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="1">£5</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> / month</span></p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Unlimited teams and tournaments. Cancel any time.</p>
+</div>
+<div style="background: #FFFFFF; border: 2px solid #0F4C5C; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><p style="margin: 0; font-size: 18px; font-weight: 700">Yearly</p><span style="padding: 4px 10px; border-radius: 999px; background: #E3A72F; color: #14212B; font-size: 13px; font-weight: 700">2 months free</span></div>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="2">£50</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> / year</span></p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Unlimited teams and tournaments. Pay once for the season.</p>
+</div>
+</div>
+<a href="/sign-up" style="padding: 16px 26px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 700; background: #0F4C5C">Create your free account</a>
+<p style="margin: 0; font-size: 14px; color: #56636D">No credit card needed. Upgrade any time.</p>
+</div>
+</section>
+
+<section style="background: #0F4C5C">
+<div style="max-width: 1000px; margin: 0 auto; padding: 72px 24px; display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center">
+<h2 style="margin: 0; font-size: 38px; line-height: 1.15; font-weight: 800; color: #FFFFFF">Ready for your next season?</h2>
+<p style="margin: 0; font-size: 18px; color: #CFE0E4">Set up your first league in a few minutes. Free for up to 10 teams.</p>
+<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px">
+<a href="/sign-up" style="padding: 15px 22px; border-radius: 10px; text-decoration: none; color: #14212B; font-size: 17px; font-weight: 700; background: #E3A72F">Start free</a>
+<a href="/sign-in" style="padding: 14px 22px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 600; border: 1px solid #FFFFFF">Sign in</a>
+</div>
+</div>
+</section>
+
+<footer style="background: #FFFFFF; border-top: 1px solid #E3E8EB">
+<div style="max-width: 1200px; margin: 0 auto; padding: 28px 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 14px; color: #56636D">
+<p style="margin: 0">Pétanque Tournament Manager · ptm.themoirs.uk</p>
+<p style="margin: 0">Questions? <a href="mailto:ali@themoirs.co.uk">ali@themoirs.co.uk</a></p>
+</div>
+</footer>
+
+</div>
+<script>
+(function(){
+  var prices={GBP:['£0','£5','£50'],EUR:['€0','€6','€60'],USD:['$0','$7','$70']};
+  var btns=document.querySelectorAll('[data-cur]');
+  function set(k){
+    btns.forEach(function(b){var on=b.getAttribute('data-cur')===k;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false');});
+    document.querySelectorAll('[data-price]').forEach(function(el){el.textContent=prices[k][+el.getAttribute('data-price')];});
+    try{localStorage.setItem('ptm-cur',k);}catch(e){}
+  }
+  btns.forEach(function(b){b.addEventListener('click',function(){set(b.getAttribute('data-cur'));});});
+  var saved=null;try{saved=localStorage.getItem('ptm-cur');}catch(e){}
+  if(!saved){var l=(navigator.language||'').toLowerCase();if(/^en-(us|ca)/.test(l))saved='USD';else if(!/^en-gb/.test(l)&&/^(fr|de|es|it|nl|pt|be)/.test(l))saved='EUR';}
+  if(saved&&prices[saved])set(saved);
+})();
+</script>
+</body>
+</html>
