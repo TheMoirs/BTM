@@ -432,20 +432,20 @@ export default function Teams() {
   // and emails use example.com, so nothing reaches a real person.
   const handleDownloadSample = () => {
     const sampleTeams = [
-      ["The Jack Russells", "A", "Riverside Green", "Sam Hale, Priya Nair", "Tom Ashby", "07700 900101", "tom.ashby@example.com"],
-      ["Boules Brothers", "A", "Abbey Gardens", "Leo Marsh, Kit Marsh", "Ben Marsh", "07700 900102", "ben.marsh@example.com"],
-      ["Carreau Club", "A", "Station Road", "Ana Silva, Joe Pike", "Rachel Moss", "07700 900103", "rachel.moss@example.com"],
-      ["Pointers United", "A", "Riverside Green", "Will Grant, Eve Cole", "Hannah Price", "07700 900104", "hannah.price@example.com"],
-      ["Tête à Tête", "B", "Village Hall", "Nina Rowe, Dev Shah", "Claire Doyle", "07700 900105", "claire.doyle@example.com"],
-      ["The Shooters", "B", "Abbey Gardens", "Max Reid, Lily Hart", "Owen Clarke", "07700 900106", "owen.clarke@example.com"],
-      ["Cochonnet Crew", "B", "Station Road", "Ruth Bell, Alfie Long", "Gary Webb", "07700 900107", "gary.webb@example.com"],
-      ["Rolling Boules", "B", "Village Hall", "Jas Kaur, Pete Wood", "Mia Turner", "07700 900108", "mia.turner@example.com"],
+      [1, "The Jack Russells", "Riverside Green", "Tom Ashby", "07700 900101", "tom.ashby@example.com", "Sam Hale, Priya Nair", "A"],
+      [2, "Boules Brothers", "Abbey Gardens", "Ben Marsh", "07700 900102", "ben.marsh@example.com", "Leo Marsh, Kit Marsh", "A"],
+      [3, "Carreau Club", "Station Road", "Rachel Moss", "07700 900103", "rachel.moss@example.com", "Ana Silva, Joe Pike", "A"],
+      [4, "Pointers United", "Riverside Green", "Hannah Price", "07700 900104", "hannah.price@example.com", "Will Grant, Eve Cole", "A"],
+      [5, "Tête à Tête", "Village Hall", "Claire Doyle", "07700 900105", "claire.doyle@example.com", "Nina Rowe, Dev Shah", "B"],
+      [6, "The Shooters", "Abbey Gardens", "Owen Clarke", "07700 900106", "owen.clarke@example.com", "Max Reid, Lily Hart", "B"],
+      [7, "Cochonnet Crew", "Station Road", "Gary Webb", "07700 900107", "gary.webb@example.com", "Ruth Bell, Alfie Long", "B"],
+      [8, "Rolling Boules", "Village Hall", "Mia Turner", "07700 900108", "mia.turner@example.com", "Jas Kaur, Pete Wood", "B"],
     ];
     const teamsSheet = XLSX.utils.aoa_to_sheet([
-      ["Team Name", "Division", "Home Piste", "Other Players", "Captain Name", "Captain Phone", "Captain Email"],
+      ["Team ID", "Team Name", "Home Piste", "Captain Name", "Captain Phone", "Captain Email", "Other Players", "Division"],
       ...sampleTeams,
     ]);
-    teamsSheet["!cols"] = [{ wch: 20 }, { wch: 9 }, { wch: 16 }, { wch: 24 }, { wch: 16 }, { wch: 15 }, { wch: 26 }];
+    teamsSheet["!cols"] = [{ wch: 8 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 15 }, { wch: 26 }, { wch: 24 }, { wch: 9 }];
     const notesSheet = XLSX.utils.aoa_to_sheet([
       ["How to use this file"],
       ["1. Save it under your own name, then replace the made-up teams on the Teams sheet with yours."],
