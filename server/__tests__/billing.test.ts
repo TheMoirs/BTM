@@ -10,6 +10,7 @@ vi.mock('../storage', () => ({
     countTeams: vi.fn(),
     getUserByStripeCustomerId: vi.fn(),
     updateUserBilling: vi.fn(),
+    getSetting: vi.fn(),
   },
 }))
 
@@ -24,12 +25,22 @@ const adminUser = { ...freeUser, id: 'u3', email: 'ali@themoirs.co.uk', isSystem
 
 beforeEach(() => {
   vi.clearAllMocks()
+  s.getSetting.mockResolvedValue(null)
 })
+
+/** Save selling options with the Free plan switched off */
+function freeOff() {
+  s.getSetting.mockResolvedValue(JSON.stringify({ free: { enabled: false }, once: { enabled: true, amounts: { gbp: 5000, eur: 6000, usd: 7000 } } }))
+}
 
 describe('plan status', () => {
   it('treats active, trialing and past_due as unlimited', () => {
     for (const st of ['active', 'trialing', 'past_due']) expect(hasUnlimited({ ...freeUser, subscriptionStatus: st })).toBe(true)
     for (const st of ['canceled', 'unpaid', 'incomplete', null]) expect(hasUnlimited({ ...freeUser, subscriptionStatus: st })).toBe(false)
+  })
+  it('a one-off payment gives unlimited with no end date', () => {
+    expect(hasUnlimited({ ...freeUser, oneOffPaidAt: new Date('2026-01-01') })).toBe(true)
+    expect(hasUnlimited({ ...freeUser, oneOffPaidAt: null })).toBe(false)
   })
   it('system admins are always unlimited', () => {
     expect(hasUnlimited(adminUser)).toBe(true)
@@ -47,6 +58,12 @@ describe('tournament limit', () => {
     s.getTournamentsByUserId.mockResolvedValue([{ id: 't1' }])
     expect(await tournamentLimitProblem('u1')).toMatchObject({ code: 'plan_limit' })
   })
+  it('stops a free user creating any tournament when Free is switched off', async () => {
+    freeOff()
+    s.getUserById.mockResolvedValue(freeUser)
+    s.getTournamentsByUserId.mockResolvedValue([])
+    expect((await tournamentLimitProblem('u1'))?.error).toMatch(/no longer available/)
+  })
   it('lets a paying user create more', async () => {
     s.getUserById.mockResolvedValue(paidUser)
     s.getTournamentsByUserId.mockResolvedValue([{ id: 't1' }, { id: 't2' }])
@@ -56,19 +73,19 @@ describe('tournament limit', () => {
 
 describe('team limit', () => {
   const tournament = { id: 't1', userId: 'u1' }
-  it('allows the 10th team on the free plan', async () => {
+  it('allows the 20th team on the free plan', async () => {
     s.getUserById.mockResolvedValue(freeUser)
-    s.countTeams.mockResolvedValue(9)
+    s.countTeams.mockResolvedValue(19)
     expect(await teamLimitProblem(tournament)).toBeNull()
   })
-  it('blocks the 11th team on the free plan', async () => {
+  it('blocks the 21st team on the free plan', async () => {
     s.getUserById.mockResolvedValue(freeUser)
-    s.countTeams.mockResolvedValue(10)
+    s.countTeams.mockResolvedValue(20)
     expect(await teamLimitProblem(tournament)).toMatchObject({ code: 'plan_limit' })
   })
   it('gives captains a "tournament is full" message', async () => {
     s.getUserById.mockResolvedValue(freeUser)
-    s.countTeams.mockResolvedValue(10)
+    s.countTeams.mockResolvedValue(20)
     const p = await teamLimitProblem(tournament, 1, true)
     expect(p?.error).toMatch(/full/)
   })
@@ -77,21 +94,33 @@ describe('team limit', () => {
     s.countTeams.mockResolvedValue(200)
     expect(await teamLimitProblem({ id: 't1', userId: 'u2' })).toBeNull()
   })
+  it('blocks adding teams to a free account when Free is switched off', async () => {
+    freeOff()
+    s.getUserById.mockResolvedValue(freeUser)
+    s.countTeams.mockResolvedValue(3)
+    expect((await teamLimitProblem(tournament))?.error).toMatch(/no longer available/)
+  })
+  it('has no team limit for one-off buyers', async () => {
+    freeOff()
+    s.getUserById.mockResolvedValue({ ...freeUser, oneOffPaidAt: new Date() })
+    s.countTeams.mockResolvedValue(200)
+    expect(await teamLimitProblem(tournament)).toBeNull()
+  })
   it('ignores tournaments with no owner', async () => {
     expect(await teamLimitProblem({ id: 't1', userId: null })).toBeNull()
   })
 })
 
 describe('transfer limit', () => {
-  it('blocks transferring a tournament with more than 10 teams to a free user', async () => {
+  it('blocks transferring a tournament with more than 20 teams to a free user', async () => {
     s.getUserById.mockResolvedValue(freeUser)
-    s.countTeams.mockResolvedValue(11)
+    s.countTeams.mockResolvedValue(21)
     s.getTournamentsByUserId.mockResolvedValue([])
-    expect((await transferLimitProblem('u1', 't9'))?.error).toMatch(/11 teams/)
+    expect((await transferLimitProblem('u1', 't9'))?.error).toMatch(/21 teams/)
   })
-  it('allows a 10-team tournament to a free user with no tournament', async () => {
+  it('allows a 20-team tournament to a free user with no tournament', async () => {
     s.getUserById.mockResolvedValue(freeUser)
-    s.countTeams.mockResolvedValue(10)
+    s.countTeams.mockResolvedValue(20)
     s.getTournamentsByUserId.mockResolvedValue([])
     expect(await transferLimitProblem('u1', 't9')).toBeNull()
   })

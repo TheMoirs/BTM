@@ -1,6 +1,7 @@
 import { Switch, Route, useLocation, Redirect, Router as WouterRouter } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import type { BillingStatus } from "@shared/plans";
 import { Toaster } from "@/components/ui/toaster";
 import { MobilePdfViewer } from "@/components/mobile-pdf-viewer";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -63,6 +64,11 @@ function ServerStartupGuard({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
+  // Free accounts are locked out when the system admin switches the Free plan off
+  const { data: billing } = useQuery<BillingStatus>({
+    queryKey: ["/api/billing/status"],
+    enabled: !!user && !user.needsPlanChoice,
+  });
 
   const hasPersistedViewToken =
     typeof window !== "undefined" && !!sessionStorage.getItem("boules_view_token");
@@ -140,8 +146,9 @@ function AppContent() {
     );
   }
 
-  // New account: choose Free or Unlimited before anything else
-  if (user.needsPlanChoice) {
+  // New account: choose Free or Unlimited before anything else. A free account
+  // whose plan has been switched off also has to choose Unlimited to carry on.
+  if (user.needsPlanChoice || billing?.locked) {
     return (
       <div className="min-h-screen bg-background">
         <PlanPage signup />

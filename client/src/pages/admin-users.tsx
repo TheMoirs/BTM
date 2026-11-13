@@ -43,6 +43,7 @@ interface UserRow {
   planInterval: string | null;
   planCancelAtPeriodEnd: boolean;
   planChosenAt: string | null;
+  oneOffPaidAt?: string | null;
 }
 
 export default function AdminUsers() {
