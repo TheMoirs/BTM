@@ -18,6 +18,7 @@ vi.mock('../storage', () => ({
     createShortLink: vi.fn(),
     getShortLinkForTournament: vi.fn(),
     countTeams: vi.fn(async () => 0),
+    getSetting: vi.fn(async () => null),
   },
 }))
 

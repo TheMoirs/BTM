@@ -9,9 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ArrowLeft, Check, CreditCard, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, CreditCard, Loader2, Lock, Sparkles } from "lucide-react";
 import { StripeTestNotice } from "@/components/stripe-test-notice";
-import { PLAN_PRICES, type BillingStatus, type PlanCurrency, type PlanInterval } from "@shared/plans";
+import {
+  PAID_OPTION_LABELS,
+  enabledPaidOptions,
+  formatAmount,
+  type BillingStatus,
+  type PaidOption,
+  type PlanCurrency,
+} from "@shared/plans";
 
 const STATUS_KEY = ["/api/billing/status"];
 
@@ -36,9 +43,9 @@ function formatDate(iso: string | null): string {
  */
 export default function PlanPage({ signup = false }: { signup?: boolean }) {
   const [, navigate] = useLocation();
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
   const { toast } = useToast();
-  const [interval, setBillingInterval] = useState<PlanInterval>("year");
+  const [chosen, setChosen] = useState<PaidOption | null>(null);
   const [currency, setCurrency] = useState<PlanCurrency>(guessCurrency);
   const synced = useRef(false);
 
@@ -66,14 +73,17 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
       });
       window.history.replaceState(null, "", window.location.pathname);
       // A new account that has now paid moves on into the app
-      if (s.unlimited) await refreshUser();
+      if (s.unlimited) {
+        await refreshUser();
+        if (signup) navigate("/");
+      }
     };
     trySync(1).catch(() => {});
-  }, [checkout, toast, refreshUser]);
+  }, [checkout, toast, refreshUser, signup, navigate]);
 
   const upgrade = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/billing/checkout", { interval, currency, signup });
+      const res = await apiRequest("POST", "/api/billing/checkout", { option, currency, signup });
       return (await res.json()) as { url: string };
     },
     onSuccess: ({ url }) => {
@@ -110,8 +120,17 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
     );
   }
 
-  const prices = PLAN_PRICES[currency];
-  const yearlySaving = currency === "gbp" ? "£10" : currency === "eur" ? "€12" : "$14";
+  const selling = status.selling;
+  const onSale = enabledPaidOptions(selling);
+  // The option shown: the one picked, else Annual, One-off, Monthly (whichever is on)
+  const option: PaidOption | null =
+    chosen && onSale.includes(chosen) ? chosen : (["year", "once", "month"] as PaidOption[]).find((o) => onSale.includes(o)) ?? null;
+  const price = (o: PaidOption) => formatAmount(selling[o].amounts[currency], currency);
+  const yearlySaving =
+    selling.month.enabled && selling.year.enabled
+      ? selling.month.amounts[currency] * 12 - selling.year.amounts[currency]
+      : 0;
+  const freeOn = selling.free.enabled;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -119,7 +138,13 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
         <div className="text-center space-y-2 pt-4">
           <img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover mx-auto" />
           <h1 className="text-2xl font-bold text-foreground">Choose your plan</h1>
-          <p className="text-muted-foreground">Start free, or go Unlimited. You can change your mind later.</p>
+          <p className="text-muted-foreground">
+            {status.locked
+              ? "Choose an Unlimited option to carry on."
+              : freeOn
+                ? "Start free, or go Unlimited. You can change your mind later."
+                : "Choose how you'd like to pay for Unlimited."}
+          </p>
         </div>
       ) : (
         <div className="flex items-center gap-3">
@@ -167,8 +192,10 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
               {status.status === "past_due" && <Badge variant="destructive">Payment problem</Badge>}
             </CardTitle>
             <CardDescription>
-              {status.interval === "year" ? "Billed yearly" : "Billed monthly"}
-              {status.renewsAt &&
+              {status.oneOff
+                ? `Paid once${status.oneOffPaidAt ? ` on ${formatDate(status.oneOffPaidAt)}` : ""}. No end date, nothing to renew.`
+                : status.interval === "year" ? "Billed yearly" : "Billed monthly"}
+              {!status.oneOff && status.renewsAt &&
                 (status.cancelAtPeriodEnd
                   ? `. Ends on ${formatDate(status.renewsAt)}. You keep Unlimited until then.`
                   : `. Renews on ${formatDate(status.renewsAt)}.`)}
@@ -180,17 +207,40 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
                 Your last payment didn't go through. Please update your card so you don't lose Unlimited.
               </p>
             )}
-            <Button onClick={() => manage.mutate()} disabled={manage.isPending} data-testid="button-manage-plan">
-              {manage.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CreditCard className="h-4 w-4 mr-2" />}
-              Manage subscription
-            </Button>
-            <p className="text-xs text-muted-foreground">Switch between monthly and yearly, change your card, see invoices or cancel.</p>
+            {status.canManage && (
+              <>
+                <Button onClick={() => manage.mutate()} disabled={manage.isPending} data-testid="button-manage-plan">
+                  {manage.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CreditCard className="h-4 w-4 mr-2" />}
+                  {status.oneOff ? "See receipt" : "Manage subscription"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {status.oneOff
+                    ? "Your receipt and card details are kept by Stripe."
+                    : "Switch between monthly and yearly, change your card, see invoices or cancel."}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
 
       {status.plan === "free" && (
         <>
+          {status.locked && (
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" /> The Free plan has ended
+                </CardTitle>
+                <CardDescription>
+                  To keep using PTM, choose an Unlimited option below. Your tournaments and teams are kept and will be
+                  there as soon as you've paid.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {freeOn && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -223,6 +273,9 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
               )}
             </CardContent>
           </Card>
+          )}
+
+          {option && (
 
           <Card className="border-primary">
             <CardHeader>
@@ -234,10 +287,13 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-3">
-                <ToggleGroup type="single" value={interval} onValueChange={(v) => v && setBillingInterval(v as PlanInterval)} variant="outline" aria-label="Billing period">
-                  <ToggleGroupItem value="month" data-testid="toggle-monthly">Monthly</ToggleGroupItem>
-                  <ToggleGroupItem value="year" data-testid="toggle-yearly">Yearly</ToggleGroupItem>
-                </ToggleGroup>
+                {onSale.length > 1 && (
+                  <ToggleGroup type="single" value={option} onValueChange={(v) => v && setChosen(v as PaidOption)} variant="outline" aria-label="How to pay">
+                    {onSale.map((o) => (
+                      <ToggleGroupItem key={o} value={o} data-testid={`toggle-${o}`}>{PAID_OPTION_LABELS[o]}</ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                )}
                 <ToggleGroup type="single" value={currency} onValueChange={(v) => v && setCurrency(v as PlanCurrency)} variant="outline" aria-label="Currency">
                   <ToggleGroupItem value="gbp" data-testid="toggle-gbp">£</ToggleGroupItem>
                   <ToggleGroupItem value="eur" data-testid="toggle-eur">€</ToggleGroupItem>
@@ -246,9 +302,12 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
               </div>
 
               <div>
-                <span className="text-3xl font-bold">{prices[interval]}</span>
-                <span className="text-muted-foreground"> / {interval === "year" ? "year" : "month"}</span>
-                {interval === "year" && <p className="text-sm text-muted-foreground">Saves {yearlySaving} compared with paying monthly.</p>}
+                <span className="text-3xl font-bold">{price(option)}</span>
+                <span className="text-muted-foreground">{option === "once" ? " one payment" : option === "year" ? " / year" : " / month"}</span>
+                {option === "year" && yearlySaving > 0 && (
+                  <p className="text-sm text-muted-foreground">Saves {formatAmount(yearlySaving, currency)} compared with paying monthly.</p>
+                )}
+                {option === "once" && <p className="text-sm text-muted-foreground">Pay once and keep Unlimited. No end date, nothing to renew.</p>}
               </div>
 
               {status.billingEnabled && status.testMode && <StripeTestNotice kind="card" />}
@@ -261,10 +320,17 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
                 <p className="text-sm text-muted-foreground">Upgrades aren't available just yet. Please check back soon.</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Secure payment by Stripe. Cancel any time; you keep Unlimited until the end of the period you've paid for.
+                {option === "once"
+                  ? "Secure payment by Stripe. A single payment, with no subscription to cancel."
+                  : "Secure payment by Stripe. Cancel any time; you keep Unlimited until the end of the period you've paid for."}
               </p>
             </CardContent>
           </Card>
+          )}
+
+          {!option && !freeOn && (
+            <p className="text-sm text-muted-foreground">There are no plans on sale just now. Please check back soon.</p>
+          )}
 
           {status.canManage && !signup && (
             <Button variant="ghost" className="px-0 underline-offset-4 hover:underline" onClick={() => manage.mutate()} data-testid="button-past-invoices">
@@ -272,6 +338,12 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
             </Button>
           )}
         </>
+      )}
+
+      {signup && (
+        <div className="text-center">
+          <Button variant="ghost" size="sm" onClick={() => logout()} data-testid="button-plan-sign-out">Sign out</Button>
+        </div>
       )}
 
       {checkout === "cancelled" && status.plan === "free" && (

@@ -76,8 +76,9 @@ export interface IStorage {
   // User methods
   getUserById(id: string): Promise<User | undefined>;
   getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
-  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt" | "billingMode" | "compUnlimited" | "compUntil">>): Promise<User | undefined>;
+  updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt" | "billingMode" | "compUnlimited" | "compUntil" | "oneOffPaidAt" | "oneOffPaymentId">>): Promise<User | undefined>;
   countTeams(tournamentId: string): Promise<number>;
+  getUserByOneOffPaymentId(paymentId: string): Promise<User | undefined>;
   claimPlanChoice(id: string): Promise<boolean>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByClerkId(clerkUserId: string): Promise<User | undefined>;
@@ -1084,12 +1085,17 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByOneOffPaymentId(paymentId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.oneOffPaymentId, paymentId));
+    return user || undefined;
+  }
+
   async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
     return user || undefined;
   }
 
-  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt" | "billingMode" | "compUnlimited" | "compUntil">>): Promise<User | undefined> {
+  async updateUserBilling(id: string, fields: Partial<Pick<User, "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "planInterval" | "planCurrency" | "planRenewsAt" | "planCancelAtPeriodEnd" | "planChosenAt" | "billingMode" | "compUnlimited" | "compUntil" | "oneOffPaidAt" | "oneOffPaymentId">>): Promise<User | undefined> {
     const [user] = await db.update(users).set(fields).where(eq(users.id, id)).returning();
     return user || undefined;
   }

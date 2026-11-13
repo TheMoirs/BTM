@@ -185,7 +185,7 @@ export default function Teams() {
   const { user } = useAuth();
   const { isReadOnly, viewToken } = useViewMode();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  // Free plan: if the tournament already has its 10 teams, say so instead of opening the form
+  // Free plan: if the tournament is already full, say so instead of opening the form
   const openAddTeam = async () => {
     const id = currentTournamentRef.current;
     if (id) {

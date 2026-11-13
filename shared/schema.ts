@@ -43,6 +43,9 @@ export const users = pgTable("users", {
   // Unlimited given free by the system admin (no Stripe). compUntil empty = no end date.
   compUnlimited: boolean("comp_unlimited").notNull().default(false),
   compUntil: timestamp("comp_until"),
+  // Unlimited bought with one payment (no end date): when, and Stripe's PaymentIntent ID
+  oneOffPaidAt: timestamp("one_off_paid_at"),
+  oneOffPaymentId: text("one_off_payment_id"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

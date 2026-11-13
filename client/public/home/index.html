@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pétanque Tournament Manager (PTM): run your league without the spreadsheet</title>
-<meta name="description" content="PTM runs round-robin pétanque leagues: teams register and pay online, fixtures in one click, live tables and team stats. Free for up to 10 teams.">
+<meta name="description" content="PTM runs round-robin pétanque leagues: teams register and pay online, fixtures in one click, live tables and team stats. Free for up to 20 teams.">
 <link rel="icon" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:title" content="Pétanque Tournament Manager">
-<meta property="og:description" content="Run your pétanque league without the spreadsheet. Free for up to 10 teams.">
+<meta property="og:description" content="Run your pétanque league without the spreadsheet. Free for up to 20 teams.">
 <meta property="og:image" content="https://ptm.themoirs.uk/home/img/results.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +45,7 @@ a{color:#0F4C5C}a:hover{color:#0A3540}
 <a class="navlink" href="#scoreflip" style="padding: 10px 12px; text-decoration: none; color: #3E4C57; font-size: 15px; font-weight: 500">Score Flip</a>
 <a class="navlink" href="#pricing" style="padding: 10px 12px; text-decoration: none; color: #3E4C57; font-size: 15px; font-weight: 500">Pricing</a>
 <a href="/sign-in" style="padding: 10px 16px; border: 1px solid #C9D3D9; border-radius: 8px; text-decoration: none; color: #14212B; font-size: 15px; font-weight: 600">Sign in</a>
-<a href="/sign-up" style="padding: 11px 16px; border-radius: 8px; text-decoration: none; color: #FFFFFF; font-size: 15px; font-weight: 600; background: #0F4C5C">Start free</a>
+<a href="/sign-up" data-free-text="Sign up" style="padding: 11px 16px; border-radius: 8px; text-decoration: none; color: #FFFFFF; font-size: 15px; font-weight: 600; background: #0F4C5C">Start free</a>
 </div>
 </nav>
 </header>
@@ -57,12 +57,12 @@ a{color:#0F4C5C}a:hover{color:#0A3540}
 <h1 style="margin: 0; font-size: 54px; line-height: 1.06; font-weight: 800; letter-spacing: -0.02em">Run your pétanque league without the spreadsheet.</h1>
 <p style="margin: 0; font-size: 19px; line-height: 1.55; color: #46545F">Teams register themselves, fixtures are generated in one click, and the tables update the moment a score goes in. Every team gets its own stats to share.</p>
 <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px">
-<a href="/sign-up" style="padding: 15px 22px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 600; background: #0F4C5C">Create your free account</a>
+<a href="/sign-up" data-free-text="Create your account" style="padding: 15px 22px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 600; background: #0F4C5C">Create your free account</a>
 <a href="#demo" style="padding: 14px 20px; border-radius: 10px; text-decoration: none; color: #14212B; font-size: 17px; font-weight: 600; border: 1px solid #C9D3D9; background: #FFFFFF; display: flex; align-items: center; gap: 8px">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
 Watch the demo</a>
 </div>
-<p style="margin: 0; font-size: 15px; color: #56636D">Free for up to 10 teams · No credit card needed · Unlimited from £5 a month</p>
+<p id="hero-plans" style="margin: 0; font-size: 15px; color: #56636D">Free for up to 20 teams · No credit card needed · Unlimited for £50, paid once</p>
 </div>
 <div style="flex: 1 1 540px; min-width: 0; position: relative; padding-bottom: 48px">
 <div style="border: 1px solid #DCE3E7; border-radius: 14px; background: #FFFFFF; box-shadow: 0 24px 60px rgba(15,76,92,0.16); overflow: hidden">
@@ -268,42 +268,47 @@ Watch the demo</a>
 <section id="pricing" style="background: #F4F7F8; border-top: 1px solid #E3E8EB">
 <div style="max-width: 1000px; margin: 0 auto; padding: 88px 24px; display: flex; flex-direction: column; align-items: center; gap: 36px">
 <div style="text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center">
-<h2 style="margin: 0; font-size: 42px; line-height: 1.15; font-weight: 800">Free for small clubs. One simple price for more.</h2>
-<p style="margin: 0; max-width: 620px; font-size: 18px; line-height: 1.55; color: #46545F">Sign up now and use every feature for free, for up to 10 teams and 1 tournament, for as long as you like. No credit card required.</p>
+<h2 style="margin: 0; font-size: 42px; line-height: 1.15; font-weight: 800" data-free-text="One simple price. Every feature.">Free for small clubs. One simple price for more.</h2>
+<p data-free-only style="margin: 0; max-width: 620px; font-size: 18px; line-height: 1.55; color: #46545F">Sign up now and use every feature for free, for up to 20 teams and 1 tournament, for as long as you like. No credit card required.</p>
 </div>
 <div role="group" aria-label="Currency" style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #E3E8EB">
 <button type="button" data-cur="GBP" aria-pressed="true" class="cur on">£ GBP</button>
 <button type="button" data-cur="EUR" aria-pressed="false" class="cur">€ EUR</button>
 <button type="button" data-cur="USD" aria-pressed="false" class="cur">$ USD</button>
 </div>
-<div style="width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px">
-<div style="background: #FFFFFF; border: 1px solid #DCE3E7; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 20px">
+<div data-plan="free" style="background: #FFFFFF; border: 1px solid #DCE3E7; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
 <p style="margin: 0; font-size: 18px; font-weight: 700">Free</p>
-<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="0">£0</span></p>
-<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Full access to every feature, limited only to 10 teams and 1 tournament. No time limit. No adverts.</p>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="free">£0</span></p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Full access to every feature, limited only to 20 teams and 1 tournament. No time limit. No adverts.</p>
 </div>
-<div style="background: #FFFFFF; border: 1px solid #DCE3E7; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div data-plan="month" hidden style="background: #FFFFFF; border: 1px solid #DCE3E7; border-radius: 16px; padding: 28px; flex-direction: column; gap: 14px">
 <p style="margin: 0; font-size: 18px; font-weight: 700">Monthly</p>
-<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="1">£5</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> / month</span></p>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="month">£5</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> / month</span></p>
 <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Unlimited teams and tournaments. Cancel any time.</p>
 </div>
-<div style="background: #FFFFFF; border: 2px solid #0F4C5C; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
-<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><p style="margin: 0; font-size: 18px; font-weight: 700">Yearly</p><span style="padding: 4px 10px; border-radius: 999px; background: #E3A72F; color: #14212B; font-size: 13px; font-weight: 700">2 months free</span></div>
-<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="2">£50</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> / year</span></p>
-<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Unlimited teams and tournaments. Pay once for the season.</p>
+<div data-plan="year" hidden style="background: #FFFFFF; border: 2px solid #0F4C5C; border-radius: 16px; padding: 28px; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><p style="margin: 0; font-size: 18px; font-weight: 700">Yearly</p><span id="year-saving" hidden style="white-space: nowrap; padding: 4px 10px; border-radius: 999px; background: #E3A72F; color: #14212B; font-size: 13px; font-weight: 700"></span></div>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="year">£50</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> / year</span></p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Unlimited teams and tournaments. Pay for the whole season in one go.</p>
+</div>
+<div data-plan="once" style="background: #FFFFFF; border: 2px solid #0F4C5C; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><p style="margin: 0; font-size: 18px; font-weight: 700">One-off</p><span style="white-space: nowrap; padding: 4px 10px; border-radius: 999px; background: #E3A72F; color: #14212B; font-size: 13px; font-weight: 700">Pay once</span></div>
+<p style="margin: 0; font-size: 44px; font-weight: 800; line-height: 1"><span data-price="once">£50</span><span style="font-size: 17px; font-weight: 500; color: #56636D"> once</span></p>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #46545F">Unlimited teams and tournaments. One payment, no end date, nothing to renew.</p>
 </div>
 </div>
-<a href="/sign-up" style="padding: 16px 26px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 700; background: #0F4C5C">Create your free account</a>
-<p style="margin: 0; font-size: 14px; color: #56636D">No credit card needed. Upgrade any time.</p>
+<a href="/sign-up" data-free-text="Create your account" style="padding: 16px 26px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 700; background: #0F4C5C">Create your free account</a>
+<p data-free-only style="margin: 0; font-size: 14px; color: #56636D">No credit card needed. Upgrade any time.</p>
 </div>
 </section>
 
 <section style="background: #0F4C5C">
 <div style="max-width: 1000px; margin: 0 auto; padding: 72px 24px; display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center">
 <h2 style="margin: 0; font-size: 38px; line-height: 1.15; font-weight: 800; color: #FFFFFF">Ready for your next season?</h2>
-<p style="margin: 0; font-size: 18px; color: #CFE0E4">Set up your first league in a few minutes. Free for up to 10 teams.</p>
+<p style="margin: 0; font-size: 18px; color: #CFE0E4" data-free-text="Set up your first league in a few minutes.">Set up your first league in a few minutes. Free for up to 20 teams.</p>
 <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px">
-<a href="/sign-up" style="padding: 15px 22px; border-radius: 10px; text-decoration: none; color: #14212B; font-size: 17px; font-weight: 700; background: #E3A72F">Start free</a>
+<a href="/sign-up" data-free-text="Get started" style="padding: 15px 22px; border-radius: 10px; text-decoration: none; color: #14212B; font-size: 17px; font-weight: 700; background: #E3A72F">Start free</a>
 <a href="/sign-in" style="padding: 14px 22px; border-radius: 10px; text-decoration: none; color: #FFFFFF; font-size: 17px; font-weight: 600; border: 1px solid #FFFFFF">Sign in</a>
 </div>
 </div>
@@ -319,17 +324,59 @@ Watch the demo</a>
 </div>
 <script>
 (function(){
-  var prices={GBP:['£0','£5','£50'],EUR:['€0','€6','€60'],USD:['$0','$7','$70']};
+  // What's on sale and the prices come from the system admin's settings; these
+  // defaults are only used if they can't be loaded
+  var SYM={GBP:'£',EUR:'€',USD:'$'};
+  var selling={free:{enabled:true},month:{enabled:false,amounts:{gbp:500,eur:600,usd:700}},
+    year:{enabled:false,amounts:{gbp:5000,eur:6000,usd:7000}},once:{enabled:true,amounts:{gbp:5000,eur:6000,usd:7000}}};
+  var limits={teamsPerTournament:20};
+  var cur='GBP';
   var btns=document.querySelectorAll('[data-cur]');
+  function fmt(minor,k){return SYM[k]+(minor%100===0?minor/100:(minor/100).toFixed(2));}
+  function amt(o,k){return selling[o].amounts[k.toLowerCase()];}
+  function render(){
+    var k=cur, freeOn=selling.free.enabled;
+    document.querySelectorAll('[data-plan]').forEach(function(el){
+      var on=selling[el.getAttribute('data-plan')].enabled;
+      el.hidden=!on; el.style.display=on?'flex':'none';
+    });
+    document.querySelectorAll('[data-price]').forEach(function(el){
+      var o=el.getAttribute('data-price');
+      el.textContent=o==='free'?SYM[k]+'0':fmt(amt(o,k),k);
+    });
+    var badge=document.getElementById('year-saving');
+    if(badge){
+      var save=selling.month.enabled&&selling.year.enabled?amt('month',k)*12-amt('year',k):0;
+      badge.hidden=save<=0; badge.textContent=save>0?'Save '+fmt(save,k):'';
+    }
+    document.querySelectorAll('[data-free-text]').forEach(function(el){
+      if(!el.hasAttribute('data-free-orig'))el.setAttribute('data-free-orig',el.textContent);
+      el.textContent=freeOn?el.getAttribute('data-free-orig'):el.getAttribute('data-free-text');
+    });
+    document.querySelectorAll('[data-free-only]').forEach(function(el){el.hidden=!freeOn;});
+    var hero=document.getElementById('hero-plans');
+    if(hero){
+      var parts=[];
+      if(freeOn){parts.push('Free for up to '+limits.teamsPerTournament+' teams');parts.push('No credit card needed');}
+      if(selling.month.enabled)parts.push('Unlimited from '+fmt(amt('month',k),k)+' a month');
+      else if(selling.once.enabled)parts.push('Unlimited for '+fmt(amt('once',k),k)+', paid once');
+      else if(selling.year.enabled)parts.push('Unlimited for '+fmt(amt('year',k),k)+' a year');
+      hero.textContent=parts.join(' · ');
+    }
+  }
   function set(k){
+    cur=k;
     btns.forEach(function(b){var on=b.getAttribute('data-cur')===k;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false');});
-    document.querySelectorAll('[data-price]').forEach(function(el){el.textContent=prices[k][+el.getAttribute('data-price')];});
+    render();
     try{localStorage.setItem('ptm-cur',k);}catch(e){}
   }
+  fetch('/api/public/plans').then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(d&&d.selling){selling=d.selling;if(d.limits)limits=d.limits;render();}
+  }).catch(function(){});
   btns.forEach(function(b){b.addEventListener('click',function(){set(b.getAttribute('data-cur'));});});
   var saved=null;try{saved=localStorage.getItem('ptm-cur');}catch(e){}
   if(!saved){var l=(navigator.language||'').toLowerCase();if(/^en-(us|ca)/.test(l))saved='USD';else if(!/^en-gb/.test(l)&&/^(fr|de|es|it|nl|pt|be)/.test(l))saved='EUR';}
-  if(saved&&prices[saved])set(saved);
+  set(saved&&SYM[saved]?saved:'GBP');
 })();
 </script>
 </body>

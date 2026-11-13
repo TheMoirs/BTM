@@ -42,6 +42,7 @@ export type BillingFields = {
   planChosenAt: string | null;
   compUnlimited?: boolean;
   compUntil?: string | null;
+  oneOffPaidAt?: string | null;
 };
 
 function money(minor: number, currency: string) {
@@ -63,6 +64,7 @@ const PAYMENT_LABELS: Record<string, { label: string; variant: "default" | "seco
 /** The plan badge shown beside each user on the Users page */
 export function PlanBadge({ u }: { u: BillingFields }) {
   if (u.isSystemAdmin) return null;
+  if (u.oneOffPaidAt) return <Badge variant="default" className="text-xs shrink-0">Unlimited · one-off</Badge>;
   const s = u.subscriptionStatus;
   const paying = s === "active" || s === "trialing" || s === "past_due";
   if (!paying && u.compUnlimited && (!u.compUntil || new Date(u.compUntil) > new Date())) {
@@ -128,9 +130,11 @@ export function AdminUserBillingDialog({
                   ? "System admin (free)"
                   : st.complimentary
                     ? `Unlimited, given free${st.complimentaryUntil ? ` until ${day(st.complimentaryUntil)}` : " (no end date)"}`
-                    : st.plan === "unlimited"
-                      ? `Unlimited, ${st.interval === "year" ? "yearly" : "monthly"}`
-                      : "Free"}
+                    : st.oneOff
+                      ? `Unlimited, one-off payment${st.oneOffPaidAt ? ` on ${day(st.oneOffPaidAt)}` : ""} (no end date)`
+                      : st.plan === "unlimited"
+                        ? `Unlimited, ${st.interval === "year" ? "yearly" : "monthly"}`
+                        : st.locked ? "Free (locked: the Free plan is switched off)" : "Free"}
               </dd>
               {st.status && (
                 <>
@@ -138,7 +142,7 @@ export function AdminUserBillingDialog({
                   <dd>{st.status.replace(/_/g, " ")}</dd>
                 </>
               )}
-              {st.renewsAt && st.plan === "unlimited" && (
+              {st.renewsAt && st.plan === "unlimited" && !st.oneOff && (
                 <>
                   <dt className="text-muted-foreground">{st.cancelAtPeriodEnd ? "Ends" : "Renews"}</dt>
                   <dd>{day(st.renewsAt)}</dd>
@@ -240,7 +244,8 @@ type PlanAction =
 function ChangePlan({ userId, billing }: { userId: string; billing: UserBilling }) {
   const { toast } = useToast();
   const st = billing.status;
-  const paying = st.plan === "unlimited" && !st.complimentary && !!st.status && ["active", "trialing", "past_due"].includes(st.status);
+  const paying = st.plan === "unlimited" && !st.complimentary && !st.oneOff && !!st.status && ["active", "trialing", "past_due"].includes(st.status);
+  const [confirmRefund, setConfirmRefund] = useState(false);
   const [until, setUntil] = useState(st.complimentaryUntil ? st.complimentaryUntil.slice(0, 10) : "");
   const [confirming, setConfirming] = useState<PlanAction | null>(null);
 
@@ -282,6 +287,19 @@ function ChangePlan({ userId, billing }: { userId: string; billing: UserBilling 
     onError: (e) => toast({ title: "Couldn't change the subscription", description: errorText(e), variant: "destructive" }),
   });
 
+  const oneOff = useMutation({
+    mutationFn: async () => (await apiRequest("POST", `/api/admin/users/${userId}/one-off`, { action: "refund-remove" })).json(),
+    onSuccess: (d: { refunded: { amount: number; currency: string } | null }) => {
+      setConfirmRefund(false);
+      refresh();
+      toast({
+        title: "Back on the Free plan",
+        description: d?.refunded ? `${money(d.refunded.amount, d.refunded.currency)} refunded to their card.` : "Their payment had already been refunded.",
+      });
+    },
+    onError: (e) => toast({ title: "Couldn't refund the payment", description: errorText(e), variant: "destructive" }),
+  });
+
   const refund = billing.refundPreview;
   const describe = (a: PlanAction): string => {
     if (a.kind === "switch") {
@@ -300,7 +318,26 @@ function ChangePlan({ userId, billing }: { userId: string; billing: UserBilling 
     <div className="space-y-3 rounded-md border p-3">
       <h3 className="font-semibold">Change plan</h3>
 
-      {paying ? (
+      {st.oneOff ? (
+        confirmRefund ? (
+          <div className="space-y-3">
+            <p className="text-sm">Refund their one-off payment in full and put them back on the Free plan. Unlimited ends straight away.</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="destructive" onClick={() => oneOff.mutate()} disabled={oneOff.isPending} data-testid="button-confirm-refund-oneoff">
+                {oneOff.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Confirm
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setConfirmRefund(false)} disabled={oneOff.isPending}>Back</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">They paid once for Unlimited, with no end date.</p>
+            <Button size="sm" variant="outline" className="text-destructive" onClick={() => setConfirmRefund(true)} data-testid="button-refund-oneoff">
+              Refund and remove Unlimited
+            </Button>
+          </div>
+        )
+      ) : paying ? (
         confirming ? (
           <div className="space-y-3">
             <p className="text-sm">{describe(confirming)}</p>
