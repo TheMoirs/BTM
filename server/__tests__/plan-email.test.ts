@@ -13,6 +13,8 @@ describe('plan welcome email', () => {
     expect(html).toContain('Up to 20 teams')
     expect(html).toContain('UPGRADE TO UNLIMITED')
     expect(html).toContain('href="https://ptm.example/plan"')
+    // The logo links to the public home page
+    expect(html).toContain('<a href="https://ptm.example/home/" title="PTM home page"><img src="https://ptm.example/ptm-logo.png')
     expect(html).toContain('Stripe')
     expect(html.toLowerCase()).not.toContain('paypal')
   })

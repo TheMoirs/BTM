@@ -19,6 +19,7 @@ import {
   type PaidOption,
   type PlanCurrency,
 } from "@shared/plans";
+import { HomeLogoLink } from "@/components/home-logo-link";
 
 const STATUS_KEY = ["/api/billing/status"];
 
@@ -136,7 +137,7 @@ export default function PlanPage({ signup = false }: { signup?: boolean }) {
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       {signup ? (
         <div className="text-center space-y-2 pt-4">
-          <img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover mx-auto" />
+          <HomeLogoLink className="block w-fit mx-auto"><img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover mx-auto" /></HomeLogoLink>
           <h1 className="text-2xl font-bold text-foreground">Choose your plan</h1>
           <p className="text-muted-foreground">
             {status.locked

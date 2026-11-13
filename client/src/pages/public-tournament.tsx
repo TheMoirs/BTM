@@ -6,6 +6,7 @@ import { ViewModeProvider } from "@/contexts/ViewModeContext";
 import { Navigation } from "@/components/navigation";
 import Teams from "@/pages/teams";
 import Leaderboard from "@/pages/leaderboard";
+import { HomeLogoLink } from "@/components/home-logo-link";
 
 // Same key the rest of the app uses for share-link access codes
 const VIEW_TOKEN_STORAGE_KEY = "boules_view_token";
@@ -54,7 +55,7 @@ export default function PublicTournamentPage({ slug, page }: { slug: string; pag
   if (state === "missing") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-6 text-center gap-3">
-        <img src="/ptm-logo.png?v=4" alt="PTM" className="h-20 w-20 rounded-xl object-cover" />
+        <HomeLogoLink><img src="/ptm-logo.png?v=4" alt="PTM" className="h-20 w-20 rounded-xl object-cover" /></HomeLogoLink>
         <h1 className="text-xl font-semibold">Tournament not found</h1>
         <p className="text-muted-foreground max-w-sm">
           There's no tournament at this address. It may have been renamed, so please ask the organiser for the latest link.
