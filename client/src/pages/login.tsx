@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, AlertCircle, MailCheck } from "lucide-react";
 import { Redirect } from "wouter";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { HomeLogoLink } from "@/components/home-logo-link";
 
 function PasswordInput({
   id,
@@ -162,7 +163,7 @@ export default function Login({ defaultTab = "signin" }: { defaultTab?: "signin"
         {/* Logo / Title */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-32 w-32 rounded-xl object-cover" />
+            <HomeLogoLink><img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-32 w-32 rounded-xl object-cover" /></HomeLogoLink>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Pétanque Tournament Manager</h1>
           <p className="text-muted-foreground text-sm">Sign in to manage your tournaments</p>

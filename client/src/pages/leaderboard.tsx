@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import type { Result, Team, Match } from "@shared/schema";
 import { calculateTeamSummariesByStageAndDivision, applyForecastSort } from "@/lib/leaderboard";
+import { HomeLogoLink } from "@/components/home-logo-link";
 
 const stageLabels = {
   initial: "Stage 1",
@@ -234,7 +235,7 @@ export default function Leaderboard() {
       {/* Compact header: one title row, one tab row (plus a team row when filtering) */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <img src="/ptm-logo.png?v=4" alt="PTM" className="h-12 w-12 rounded-md object-cover flex-shrink-0" />
+          <HomeLogoLink className="flex-shrink-0"><img src="/ptm-logo.png?v=4" alt="PTM" className="h-12 w-12 rounded-md object-cover flex-shrink-0" /></HomeLogoLink>
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-bold leading-tight tracking-tight break-words" data-testid="text-tournament-name">
               {currentTournament.name}

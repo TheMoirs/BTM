@@ -6,6 +6,7 @@ import { formatFee, paymentReference, payeeDetailsProblem, normaliseSortCode, no
 import { getUncachableResendClient } from "./resend";
 import { z } from "zod";
 import { validateTokenMiddleware } from "./tokenMiddleware";
+import { emailLogo } from "./emailLogo";
 import { exportTournament, exportAllTournaments, makeBackupFile, parseEntry, restoreEntry, createSnapshot, listSnapshots, getSnapshotEntry, countsOf, BackupError, type SnapshotReason } from "./backup";
 import bcrypt from "bcryptjs";
 import { setAuthCookie, clearAuthCookie, getSessionFromRequest, SYSTEM_ADMIN_EMAIL, GOOGLE_ONLY_PASSWORD, hasUsablePassword, createResetToken, decodeResetToken, resetTokenMatches, createTeamEditCode, readTeamEditCode } from "./sessionAuth";
@@ -72,6 +73,7 @@ export function registrationEmailHtml(tournamentName: string, d: PublicRegistrat
     `<tr><td style="padding:0 12px 0 0;margin:0;line-height:1.4;color:#555;vertical-align:top;white-space:nowrap">${label}</td><td style="padding:0;margin:0;line-height:1.4;vertical-align:top"><strong>${value}</strong></td></tr>`;
   const c = REGISTRATION_CONTACT;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222;max-width:560px">
+${emailLogo(siteUrl)}
 <p>Hello ${escapeHtml(d.captainName)},</p>
 <p>${updated ? "Your registration details have been updated" : "Thank you for registering"} — <strong>${escapeHtml(d.name)}</strong> ${updated ? "is" : "is now"} registered for <strong>${escapeHtml(tournamentName)}</strong>.</p>
 <p>These are the details we have for your team:</p>
@@ -107,6 +109,7 @@ export function organiserEmailHtml(
     ? `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:bold">Paid</span>`
     : `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;font-weight:bold">Not paid yet</span>`;
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222;max-width:560px">
+${emailLogo(siteUrl)}
 <p><strong>${escapeHtml(d.name)}</strong> ${updated ? "has updated its registration for" : "has registered for"} <strong>${escapeHtml(tournamentName)}</strong>.</p>
 <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:8px 0 16px">${[
   row("Team name", escapeHtml(d.name)),
@@ -366,7 +369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             from: fromEmail,
             to: user.email,
             subject: "Reset your Pétanque Tournament Manager password",
-            html: `<p>Hello${user.displayName ? ` ${user.displayName}` : ""},</p>
+            html: `${emailLogo(baseUrlOf(req))}<p>Hello${user.displayName ? ` ${escapeHtml(user.displayName)}` : ""},</p>
 <p>Someone (hopefully you) asked to ${hasUsablePassword(user.passwordHash) ? "reset" : "set"} the password for your Pétanque Tournament Manager account.</p>
 <p><a href="${link}">Click here to choose a new password</a></p>
 <p>This link works once and expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>`,
@@ -2266,6 +2269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         to: validatedData.recipientEmail,
         subject: "Pétanque Tournament - Matches Report",
         html: `
+          ${emailLogo(baseUrlOf(req))}
           <h2>Pétanque Tournament Matches Report</h2>
           <p>Please find attached the matches report generated on ${new Date().toLocaleDateString()}.</p>
           <p>This report contains all match information including schedules, scores, and results.</p>

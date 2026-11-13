@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { HomeLogoLink } from "@/components/home-logo-link";
 
 // Opened from the "Reset your password" email: /reset-password?code=...
 export default function ResetPasswordPage() {
@@ -46,7 +47,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center">
-            <img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover" />
+            <HomeLogoLink><img src="/ptm-logo.png?v=4" alt="PTM Logo" className="h-20 w-20 rounded-xl object-cover" /></HomeLogoLink>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Pétanque Tournament Manager</h1>
         </div>

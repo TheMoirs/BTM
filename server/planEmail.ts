@@ -5,6 +5,7 @@
 
 import { getUncachableResendClient } from "./resend";
 import { getSellingOptions } from "./selling";
+import { emailLogo } from "./emailLogo";
 import {
   DEFAULT_SELLING_OPTIONS,
   FREE_LIMITS,
@@ -81,6 +82,7 @@ ${button(planUrl, "MANAGE YOUR PLAN")}`;
   }
 
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#14212b;max-width:560px">
+${emailLogo(siteUrl)}
 <p>${hello}</p>
 ${body}
 <p><a href="${siteUrl}" style="color:#2563eb">Open PTM</a> and create your first tournament to get started.</p>
