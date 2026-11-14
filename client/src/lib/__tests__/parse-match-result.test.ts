@@ -121,6 +121,62 @@ describe("parseMatchResult", () => {
     });
   });
 
+  it("reads one team's short name followed by both scores", () => {
+    const out = parseMatchResult(
+      "Sat 14th November\nJust Bouling Along v LCC Snowblowers \n\nLCC 13 - 2 & \nLCC 13 - 9\n\nLCC win both matches",
+      new Date(2026, 10, 14, 23, 40),
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-11-14",
+        team1: "Just Bouling Along",
+        team2: "LCC Snowblowers",
+        games: [
+          { game: 1, score1: 2, score2: 13 },
+          { game: 2, score1: 9, score2: 13 },
+        ],
+      },
+    });
+  });
+
+  it("finds a date inside a sentence and skips a 'won 2 - 0' summary", () => {
+    const out = parseMatchResult(
+      "Well fought games Friday 13th Nov\nTerri's Team vs Boulin Rouge \nBR 13 - 5\nBR 13 - 11\n\nBoulin Rouge won 2 - 0.",
+      new Date(2026, 10, 14, 23, 40),
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-11-13",
+        team1: "Terri's Team",
+        team2: "Boulin Rouge",
+        games: [
+          { game: 1, score1: 5, score2: 13 },
+          { game: 2, score1: 11, score2: 13 },
+        ],
+      },
+    });
+  });
+
+  it("handles mixed winners, a games-won tally, and Score Flip's own summary", () => {
+    const out = parseMatchResult("A Team v B Team\nAT 13-4\nBT 13-6\nAT 13:2\nAT 2-1", new Date(2026, 10, 14));
+    expect(out.ok && out.result.games).toEqual([
+      { game: 1, score1: 13, score2: 4 },
+      { game: 2, score1: 6, score2: 13 },
+      { game: 3, score1: 13, score2: 2 },
+    ]);
+    const flip = parseMatchResult("Wed 28 Oct 2026\nTotal Shambolics v Shamblers\nGame 1: 13\u20135\nGame 2: 13\u20133\nTotal Shambolics win 2\u20130");
+    expect(flip.ok && flip.result.games.length).toBe(2);
+    const drawn = parseMatchResult("A v B\nGame 1: 13-5\nGame 2: 4-13\nDrawn 1-1");
+    expect(drawn.ok && drawn.result.games.length).toBe(2);
+  });
+
+  it("refuses a short name that fits neither team", () => {
+    const out = parseMatchResult("Just Bouling Along v LCC Snowblowers\nXYZ 13-2");
+    expect(!out.ok && out.error).toMatch(/couldn't tell which team "XYZ"/);
+  });
+
   it("accepts commas and 'and' between scores", () => {
     const out = parseMatchResult("A v B\n13-8, 4-13 and 13-11");
     expect(out.ok && out.result.games.length).toBe(3);

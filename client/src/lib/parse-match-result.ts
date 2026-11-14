@@ -84,6 +84,12 @@ function parseDate(line: string, now: Date): string | null {
     const month = MONTHS[shortNamed[2].slice(0, 3).toLowerCase()];
     if (month) return inferYear(+shortNamed[1], month, now);
   }
+  // A day and month name inside a sentence: "Well fought games Friday 13th Nov".
+  // The month must be a real month word, so scores and other words aren't mistaken for one.
+  const inSentence = line.match(
+    /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i,
+  );
+  if (inSentence) return inferYear(+inSentence[1], MONTHS[inSentence[2].slice(0, 3).toLowerCase()], now);
   return null;
 }
 
@@ -109,6 +115,14 @@ const LABELLED_RE =
   /^(?:(?:game|g)\s*(\d)\s*[).:]?|(\d)\s*[).:])\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*(?:-|,|&|\bv\b|\bvs\b)?\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*$/i;
 
 type LabelledGame = { game: number; abbr1: string; s1: number; abbr2: string; s2: number };
+
+// One team named, then both scores, the first being that team's: "LCC 13 - 2 &", "BR 13:5",
+// "Game 2 LCC 13-9". Games are numbered in order unless the line gives a number.
+const ONE_NAME_RE =
+  /^(?:(?:game|g)\s*(\d)\s*[).:]?\s*|(\d)\s*[).:]\s*)?([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*[-:]\s*(\d{1,2})\s*[&,;.]*\s*$/i;
+// Summary lines ("Boulin Rouge won 2 - 0.", "Total Shambolics win 2-0", "Drawn 1-1") are never games
+const SUMMARY_WORD_RE = /\b(?:won|win|wins|winners?|beat|beats|lost|loses?|drew|draw|drawn)\b/i;
+type OneNameGame = { game: number | null; name: string; own: number; other: number };
 
 /** "Créme Bouleé" -> "Creme Boulee": accents don't count when comparing names */
 const foldAccents = (s: string) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
@@ -165,6 +179,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
   const games: ParsedGame[] = [];
   const looseScores: Array<Array<[number, number]>> = []; // score lines without "Game N:"
   const labelled: LabelledGame[] = []; // "1) CB-13 - S-0" — sorted out once the teams are known
+  const oneName: OneNameGame[] = []; // "LCC 13 - 2" — sorted out once the teams are known
 
   for (const line of lines) {
     const game = line.match(GAME_RE);
@@ -187,6 +202,13 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     }
     const loose = scoresOnlyLine(line);
     if (loose) { looseScores.push(loose); continue; }
+    const one = foldAccents(line).match(ONE_NAME_RE);
+    if (one) {
+      if (SUMMARY_WORD_RE.test(one[3])) continue; // a result summary, not a game
+      const num = one[1] ?? one[2];
+      oneName.push({ game: num ? +num : null, name: cleanTeam(one[3]), own: +one[4], other: +one[5] });
+      continue;
+    }
     if (!date) {
       const d = parseDate(line, now);
       if (d) { date = d; continue; }
@@ -247,6 +269,35 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     games.push(straight
       ? { game: g.game, score1: g.s1, score2: g.s2 }
       : { game: g.game, score1: g.s2, score2: g.s1 });
+  }
+
+  // "LCC 13 - 2" lines: the first score is the named team's
+  if (oneName.length > 0) {
+    // A last line that's just the games-won tally ("BR 2-0") is a summary, not a game
+    if (oneName.length >= 3) {
+      const last = oneName[oneName.length - 1];
+      const before = oneName.slice(0, -1);
+      const lastWins = before.filter(g => g.name === last.name ? g.own > g.other : g.other > g.own).length;
+      if (last.own === lastWins && last.other === before.length - lastWins) oneName.pop();
+    }
+    let next = 1;
+    for (const g of oneName) {
+      const num = g.game ?? next;
+      next = num + 1;
+      const { team1, team2 } = teams;
+      let is1 = shortNameFits(g.name, team1);
+      let is2 = shortNameFits(g.name, team2);
+      if (!is1 && !is2) {
+        is1 = shortNameFits(g.name, team1, true);
+        is2 = shortNameFits(g.name, team2, true);
+      }
+      if (!is1 && !is2) return { ok: false, error: `Game ${num}: couldn't tell which team "${g.name}" is.` };
+      if (is1 && is2) return { ok: false, error: `Game ${num}: "${g.name}" could be either team.` };
+      if (games.some(x => x.game === num)) return { ok: false, error: `Game ${num} appears more than once.` };
+      games.push(is1
+        ? { game: num, score1: g.own, score2: g.other }
+        : { game: num, score1: g.other, score2: g.own });
+    }
   }
 
   // No "Game 1:" lines: take the scores in order, from one line ("13-8 & 13-7") or one per line
