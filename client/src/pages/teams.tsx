@@ -1627,8 +1627,8 @@ export default function Teams() {
     }
   };
 
-  // Phones: Download, Registration link, Share teams and Clear all teams live in the
-  // ☰ menu at the top right (the buttons below are hidden there to make room).
+  // Download, Registration link, Share teams and Clear all teams live in the
+  // ☰ menu at the top right on every screen size.
   // A ref keeps the latest handlers so the item list only changes when its labels do.
   const hasTournament = !!currentTournament;
   const menuActions = useRef({ handleExcelSave, requestPrint, handleCopyRegistrationLink, handleCopyShareLink });
@@ -1637,7 +1637,7 @@ export default function Teams() {
     // No tournament yet: nothing to act on
     if (!hasTournament && !isReadOnly) return [];
     if (isReadOnly) {
-      // View page: Print, Shortcut and Help (their buttons are hidden on phones)
+      // View page: Print, Shortcut and Help
       return [
         { key: "print-teams", label: "Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("print") },
         { key: "shortcut-teams", label: "Shortcut", icon: MonitorSmartphone, onSelect: () => setShowShortcut(true) },
@@ -1645,13 +1645,13 @@ export default function Teams() {
       ];
     }
     const items: NavMenuItem[] = [
-      { key: "download-excel", label: "Download Excel", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave() },
-      { key: "preview-print", label: "Preview / Print", icon: Printer, onSelect: () => menuActions.current.requestPrint("preview") },
+      { key: "download-excel", label: "Download teams (Excel)", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave() },
+      { key: "preview-print", label: "Download teams (PDF / Print)", icon: Printer, onSelect: () => menuActions.current.requestPrint("preview") },
       { key: "registration-link", label: "Registration link", icon: ClipboardList, onSelect: () => menuActions.current.handleCopyRegistrationLink() },
       { key: "share-teams", label: isSharingLink ? "Creating link…" : "Share teams", icon: Share2, disabled: isSharingLink, onSelect: () => menuActions.current.handleCopyShareLink() },
     ];
     if (!isEditAllMode) {
-      items.push({ key: "clear-all", label: "Clear all teams", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
+      items.push({ key: "clear-all", label: "Clear all data", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
     }
     return items;
   }, [isReadOnly, isEditAllMode, isSharingLink, hasTournament]);
@@ -1738,29 +1738,6 @@ export default function Teams() {
             {/* Hidden for view-only (not logged in) visitors */}
             {!isReadOnly && (
               <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                size="sm"
-                    className="hidden sm:inline-flex"
-                    data-testid="button-download"
-                  >
-                <FileDown className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Download</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleExcelSave()} data-testid="menu-item-download-excel">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => requestPrint("preview")} data-testid="menu-item-preview-print">
-                    <Printer className="h-4 w-4 mr-2" />
-                    Preview / Print
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
               <Button
                 variant="outline"
                 size="sm"
@@ -1810,18 +1787,6 @@ export default function Teams() {
                       <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save All"}</span>
                     </Button>
                   </>
-                )}
-                {!isEditAllMode && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowClearConfirm(true)}
-                    className="hidden sm:inline-flex"
-                    data-testid="button-clear-all-teams"
-                  >
-                    <Trash2 className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Clear All Data</span>
-                  </Button>
                 )}
                 {!isEditAllMode && (
                   <>
@@ -2030,33 +1995,6 @@ export default function Teams() {
                 )}
               </>
             )}
-            {/* Hidden for view-only (not logged in) visitors */}
-            {!isReadOnly && (
-              <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyRegistrationLink}
-                className="hidden sm:inline-flex"
-                title="Copy a link team captains can use to register themselves"
-                data-testid="button-registration-link"
-              >
-                <ClipboardList className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Registration Link</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyShareLink}
-                disabled={isSharingLink}
-                className="hidden sm:inline-flex"
-                data-testid="button-share-view"
-              >
-                <Share2 className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Teams"}</span>
-              </Button>
-              </>
-            )}
             {/* Teams <-> Leaderboard switching is for signed-in organisers only;
                 visitors use the separate public links for each page */}
             {!isReadOnly && (
@@ -2071,12 +2009,6 @@ export default function Teams() {
                 </Button>
               </Link>
             )}
-            {isReadOnly && (
-              <Button variant="outline" size="sm" className="flex-shrink-0" onClick={() => requestPrint("print")} data-testid="button-print-teams">
-                <Printer className="h-4 w-4 mr-1.5" />
-                Print
-              </Button>
-            )}
             {currentTournament && (
               <AddToHomeScreenButton
                 tournamentName={currentTournament.name}
@@ -2085,6 +2017,7 @@ export default function Teams() {
                 edit={!isReadOnly}
                 tournamentId={currentTournament.id}
                 variant="sm"
+                buttonClassName="!hidden"
                 open={showShortcut}
                 onOpenChange={setShowShortcut}
               />

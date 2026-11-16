@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { showClearedToast } from "@/components/undo-clear-toast";
 import { snapshotIdFrom } from "@/lib/backup";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { isMobileDevice, openPdfMobile, exportFilename } from "@/lib/utils";
@@ -1547,13 +1547,19 @@ export default function Matches() {
     });
   };
 
-  // Phones: "Clear all matches" lives in the ☰ menu at the top right
-  const pageMenuItems = useMemo<NavMenuItem[]>(
-    () => (isReadOnly
-      ? []
-      : [{ key: "clear-all-matches", label: "Clear all matches", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) }]),
-    [isReadOnly],
-  );
+  // Download and "Clear all data" (all matches) live in the ☰ menu at the top right
+  const menuActions = useRef({ handleExcelSave, openPdfViewer });
+  menuActions.current = { handleExcelSave, openPdfViewer };
+  const pageMenuItems = useMemo<NavMenuItem[]>(() => {
+    const items: NavMenuItem[] = [
+      { key: "download-excel", label: "Download (Excel)", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave() },
+      { key: "preview-print", label: "Download (PDF / Print)", icon: Printer, onSelect: () => menuActions.current.openPdfViewer() },
+    ];
+    if (!isReadOnly) {
+      items.push({ key: "clear-all-matches", label: "Clear all data", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
+    }
+    return items;
+  }, [isReadOnly]);
   usePageMenuItems(pageMenuItems);
 
   if (isLoading) {
@@ -1665,42 +1671,8 @@ export default function Matches() {
                 )}
               </>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                      title="Download"
-                      data-testid="button-download"
-                >
-              <FileDown className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Download</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExcelSave} data-testid="menu-item-download-excel">
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Excel
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={openPdfViewer} data-testid="menu-item-preview-print">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Preview / Print
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             {!isReadOnly && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowClearConfirm(true)}
-                  size="sm"
-                  className="hidden sm:inline-flex"
-                      title="Clear all data"
-                      data-testid="button-clear-all-matches"
-                >
-                  <Trash2 className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Clear All Data</span>
-                </Button>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm"

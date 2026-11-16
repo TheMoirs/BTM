@@ -6,13 +6,15 @@ import { useTournament } from "@/contexts/TournamentContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, FileText, Printer, Menu, MonitorSmartphone, HelpCircle } from "lucide-react";
+import { ArrowLeft, Users, FileText, Printer, Menu, MonitorSmartphone, HelpCircle, UserCog, LogOut } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { buildLeaderboardPdf, downloadAndPrintPdf } from "@/lib/pdf-reports";
 import { exportFilename } from "@/lib/utils";
@@ -55,6 +57,11 @@ function rulesUrl(t: { id: string; rulesPdfUpdatedAt?: string | Date | null }): 
 export default function Leaderboard() {
   const { currentTournament, isLoading: tournamentsLoading } = useTournament();
   const { viewToken, isReadOnly } = useViewMode();
+  const { user, logout } = useAuth();
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/login";
+  };
   const [showMatchResults, setShowMatchResults] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [isForecast, setIsForecast] = useState(false);
@@ -250,45 +257,64 @@ export default function Leaderboard() {
               </span>
             </p>
           </div>
-          {/* Public page on phones: Score Flip and a ☰ menu (Print, Rules, Shortcut, Help)
-              replace the button row below, so the tabs sit right under the title */}
-          {isReadOnly && (
-            <div className="flex items-center gap-1 self-start flex-shrink-0 sm:hidden">
-              <Button variant="outline" size="icon" className="h-12 w-12" onClick={openScoreFlip} aria-label="Score Flip" data-testid="button-coin-toss-mobile">
+          {/* ☰ menu at the top right on every screen size (Download/Print, Install, and for
+              organisers Users and Log out). Phones viewing the public page also get Score Flip
+              here, plus Rules and Help in the menu, so the tabs sit right under the title. */}
+          <div className="flex items-center gap-1 self-start flex-shrink-0">
+            {isReadOnly && (
+              <Button variant="outline" size="icon" className="h-12 w-12 sm:hidden" onClick={openScoreFlip} aria-label="Score Flip" data-testid="button-coin-toss-mobile">
                 <img src="/coin-toss/favicon.png?v=3" alt="" className="h-9 w-9 rounded-sm" />
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={handlePrint} data-testid="menu-item-print-leaderboard">
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={handlePrint} data-testid="menu-item-print-leaderboard">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Download (PDF / Print)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowShortcut(true)} data-testid="menu-item-shortcut-leaderboard">
+                  <MonitorSmartphone className="h-4 w-4 mr-2" />
+                  Install
+                </DropdownMenuItem>
+                {isReadOnly && (currentTournament as any).rulesPdfName && (
+                  <DropdownMenuItem
+                    className="sm:hidden"
+                    onClick={() => window.open(rulesUrl(currentTournament), "_blank", "noopener,noreferrer")}
+                    data-testid="menu-item-rules"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Rules
                   </DropdownMenuItem>
-                  {(currentTournament as any).rulesPdfName && (
-                    <DropdownMenuItem
-                      onClick={() => window.open(rulesUrl(currentTournament), "_blank", "noopener,noreferrer")}
-                      data-testid="menu-item-rules"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Rules
+                )}
+                {isReadOnly && <DropdownMenuItem className="sm:hidden" onClick={() => setShowHelp(true)} data-testid="menu-item-help-leaderboard">
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  Help
+                </DropdownMenuItem>}
+                {user && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {user.isSystemAdmin && (
+                      <DropdownMenuItem asChild data-testid="menu-item-admin-users">
+                        <Link href="/admin/users">
+                          <UserCog className="h-4 w-4 mr-2" />
+                          Users
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive" data-testid="menu-item-logout">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Log out
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => setShowShortcut(true)} data-testid="menu-item-shortcut-leaderboard">
-                    <MonitorSmartphone className="h-4 w-4 mr-2" />
-                    Shortcut
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowHelp(true)} data-testid="menu-item-help-leaderboard">
-                    <HelpCircle className="h-4 w-4 mr-2" />
-                    Help
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Action buttons with labels, on their own row (scrolls sideways on narrow phones) */}
@@ -302,10 +328,6 @@ export default function Leaderboard() {
                 </Button>
               </Link>
             )}
-            <Button variant="outline" size="sm" className="flex-shrink-0 px-1.5 sm:px-2" onClick={handlePrint} data-testid="button-print-leaderboard">
-              <Printer className="h-4 w-4 mr-1.5" />
-              Print
-            </Button>
             {(currentTournament as any).rulesPdfName && (
               <a
                 href={rulesUrl(currentTournament)}
@@ -333,7 +355,7 @@ export default function Leaderboard() {
               page="leaderboard"
               variant="sm"
               label="Install"
-              buttonClassName="px-1.5 sm:px-2"
+              buttonClassName="!hidden"
               open={showShortcut}
               onOpenChange={setShowShortcut}
             />

@@ -42,8 +42,6 @@ export function Navigation() {
   const { user, logout, updateProfile, refreshUser } = useAuth();
   const { toast } = useToast();
   const pageMenuItems = useNavMenuItems();
-  // Phone ☰ menu: User management and Profile aren't offered on Matches and Results
-  const showAccountItems = !["/matches", "/results"].includes(location.split("?")[0]);
 
   // Install / shortcut boxes opened from the account menus (always offered). Only the open one is
   // mounted, because each box adjusts the page's manifest and title while it is open.
@@ -209,84 +207,7 @@ export function Navigation() {
               {/* Logged-in user section */}
               {user ? (
                 <>
-                  {/* System admin Users link */}
-                  {user.isSystemAdmin && (
-                    <Link href="/admin/users">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        data-testid="button-admin-users"
-                        className="hidden sm:flex"
-                      >
-                        <UserCog className="h-4 w-4 mr-2" />
-                        Users
-                      </Button>
-                    </Link>
-                  )}
-
-                  {/* User dropdown (desktop) */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        data-testid="button-user-menu"
-                        className="hidden sm:flex"
-                      >
-                        <User className="h-4 w-4 mr-2" />
-                        <span className="max-w-[120px] truncate">{user.displayName || user.email.split("@")[0]}</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60">
-                      <DropdownMenuItem
-                        onClick={() => setShowChangePassword(true)}
-                        data-testid="menu-item-change-password"
-                      >
-                        <UserPen className="h-4 w-4 mr-2" />
-                        Profile Settings
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild data-testid="menu-item-plan">
-                        <Link href="/plan">
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Plan &amp; billing
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app">
-                        <MonitorSmartphone className="h-4 w-4 mr-2" />
-                        Install PTM app
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("teams")} data-testid="menu-item-shortcut-teams">
-                        <Users className="h-4 w-4 mr-2" />
-                        Shortcut: Teams view
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled={!currentTournament} onClick={() => setInstallBox("leaderboard")} data-testid="menu-item-shortcut-leaderboard">
-                        <Trophy className="h-4 w-4 mr-2" />
-                        Shortcut: Leaderboard view
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setInstallBox("scoreflip")} data-testid="menu-item-shortcut-scoreflip">
-                        <Coins className="h-4 w-4 mr-2" />
-                        Shortcut: Score Flip
-                      </DropdownMenuItem>
-                      {demoAvailable && (
-                        <DropdownMenuItem onClick={() => setShowDemo(true)} data-testid="menu-item-demo">
-                          <PlayCircle className="h-4 w-4 mr-2" />
-                          Watch the demo
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={handleLogout}
-                        data-testid="menu-item-logout"
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <LogOut className="h-4 w-4 mr-2" />
-                        Log out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Phones: one ☰ menu with the page's own actions (e.g. Teams: Download,
+                  {/* One ☰ menu on every screen size: the page's own actions (e.g. Teams: Download,
                       Registration link, Share teams, Clear all teams), then the account items */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -295,12 +216,13 @@ export function Navigation() {
                         size="icon"
                         aria-label="Menu"
                         data-testid="button-mobile-menu"
-                        className="sm:hidden"
+                        className="w-auto px-2 gap-2"
                       >
+                        <span className="hidden sm:inline max-w-[140px] truncate text-sm font-medium">{user.displayName || user.email.split("@")[0]}</span>
                         <Menu className="h-5 w-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuContent align="end" className="w-60">
                       {pageMenuItems.map((item) => {
                         const Icon = item.icon;
                         return (
@@ -317,31 +239,25 @@ export function Navigation() {
                         );
                       })}
                       {pageMenuItems.length > 0 && <DropdownMenuSeparator />}
-                      {/* Matches and Results keep the menu short: just their clear-all and Log out */}
-                      {showAccountItems && user.isSystemAdmin && (
+                      {user.isSystemAdmin && (
                         <DropdownMenuItem asChild data-testid="menu-item-admin-users-mobile">
                           <Link href="/admin/users">
                             <UserCog className="h-4 w-4 mr-2" />
-                            User management
+                            Users
                           </Link>
                         </DropdownMenuItem>
                       )}
-                      {showAccountItems && (
-                        <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
-                          <UserPen className="h-4 w-4 mr-2" />
-                          Profile
-                        </DropdownMenuItem>
-                      )}
-                      {showAccountItems && (
-                        <DropdownMenuItem asChild data-testid="menu-item-plan-mobile">
-                          <Link href="/plan">
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Plan &amp; billing
-                          </Link>
-                        </DropdownMenuItem>
-                      )}
-                      {showAccountItems && (
-                        <>
+                      <DropdownMenuItem onClick={() => setShowChangePassword(true)} data-testid="menu-item-profile-mobile">
+                        <UserPen className="h-4 w-4 mr-2" />
+                        Profile Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild data-testid="menu-item-plan-mobile">
+                        <Link href="/plan">
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Plan &amp; billing
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => setInstallBox("app")} data-testid="menu-item-install-app-mobile">
                             <MonitorSmartphone className="h-4 w-4 mr-2" />
                             Install PTM app
@@ -364,8 +280,7 @@ export function Navigation() {
                               Watch the demo
                             </DropdownMenuItem>
                           )}
-                        </>
-                      )}
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={handleLogout}
                         className="text-destructive focus:text-destructive"
@@ -412,10 +327,10 @@ export function Navigation() {
                 </>
               ) : pageMenuItems.length > 0 ? (
                 /* View-only visitors (no Sign in; organisers sign in at the site address):
-                   phones get a ☰ menu with the page's items, e.g. Teams: Print, Shortcut, Help */
+                   a ☰ menu with the page's items, e.g. Teams: Print, Shortcut, Help */
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu" className="sm:hidden">
+                    <Button variant="ghost" size="icon" aria-label="Menu" data-testid="button-mobile-menu">
                       <Menu className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>

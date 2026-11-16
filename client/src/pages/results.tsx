@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { showClearedToast } from "@/components/undo-clear-toast";
 import { snapshotIdFrom } from "@/lib/backup";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { getPublicBaseUrl } from "@/lib/publicUrl";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -750,14 +750,27 @@ export default function Results() {
     });
   };
 
-  // Phones: "Clear all results" lives in the ☰ menu at the top right
+  // Share leaderboard, Download and Clear all results live in the ☰ menu at the top right.
+  // A ref keeps the latest handlers so the item list only changes when its labels do.
   const hasResults = !!results && results.length > 0;
-  const pageMenuItems = useMemo<NavMenuItem[]>(
-    () => (!isReadOnly && hasResults
-      ? [{ key: "clear-all-results", label: "Clear all results", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) }]
-      : []),
-    [isReadOnly, hasResults],
-  );
+  const hasTournament = !!currentTournament;
+  const menuActions = useRef({ handleCopyShareLink, handleExcelSave, openPdfViewer, openSummaryPdfViewer, isSummaryView });
+  menuActions.current = { handleCopyShareLink, handleExcelSave, openPdfViewer, openSummaryPdfViewer, isSummaryView };
+  const pageMenuItems = useMemo<NavMenuItem[]>(() => {
+    const items: NavMenuItem[] = [
+      { key: "share-leaderboard", label: isSharingLink ? "Creating link…" : "Share leaderboard", icon: Share2, disabled: isSharingLink || !hasTournament, onSelect: () => menuActions.current.handleCopyShareLink() },
+    ];
+    if (hasResults) {
+      items.push(
+        { key: "download-excel", label: "Download (Excel)", icon: FileSpreadsheet, onSelect: () => menuActions.current.handleExcelSave(menuActions.current.isSummaryView) },
+        { key: "preview-print", label: "Download (PDF / Print)", icon: Printer, onSelect: () => (menuActions.current.isSummaryView ? menuActions.current.openSummaryPdfViewer() : menuActions.current.openPdfViewer()) },
+      );
+      if (!isReadOnly) {
+        items.push({ key: "clear-all-results", label: "Clear all results", icon: Trash2, destructive: true, onSelect: () => setShowClearConfirm(true) });
+      }
+    }
+    return items;
+  }, [isReadOnly, hasResults, hasTournament, isSharingLink]);
   usePageMenuItems(pageMenuItems);
 
   return (
@@ -784,59 +797,6 @@ export default function Results() {
           )}
         </div>
         <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
-          {/* Share Leaderboard is always available, even before any results exist,
-              so the link can be sent out early (viewers can still open Teams from it). */}
-          <Button
-            variant="outline"
-            size="sm"
-            title="Share leaderboard"
-            onClick={handleCopyShareLink}
-            disabled={isSharingLink || !currentTournament}
-            data-testid="button-share-leaderboard"
-          >
-            <Share2 className="sm:mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{isSharingLink ? "Creating link..." : "Share Leaderboard"}</span>
-          </Button>
-          {results && results.length > 0 && (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    title="Download"
-                    data-testid="button-download"
-                  >
-                <FileDown className="sm:mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Download</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleExcelSave(isSummaryView)} data-testid="menu-item-download-excel">
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={isSummaryView ? openSummaryPdfViewer : openPdfViewer} data-testid="menu-item-preview-print">
-                    <Printer className="h-4 w-4 mr-2" />
-                    Preview / Print
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {!isReadOnly && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  title="Clear all results"
-                  className="hidden sm:inline-flex"
-                  onClick={() => setShowClearConfirm(true)}
-                  data-testid="button-clear-all-results"
-                >
-                  <Trash2 className="sm:mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Clear All Results</span>
-                </Button>
-              )}
-            </>
-          )}
           <HelpDialog title="Results - Help">
             <div className="space-y-4">
               <div>
