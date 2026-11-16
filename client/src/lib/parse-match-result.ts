@@ -100,7 +100,11 @@ const LOOKS_LIKE_GAME_RE = /^(?:(?:game|g)\s*\d\b|\d\s*\)|\d\.\s*[a-z])/i;
 const VS_RE = /^(.+?)\s+(?:v|vs|versus)\.?\s+(.+)$/i;
 // A line of nothing but scores: "13-8 & 13-7", "13-8, 13-7", "13-8 and 13-7", "11:13 and 13:3", "13-8"
 const SCORE_RE = /(\d{1,2})\s*[-:]\s*(\d{1,2})/g;
-function scoresOnlyLine(line: string): Array<[number, number]> | null {
+function scoresOnlyLine(rawLine: string): Array<[number, number]> | null {
+  // Scores split by "v"/"vs", with stray dots: "12.   V 13", "0 vs 13."
+  const line = rawLine
+    .replace(/(\d)\s*\.?\s*\bvs?\b\.?\s*(\d)/gi, "$1-$2")
+    .replace(/[.\s]+$/, "");
   const rest = line.replace(SCORE_RE, " ").replace(/&|,|;|\/|\band\b|\+/gi, " ").trim();
   if (rest !== "") return null;
   const found = Array.from(line.matchAll(SCORE_RE), m => [+m[1], +m[2]] as [number, number]);
@@ -224,7 +228,8 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
         if (andTeams) continue;
       }
     }
-    if (LOOKS_LIKE_GAME_RE.test(line)) {
+    // Only numbers and punctuation, yet not understood: refuse rather than skip it
+    if (LOOKS_LIKE_GAME_RE.test(line) || (/\d/.test(line) && /^[\d\s.,:;&+\-v]+$/i.test(line))) {
       return { ok: false, error: `Couldn't read this line: "${line}". Try "Game 1: 13-8".` };
     }
     // Anything else (e.g. "Each win one game") is ignored

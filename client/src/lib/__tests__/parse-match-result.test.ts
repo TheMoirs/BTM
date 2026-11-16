@@ -177,6 +177,29 @@ describe("parseMatchResult", () => {
     expect(!out.ok && out.error).toMatch(/couldn't tell which team "XYZ"/);
   });
 
+  it("reads scores split by 'v', with stray dots", () => {
+    const out = parseMatchResult("XUWE V Cider Bus \n\n12.   V 13\n\n0.   V 13", new Date(2026, 10, 16));
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: null,
+        team1: "XUWE",
+        team2: "Cider Bus",
+        games: [
+          { game: 1, score1: 12, score2: 13 },
+          { game: 2, score1: 0, score2: 13 },
+        ],
+      },
+    });
+    const vs = parseMatchResult("A v B\n13 vs 4, 6 v 13.");
+    expect(vs.ok && vs.result.games.length).toBe(2);
+  });
+
+  it("refuses a numbers-only line it can't read instead of skipping it", () => {
+    const out = parseMatchResult("A v B\n13 . . 4\n13-2");
+    expect(!out.ok && out.error).toMatch(/Couldn't read this line/);
+  });
+
   it("accepts commas and 'and' between scores", () => {
     const out = parseMatchResult("A v B\n13-8, 4-13 and 13-11");
     expect(out.ok && out.result.games.length).toBe(3);
