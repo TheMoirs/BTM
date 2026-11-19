@@ -55,41 +55,60 @@ function inferYear(day: number, month: number, now: Date): string | null {
   return best;
 }
 
-function parseDate(line: string, now: Date): string | null {
+/**
+ * Finds a date in a line, and returns what's left once the date (and any weekday just
+ * before it) is taken out: "Thursday 19th Nov Miles Away v X" -> "Miles Away v X".
+ */
+function parseDateWithRest(line: string, now: Date): { date: string; rest: string } | null {
+  let hit: { index: number; length: number } | null = null;
+  const date = parseDate(line, now, m => { hit = { index: m.index ?? 0, length: m[0].length }; });
+  if (!date || !hit) return null;
+  const { index, length } = hit as { index: number; length: number };
+  const before = line
+    .slice(0, index)
+    .replace(/\b(?:mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\.?,?\s*$/i, "");
+  const rest = `${before} ${line.slice(index + length)}`.replace(/^[\s.,:;!-]+|[\s.,:;!-]+$/g, "");
+  return { date, rest };
+}
+
+function parseDate(line: string, now: Date, onMatch: (m: RegExpMatchArray) => void = () => {}): string | null {
   // "28 Oct 2026", "28th October 2026", "28 Oct, 2026"
   const named = line.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,})\.?,?\s+(\d{4})/i);
   if (named) {
     const month = MONTHS[named[2].slice(0, 3).toLowerCase()];
-    if (month) return toIsoDate(+named[1], month, +named[3]);
+    if (month) { onMatch(named); return toIsoDate(+named[1], month, +named[3]); }
   }
   // "Oct 28 2026", "October 28th, 2026"
   const monthFirst = line.match(/([a-z]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i);
   if (monthFirst) {
     const month = MONTHS[monthFirst[1].slice(0, 3).toLowerCase()];
-    if (month) return toIsoDate(+monthFirst[2], month, +monthFirst[3]);
+    if (month) { onMatch(monthFirst); return toIsoDate(+monthFirst[2], month, +monthFirst[3]); }
   }
   // "28/10/2026" or "28-10-26" (UK day-first)
   const numeric = line.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})\b/);
-  if (numeric) return toIsoDate(+numeric[1], +numeric[2], +numeric[3]);
+  if (numeric) { onMatch(numeric); return toIsoDate(+numeric[1], +numeric[2], +numeric[3]); }
   // "2026-10-28"
   const iso = line.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
-  if (iso) return toIsoDate(+iso[3], +iso[2], +iso[1]);
+  if (iso) { onMatch(iso); return toIsoDate(+iso[3], +iso[2], +iso[1]); }
   // No year. Only when the line is just the date, so scores like "13-8" aren't mistaken for one.
   // "28/10", "Wed 28/10", "28.10"
   const short = line.match(/^(?:[a-z']{2,}\.?,?\s+)?(\d{1,2})[\/.](\d{1,2})$/i);
-  if (short) return inferYear(+short[1], +short[2], now);
+  if (short) { onMatch(short); return inferYear(+short[1], +short[2], now); }
   // "28 Oct", "Wed 28th October"
   const shortNamed = line.match(/^(?:[a-z']{2,}\.?,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3,})\.?$/i);
   if (shortNamed) {
     const month = MONTHS[shortNamed[2].slice(0, 3).toLowerCase()];
-    if (month) return inferYear(+shortNamed[1], month, now);
+    if (month) { onMatch(shortNamed); return inferYear(+shortNamed[1], month, now); }
   }
   // A day and month name inside a sentence: "Well fought games Friday 13th Nov".
   // The month must be a real month word, so scores and other words aren't mistaken for one.
   const inSentence = line.match(
     /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i,
   );
-  if (inSentence) return inferYear(+inSentence[1], MONTHS[inSentence[2].slice(0, 3).toLowerCase()], now);
+  if (inSentence) {
+    onMatch(inSentence);
+    return inferYear(+inSentence[1], MONTHS[inSentence[2].slice(0, 3).toLowerCase()], now);
+  }
   return null;
 }
 
@@ -169,8 +188,15 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     .replace(/ /g, " ")
     .split(/\r?\n/)
     .map(l => l.trim())
-    // Several games on one line: "Game 1: 13-10, Game 2: 5-13."
-    .flatMap(l => ((l.match(/\b(?:game|g)\s*\d/gi) || []).length >= 2 ? l.split(/(?=\b(?:game|g)\s*\d)/i) : [l]))
+    // "1st game 2-13", "Second game 13-8" -> "Game 1: 2-13", "Game 2: 13-8"
+    .map(l =>
+      l.replace(/\b(?:(1)st|(2)nd|(3)rd|(first)|(second)|(third))\s+game\b\s*:?/gi, (_m, a, b, c, d, e, f) =>
+        `Game ${a || b || c || (d ? 1 : e ? 2 : f ? 3 : "")}: `))
+    // Several games on one line ("Game 1: 13-10, Game 2: 5-13."), or a game after other text
+    // ("... Miles Away v Shoscombe Shambolics Game 1: 2-13")
+    .flatMap(l => ((l.match(/\b(?:game|g)\s*\d/gi) || []).length >= 2
+      ? l.split(/(?=\b(?:game|g)\s*\d)/i)
+      : l.split(/(?=\bgame\s*\d)/i)))
     // Game lines may end with a full stop or comma
     .map(l => (/^(?:game|g)\s*\d/i.test(l.trim()) ? l.trim().replace(/[\s.,;!]+$/, "") : l.trim()))
     .filter(Boolean);
@@ -185,7 +211,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
   const labelled: LabelledGame[] = []; // "1) CB-13 - S-0" — sorted out once the teams are known
   const oneName: OneNameGame[] = []; // "LCC 13 - 2" — sorted out once the teams are known
 
-  for (const line of lines) {
+  for (let line of lines) {
     const game = line.match(GAME_RE);
     if (game) {
       const num = +game[1];
@@ -214,8 +240,14 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
       continue;
     }
     if (!date) {
-      const d = parseDate(line, now);
-      if (d) { date = d; continue; }
+      const d = parseDateWithRest(line, now);
+      if (d) {
+        date = d.date;
+        // The rest of the line can hold the teams ("Thursday 19th Nov Miles Away v Shoscombe Shambolics"),
+        // but only as a "v" line, so chat like "thanks Bob & Jo" isn't taken for teams
+        if (teams || !VS_RE.test(d.rest)) continue;
+        line = d.rest;
+      }
     }
     if (!teams) {
       const vs = line.match(VS_RE);

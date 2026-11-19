@@ -200,6 +200,30 @@ describe("parseMatchResult", () => {
     expect(!out.ok && out.error).toMatch(/Couldn't read this line/);
   });
 
+  it("reads date, teams and a game on one line, and ordinal game names", () => {
+    const out = parseMatchResult(
+      "Thursday 19th Nov Miles Away v Shoshcombe  Shamboics 1st game 2-13\nSecond game 13-8\nONE game all",
+      new Date(2026, 10, 19, 12, 13),
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: "2026-11-19",
+        team1: "Miles Away",
+        team2: "Shoshcombe  Shamboics",
+        games: [
+          { game: 1, score1: 2, score2: 13 },
+          { game: 2, score1: 13, score2: 8 },
+        ],
+      },
+    });
+  });
+
+  it("doesn't take chat on a date line for teams", () => {
+    const out = parseMatchResult("Good games Sat 14th Nov, thanks Bob & Jo\nA v B\n13-2", new Date(2026, 10, 19));
+    expect(out.ok && [out.result.date, out.result.team1]).toEqual(["2026-11-14", "A"]);
+  });
+
   it("accepts commas and 'and' between scores", () => {
     const out = parseMatchResult("A v B\n13-8, 4-13 and 13-11");
     expect(out.ok && out.result.games.length).toBe(3);
@@ -389,6 +413,12 @@ describe("findFixtureCandidates", () => {
     const res = findFixtureCandidates(parsed, [m("x", "t2", "tb"), m("y", "t2", "t4")], t);
     expect(res.map(c => c.match.id)).toEqual(["x"]);
     expect(res[0].flipped).toBe(true);
+  });
+
+  it("finds a fixture despite a couple of spelling slips", () => {
+    const t = [{ id: "ma", name: "Miles Away" }, { id: "ss", name: "Shoscombe Shambolics" }];
+    const parsed = { date: null, team1: "Miles Away", team2: "Shoshcombe  Shamboics", games: [] };
+    expect(findFixtureCandidates(parsed, [m("x", "ma", "ss")], t).map(c => c.match.id)).toEqual(["x"]);
   });
 
   it("prefers unplayed fixtures when the teams meet twice", () => {
