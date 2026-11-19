@@ -2468,6 +2468,16 @@ export default function Matches() {
                       ))}
                     </div>
                   )}
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Pasted</p>
+                    <pre
+                      className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap break-words font-sans max-h-40 overflow-y-auto"
+                      data-testid="paste-original"
+                    >
+                      {pasteText.trim()}
+                    </pre>
+                  </div>
+                  <p className="text-xs font-medium text-muted-foreground">Will be saved as</p>
                   <div className="rounded-md border p-3 space-y-2" data-testid="paste-preview">
                     <p className="text-sm text-muted-foreground">
                       {dateLabel}
