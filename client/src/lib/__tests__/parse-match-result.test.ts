@@ -224,6 +224,29 @@ describe("parseMatchResult", () => {
     expect(out.ok && [out.result.date, out.result.team1]).toEqual(["2026-11-14", "A"]);
   });
 
+  it("reads 'played' between teams and unnumbered games with both short names", () => {
+    const out = parseMatchResult(
+      "Just Bouling Along played Boulin Rouge\nBR 13 JBA 9\nJBA 13 BR 5. \nOne game each and a lot of fun.",
+    );
+    expect(out).toEqual({
+      ok: true,
+      result: {
+        date: null,
+        team1: "Just Bouling Along",
+        team2: "Boulin Rouge",
+        games: [
+          { game: 1, score1: 9, score2: 13 },
+          { game: 2, score1: 13, score2: 5 },
+        ],
+      },
+    });
+  });
+
+  it("prefers a 'v' line to chat containing 'played'", () => {
+    const out = parseMatchResult("We played really well tonight\nBoulin Rouge v Just Bouling Along\nBR 13 JBA 9\nJBA 13 BR 5");
+    expect(out.ok && [out.result.team1, out.result.team2]).toEqual(["Boulin Rouge", "Just Bouling Along"]);
+  });
+
   it("accepts commas and 'and' between scores", () => {
     const out = parseMatchResult("A v B\n13-8, 4-13 and 13-11");
     expect(out.ok && out.result.games.length).toBe(3);

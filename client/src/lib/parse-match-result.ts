@@ -117,6 +117,9 @@ const GAME_RE = /^(?:game|g)\s*(\d)\s*[:.)\-]?\s*(\d{1,2})(?:\s*[-:]\s*|\s+)(\d{
 // Lines that look like a game but weren't understood: refuse rather than post half a result
 const LOOKS_LIKE_GAME_RE = /^(?:(?:game|g)\s*\d\b|\d\s*\)|\d\.\s*[a-z])/i;
 const VS_RE = /^(.+?)\s+(?:v|vs|versus)\.?\s+(.+)$/i;
+// "Just Bouling Along played Boulin Rouge", "X played against Y", "X against Y".
+// Used only when there's no "v" line, as "played" also turns up in chat.
+const PLAYED_RE = /^(.+?)\s+(?:played\s+against|played|against)\s+(.+)$/i;
 // A line of nothing but scores: "13-8 & 13-7", "13-8, 13-7", "13-8 and 13-7", "11:13 and 13:3", "13-8"
 const SCORE_RE = /(\d{1,2})\s*[-:]\s*(\d{1,2})/g;
 function scoresOnlyLine(rawLine: string): Array<[number, number]> | null {
@@ -132,12 +135,12 @@ function scoresOnlyLine(rawLine: string): Array<[number, number]> | null {
 
 // A numbered game with short team names and each team's score:
 // "1) CB-13 - S-0", "2) CB+13 - S-1", "Game 3: S 13, CB 9", "Game 1 TB 13  Shamblers 6",
-// "Game 1 TandeM Boules 13 Shamblers 6".
-// The -/+/: after a name separates it from its score; it isn't a sign.
+// "Game 1 TandeM Boules 13 Shamblers 6", and with no game number: "BR 13 JBA 9." (games then
+// numbered in order). The -/+/: after a name separates it from its score; it isn't a sign.
 const LABELLED_RE =
-  /^(?:(?:game|g)\s*(\d)\s*[).:]?|(\d)\s*[).:])\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*(?:-|,|&|\bv\b|\bvs\b)?\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*$/i;
+  /^(?:(?:game|g)\s*(\d)\s*[).:]?|(\d)\s*[).:])?\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})\s*(?:-|,|&|\bv\b|\bvs\b)?\s*([a-z][a-z'\u2019&. ]*?)\s*[-+:=]?\s*(\d{1,2})[\s.,;!]*$/i;
 
-type LabelledGame = { game: number; abbr1: string; s1: number; abbr2: string; s2: number };
+type LabelledGame = { game: number | null; abbr1: string; s1: number; abbr2: string; s2: number };
 
 // One team named, then both scores, the first being that team's: "LCC 13 - 2 &", "BR 13:5",
 // "Game 2 LCC 13-9". Games are numbered in order unless the line gives a number.
@@ -206,6 +209,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
   let date: string | null = null;
   let teams: { team1: string; team2: string } | null = null;
   let andTeams: { team1: string; team2: string } | null = null; // used only if there's no "v" line
+  let playedTeams: { team1: string; team2: string } | null = null; // likewise
   const games: ParsedGame[] = [];
   const looseScores: Array<Array<[number, number]>> = []; // score lines without "Game N:"
   const labelled: LabelledGame[] = []; // "1) CB-13 - S-0" — sorted out once the teams are known
@@ -222,9 +226,11 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
       continue;
     }
     const lab = foldAccents(line).match(LABELLED_RE);
-    if (lab) {
+    // Without a game number, a date ("Sat 21 Nov 26") or summary ("BR won 2 JBA 0") isn't a game
+    const unnumbered = lab && lab[1] === undefined && lab[2] === undefined;
+    if (lab && !(unnumbered && (LOOKS_LIKE_GAME_RE.test(line) || parseDate(line, now) || SUMMARY_WORD_RE.test(line)))) {
       labelled.push({
-        game: +(lab[1] ?? lab[2]),
+        game: unnumbered ? null : +(lab[1] ?? lab[2]),
         abbr1: cleanTeam(lab[3]), s1: +lab[4],
         abbr2: cleanTeam(lab[5]), s2: +lab[6],
       });
@@ -255,9 +261,18 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
         teams = { team1: cleanTeam(vs[1]), team2: cleanTeam(vs[2]) };
         continue;
       }
-      if (!andTeams) {
-        andTeams = teamsFromAndLine(line);
-        if (andTeams) continue;
+      // "Played against Miles Away and Shamblers" is an "and" line, not a "played" one
+      const and = teamsFromAndLine(line);
+      if (and) {
+        if (!andTeams) andTeams = and;
+        continue;
+      }
+      if (!playedTeams) {
+        const played = line.match(PLAYED_RE);
+        if (played) {
+          playedTeams = { team1: cleanTeam(played[1]), team2: cleanTeam(played[2]) };
+          continue;
+        }
       }
     }
     // Only numbers and punctuation, yet not understood: refuse rather than skip it
@@ -267,6 +282,7 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     // Anything else (e.g. "Each win one game") is ignored
   }
 
+  if (!teams && playedTeams) teams = playedTeams;
   // No "v" line: an "&"/"and" line is only the teams if the game lines' names fit it
   // ("thanks Patrick & Paul" isn't). Otherwise take the names from the game lines.
   if (!teams && andTeams && labelled.length > 0) {
@@ -285,7 +301,10 @@ export function parseMatchResult(text: string, now: Date = new Date()): ParseOut
     return { ok: false, error: 'Couldn\'t find the teams. Expected a line like "Team A v Team B".' };
   }
   // Numbered lines with short names: give each score to the team its short name stands for
-  for (const g of labelled) {
+  let nextLabelled = 1;
+  for (const lg of labelled) {
+    const g = { ...lg, game: lg.game ?? nextLabelled };
+    nextLabelled = g.game + 1;
     const { team1, team2 } = teams;
     let straight = shortNameFits(g.abbr1, team1) && shortNameFits(g.abbr2, team2);
     let reversed = shortNameFits(g.abbr1, team2) && shortNameFits(g.abbr2, team1);
